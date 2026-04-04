@@ -60,7 +60,6 @@ const DEST = {
   other:       {label:"Other",         icon:"📌",color:"#8b949e",bg:"transparent",           border:"#21262d"},
 };
 
-// Pots — generic. Any key added here auto-works with Move Money
 const POTS = {
   savings_acct:{label:"Savings",      icon:"🏦",color:"#3fb950",bg:"rgba(63,185,80,0.1)"},
   emergency:   {label:"Emergency",    icon:"🆘",color:"#06b6d4",bg:"rgba(6,182,212,0.1)"},
@@ -83,7 +82,6 @@ const fmtD=v=>new Intl.NumberFormat("en-US",{style:"currency",currency:"USD",min
 const n=v=>parseFloat(v)||0;
 const fmd=d=>{const m=["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];return`${m[d.getMonth()]} ${d.getDate()}`;};
 
-// getDaysUntil: 0 = today, negative = past, positive = future
 const getDU=dia=>{
   if(!dia)return null;
   const h=new Date();h.setHours(0,0,0,0);
@@ -99,7 +97,7 @@ const gdf=dia=>{
   return c;
 };
 
-// ── Generic loan amortization ────────────────────────────────────────────────
+// ── Loan amortization ─────────────────────────────────────────────────────────
 const calcLoan=(balance,apr,pmt)=>{
   const b=n(balance),r=n(apr)/100/12,p=n(pmt);
   if(b<=0||p<=0)return{interest:0,principal:0,newBalance:0};
@@ -108,8 +106,11 @@ const calcLoan=(balance,apr,pmt)=>{
   return{interest:Math.max(0,interest),principal:Math.max(0,principal),newBalance:Math.max(0,b-principal)};
 };
 
-// ── Paycheck date engine — fully generic ─────────────────────────────────────
-// Returns upcoming payday dates from today onwards
+// ── Paycheck date engine ──────────────────────────────────────────────────────
+// Returns the payday dates starting from the anchor, going forward.
+// anchor: "YYYY-MM-DD" string — this is a known payday date.
+// We step backward/forward in multiples of `step` days from anchor.
+// Returns upcoming payday dates ON OR AFTER today, sorted ascending.
 const getUpcomingPaydays=(anchor,count=6,freq="biweekly")=>{
   const today=new Date();today.setHours(0,0,0,0);
   const days=[];
@@ -125,26 +126,59 @@ const getUpcomingPaydays=(anchor,count=6,freq="biweekly")=>{
     return days.slice(0,count);
   }
   if(freq==="monthly"){
-    // monthly: same day of month as anchor
     const base=new Date(anchor+"T12:00:00");
     let d=new Date(today.getFullYear(),today.getMonth(),base.getDate());
+    // If this month's payday has already passed, move to next month
     if(d<today)d=new Date(d.getFullYear(),d.getMonth()+1,base.getDate());
     while(days.length<count){days.push(new Date(d));d=new Date(d.getFullYear(),d.getMonth()+1,d.getDate());}
     return days;
   }
   const step=freq==="weekly"?7:14;
-  const base=new Date(anchor+"T12:00:00");
+  const [uay,uam,uad]=anchor.split("-").map(Number);
+  const base=new Date(uay,uam-1,uad);base.setHours(0,0,0,0);
+  // Find the most recent payday ON OR BEFORE today by rewinding from anchor
   let d=new Date(base);
-  // Rewind to last payday on or before today
-  while(d>today)d=new Date(d.getTime()-step*86400000);
-  // If today is a payday, include it
-  if(d.getTime()===today.getTime())days.push(new Date(d));
-  // Add future paydays
-  while(days.length<count){d=new Date(d.getTime()+step*86400000);days.push(new Date(d));}
+  // Step forward until we pass today, then step back once
+  while(d<=today) d=new Date(d.getTime()+step*86400000);
+  // d is now the first payday AFTER today; step back to get the last payday <= today
+  const lastPast=new Date(d.getTime()-step*86400000);
+  // If lastPast === today, today IS a payday — include it as first upcoming
+  // Build upcoming list starting from lastPast+step (next payday after lastPast)
+  const firstUpcoming=lastPast.getTime()===today.getTime()?lastPast:new Date(lastPast.getTime()+step*86400000);
+  let cur=new Date(firstUpcoming);
+  while(days.length<count){days.push(new Date(cur));cur=new Date(cur.getTime()+step*86400000);}
   return days.slice(0,count);
 };
 
-// Get the currently ACTIVE paycheck period start/end
+// Returns the period index (0-based from anchor) of the period that CONTAINS today.
+// Uses the same iterative date-walking as getActiveCheckPeriod to stay consistent.
+// Period N starts on (anchor + N*step). Today belongs to period N where
+// (anchor + N*step) <= today < (anchor + (N+1)*step).
+const getActivePeriodIndex=(anchor,freq,checksCount)=>{
+  if(freq==="semimonthly"||freq==="monthly")return 0;
+  const step=freq==="weekly"?7:14;
+  const today=new Date();today.setHours(0,0,0,0);
+  // Parse anchor as local date (avoid UTC offset shifting the date)
+  const [ay,am,ad]=anchor.split("-").map(Number);
+  const base=new Date(ay,am-1,ad);base.setHours(0,0,0,0);
+  // Walk forward from base in steps until the NEXT period start would exceed today.
+  // The current period start is the last one that is <= today.
+  let periodsElapsed=0;
+  if(today>=base){
+    // How many complete steps fit between base and today?
+    const diffDays=Math.round((today.getTime()-base.getTime())/86400000);
+    periodsElapsed=Math.floor(diffDays/step);
+  } else {
+    // today is before anchor — walk backward
+    const diffDays=Math.round((base.getTime()-today.getTime())/86400000);
+    periodsElapsed=-Math.ceil(diffDays/step);
+  }
+  // Negative mod fix: always return a non-negative index
+  const idx=((periodsElapsed%checksCount)+checksCount)%checksCount;
+  return idx;
+};
+
+// Get the currently ACTIVE paycheck period start/end/payday
 const getActiveCheckPeriod=(anchor,freq="biweekly")=>{
   const today=new Date();today.setHours(0,0,0,0);
   if(freq==="semimonthly"){
@@ -162,11 +196,14 @@ const getActiveCheckPeriod=(anchor,freq="biweekly")=>{
     return{start:pday,end:new Date(next.getTime()-86400000),payday:next};
   }
   const step=freq==="weekly"?7:14;
-  const base=new Date(anchor+"T12:00:00");
-  let d=new Date(base);
-  while(d>today)d=new Date(d.getTime()-step*86400000);
-  const periodStart=new Date(d);
-  const nextPayday=new Date(d.getTime()+step*86400000);
+  const [bcy,bcm,bcd]=anchor.split("-").map(Number);
+  const base=new Date(bcy,bcm-1,bcd);base.setHours(0,0,0,0);
+  // Find period start: largest (base + N*step) <= today
+  const diffMs=today.getTime()-base.getTime();
+  const diffDays=Math.round(diffMs/86400000);
+  const periodsDone=Math.max(0,Math.floor(diffDays/step));
+  const periodStart=new Date(base.getTime()+periodsDone*step*86400000);
+  const nextPayday=new Date(periodStart.getTime()+step*86400000);
   return{start:periodStart,end:new Date(nextPayday.getTime()-86400000),payday:nextPayday};
 };
 
@@ -185,7 +222,6 @@ const migrate=raw=>{
     tarjetas:(raw.tarjetas||[]).map(t=>({...t,fechaPago:t.fechaPago||"",fechaCorte:t.fechaCorte||"",historial:t.historial||[],tipo:"card"})),
     loans:(raw.loans||DD.loans).map(l=>({...l,tipo:"loan"})),
     pots:raw.pots||{savings_acct:0,emergency:0,investment:0},
-    // potMovements: reversible movement log [{id,potKey,amount,date,note}]
     potMovements:raw.potMovements||[],
     availableCash:raw.availableCash!==undefined?raw.availableCash:0,
     snapshots:raw.snapshots||[],
@@ -275,7 +311,7 @@ const DragList=memo(({items,onReorder,renderItem})=>{
   return(<div>{items.map((item,i)=>(<div key={item.id} ref={el=>refs.current[i]=el} style={{opacity:drag===i?0.35:1,transition:"opacity 0.1s"}}>{renderItem(item,i,{onTouchStart:e=>onTS(e,i),onTouchMove:e=>onTM(e,i),onTouchEnd:onTE})}</div>))}</div>);
 });
 
-// ── GastoItem — tap = paid, long-press = reserved ────────────────────────────
+// ── GastoItem ─────────────────────────────────────────────────────────────────
 const GastoItem=memo(({item,cid,editId,setEditId,tarjetas,onCycle,onLongPress,onUpdate,onRemove,touch,T})=>{
   const dest=gds(item.destino,item.tarjetaRef);
   const INP=mkINP(T),BTN=mkBTN(),CARD=mkCARD(T);
@@ -316,12 +352,10 @@ const GastoItem=memo(({item,cid,editId,setEditId,tarjetas,onCycle,onLongPress,on
   return(
     <div style={{marginBottom:7}}>
       <div style={{display:"flex",alignItems:"center",gap:8,padding:"10px 11px",borderRadius:11,background:stBg,border:`1px solid ${stBorder}`,transition:"background 0.15s,border 0.15s"}}>
-        {/* Drag handle */}
         <div onTouchStart={touch.onTouchStart} onTouchMove={touch.onTouchMove} onTouchEnd={touch.onTouchEnd}
           style={{display:"flex",flexDirection:"column",gap:3,padding:"6px 5px",flexShrink:0,touchAction:"none",cursor:"grab"}}>
           {[0,1,2].map(l=><div key={l} style={{width:14,height:2,background:T.muted,borderRadius:2}}/>)}
         </div>
-        {/* State button: tap = paid, long press = reserved */}
         <div
           onClick={()=>onCycle(item.id)}
           onTouchStart={handleTouchStart}
@@ -333,11 +367,9 @@ const GastoItem=memo(({item,cid,editId,setEditId,tarjetas,onCycle,onLongPress,on
             color:item.state==="paid"?"#fff":item.state==="reserved"?"#d29922":T.muted,fontWeight:700}}>
           {item.state==="paid"?"✓":item.state==="reserved"?"◑":""}
         </div>
-        {/* Cat icon */}
         <div style={{width:26,height:26,borderRadius:7,background:(CATCOLORS[item.cat]||"#94a3b8")+"22",display:"flex",alignItems:"center",justifyContent:"center",fontSize:13,flexShrink:0}}>
           {CICONS[item.cat]||"📌"}
         </div>
-        {/* Info */}
         <div onClick={()=>onCycle(item.id)} style={{flex:1,minWidth:0,cursor:"pointer"}}>
           <div style={{display:"flex",alignItems:"center",gap:5,flexWrap:"wrap"}}>
             <span style={{fontSize:13,fontWeight:600,color:item.state==="paid"?"#3fb950":item.state==="reserved"?"#d29922":T.text,textDecoration:item.state==="paid"?"line-through":"none",opacity:item.state==="paid"?0.75:1}}>{item.nombre||"Untitled"}</span>
@@ -380,7 +412,6 @@ const DebtCard=memo(({debt,idx,isFirst,tipo,accion,setAccion,montoAccion,setMont
         <div style={{display:"flex",justifyContent:"space-between",fontSize:11,marginBottom:5}}><span style={{color:T.muted}}>Paid {fmt(n(debt.original)-n(debt.balance))} of {fmt(debt.original)}</span><span style={{color:"#3fb950",fontWeight:700}}>{pct}% done</span></div>
         <div style={{height:9,background:T.surface2,borderRadius:8,overflow:"hidden"}}><div style={{height:"100%",width:`${pct}%`,background:"linear-gradient(90deg,#3fb950,#58a6ff)",borderRadius:8}}/></div>
       </div>)}
-      {/* Smart loan breakdown */}
       {tipo==="loan"&&lc&&n(lc.interest)>0&&(<div style={{background:"rgba(210,153,34,0.07)",border:"1px solid rgba(210,153,34,0.2)",borderRadius:10,padding:"10px 12px",marginBottom:12}}>
         <div style={{fontSize:10,color:"#d29922",fontWeight:700,marginBottom:8}}>📊 NEXT PAYMENT BREAKDOWN</div>
         <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:6}}>
@@ -467,7 +498,6 @@ function App(){
   const [editCash,setEditCash]=useState(false);
   const [cashInput,setCashInput]=useState("");
   const toastRef=useRef();
-  // Swipe
   const swipeStart=useRef(null);
   const mainRef=useRef(null);
 
@@ -484,38 +514,29 @@ function App(){
   const freq=data.payFreq||"biweekly";
   const anchor=data.proximoCobro||"2026-04-03";
   const today=useMemo(()=>{const d=new Date();d.setHours(0,0,0,0);return d;},[]);
-  const upcomingPaydays=useMemo(()=>getUpcomingPaydays(anchor,8,freq),[anchor,freq]);
-  const activePeriod=useMemo(()=>getActiveCheckPeriod(anchor,freq),[anchor,freq]);
+
+  // ── Core paycheck period logic ────────────────────────────────────────────────
+  // activePeriodIndex: which check (0-based) is currently active, derived purely
+  // from anchor date + frequency + today's date. Never stored, always computed.
+  const activeCheckIdx=useMemo(()=>getActivePeriodIndex(anchor,freq,checks.length),[anchor,freq,today,checks.length]);
+  const activeCheck=checks[activeCheckIdx]||checks[0];
+  const activePeriod=useMemo(()=>getActiveCheckPeriod(anchor,freq),[anchor,freq,today]);
+
+  // upcomingPaydays: the next N payday dates ON OR AFTER today
+  const upcomingPaydays=useMemo(()=>getUpcomingPaydays(anchor,8,freq),[anchor,freq,today]);
   const nextPayday=upcomingPaydays[0]||null;
   const diasProx=nextPayday?Math.ceil((nextPayday-today)/86400000):null;
 
-  // Active check: determined by which check index matches current period
-  // For biweekly: alternating check1/check2 based on position in sequence
-  const activeCheckIdx=useMemo(()=>{
-    if(!anchor)return 0;
-    const step=freq==="weekly"?7:14;
-    if(freq==="semimonthly"||freq==="monthly")return 0;
-    const base=new Date(anchor+"T12:00:00");
-    let d=new Date(base),count=0;
-    while(d<=today){d=new Date(d.getTime()+step*86400000);count++;}
-    // count tells us how many periods have elapsed from anchor
-    return count%checks.length;
-  },[anchor,freq,today,checks.length]);
-  const activeCheck=checks[activeCheckIdx]||checks[0];
-
-  // Available cash = active check amount - active check expenses (calculated, not stored)
-  // This ensures it's always in sync — never gets "stuck"
+  // ── Available cash ────────────────────────────────────────────────────────────
+  // Derived from active check income minus its expenses, plus manual offset, minus pots
   const activeGastos=data[`${activeCheck.id}_gastos`]||[];
   const activeCheckAmt=n(data[activeCheck.id]||0);
   const activeExp=activeGastos.reduce((s,g)=>s+n(g.monto),0);
-  // derivedCash: income of active check minus expenses, plus manual adjustment offset
-  const cashOffset=n(data.cashOffset||0); // manual adjustments only
-  const derivedAvailableCash=activeCheckAmt-activeExp+cashOffset;
+  const cashOffset=n(data.cashOffset||0);
   const pots=data.pots||{};
   const potMovements=data.potMovements||[];
-  // Subtract pot allocations from available cash
   const totalPotted=potMovements.reduce((s,m)=>s+n(m.amount),0);
-  const availableCash=derivedAvailableCash-totalPotted;
+  const availableCash=activeCheckAmt-activeExp+cashOffset-totalPotted;
 
   const allDebts=[...data.tarjetas.map(t=>({...t,tipo:"card"})),...(data.loans||[]).map(l=>({...l,tipo:"loan"}))].sort((a,b)=>n(b.interes)-n(a.interes));
   const totalDebt=allDebts.reduce((s,d)=>s+n(d.balance),0);
@@ -525,7 +546,6 @@ function App(){
   const allGastos=checks.flatMap(c=>data[`${c.id}_gastos`]||[]);
   const totalExp=allGastos.reduce((s,g)=>s+n(g.monto),0);
 
-  // Default quick check to active check
   useEffect(()=>{if(!quickCheck&&activeCheck)setQuickCheck(activeCheck.id);},[activeCheck]);
 
   // ── Swipe navigation ──────────────────────────────────────────────────────────
@@ -537,17 +557,15 @@ function App(){
     const dx=t.clientX-swipeStart.current.x;
     const dy=t.clientY-swipeStart.current.y;
     swipeStart.current=null;
-    // Only trigger if clearly horizontal (dx > 60, and horizontal > vertical)
     if(Math.abs(dx)<60||Math.abs(dx)<Math.abs(dy)*1.5)return;
     const idx=TABS_ORDER.indexOf(tab);
-    if(dx<0&&idx<TABS_ORDER.length-1)setTab(TABS_ORDER[idx+1]); // swipe left → next
-    if(dx>0&&idx>0)setTab(TABS_ORDER[idx-1]); // swipe right → prev/overview
+    if(dx<0&&idx<TABS_ORDER.length-1)setTab(TABS_ORDER[idx+1]);
+    if(dx>0&&idx>0)setTab(TABS_ORDER[idx-1]);
   },[tab,TABS_ORDER]);
 
-  // ── State cycling: tap = toggle paid/pending, long press = reserved ──────────
+  // ── State cycling ─────────────────────────────────────────────────────────────
   const cycleState=useCallback((cid,id)=>setData(p=>({...p,[`${cid}_gastos`]:(p[`${cid}_gastos`]||[]).map(g=>{
     if(g.id!==id)return g;
-    // Tap toggles: pending→paid, paid→pending
     const next=g.state==="paid"?"pending":"paid";
     return{...g,state:next,pagado:next==="paid"};
   })})),[]);
@@ -564,7 +582,6 @@ function App(){
       const gastos=(p[`${cid}_gastos`]||[]);
       const g=gastos.find(x=>x.id===id);
       const newGastos=gastos.filter(x=>x.id!==id);
-      // If it was a quick expense, return its amount to cashOffset
       const adj=g&&g._quick?n(g.monto):0;
       return{...p,[`${cid}_gastos`]:newGastos,cashOffset:n(p.cashOffset||0)+adj};
     });
@@ -588,20 +605,31 @@ function App(){
   const addCard=useCallback(()=>{const id=Date.now();setData(p=>({...p,tarjetas:[...p.tarjetas,{id,nombre:"New Card",balance:0,limite:0,minimo:0,interes:0,fechaCorte:"",fechaPago:"",historial:[],tipo:"card"}]}));setAddingDebt({id,tipo:"card"});},[]);
   const addLoan=useCallback(()=>{const id=Date.now();setData(p=>({...p,loans:[...(p.loans||[]),{id,nombre:"New Loan",balance:0,original:0,minimo:0,interes:0,fechaPago:"",historial:[],tipo:"loan"}]}));setAddingDebt({id,tipo:"loan"});},[]);
 
-  // ── Quick expense — deducts via cashOffset, reversible on delete ─────────────
+  // ── Quick expense — marks as PAID immediately since it was already spent ───────
   const addQuickExpense=()=>{
     const m=parseFloat(quickAmt);if(!m||m<=0||!quickNote.trim())return toast_("Add name and amount","err");
     const nid=Date.now();
     const cid=quickCheck||activeCheck.id;
     setData(p=>({...p,
-      [`${cid}_gastos`]:[...(p[`${cid}_gastos`]||[]),{id:nid,nombre:quickNote.trim(),monto:m,cat:"other",state:"pending",pagado:false,destino:"temp",tarjetaRef:"",diaPago:null,_quick:true}],
-      cashOffset:n(p.cashOffset||0)-m, // deduct from cash
+      [`${cid}_gastos`]:[...(p[`${cid}_gastos`]||[]),{
+        id:nid,
+        nombre:quickNote.trim(),
+        monto:m,
+        cat:"other",
+        state:"paid",   // ← auto-paid: it was already spent
+        pagado:true,
+        destino:"temp",
+        tarjetaRef:"",
+        diaPago:null,
+        _quick:true
+      }],
+      cashOffset:n(p.cashOffset||0)-m,
     }));
     setQuickNote("");setQuickAmt("");setQuickOpen(false);
-    toast_(`➕ "${quickNote.trim()}" ${fmt(m)} added`);
+    toast_(`✅ "${quickNote.trim()}" ${fmt(m)} — marked paid`);
   };
 
-  // ── Move money — reversible via potMovements log ──────────────────────────────
+  // ── Move money ────────────────────────────────────────────────────────────────
   const doMoveMoney=()=>{
     const m=parseFloat(moveAmt);if(!m||m<=0)return toast_("Invalid amount","err");
     const mvId=Date.now();
@@ -614,7 +642,6 @@ function App(){
     toast_(`💸 ${fmt(m)} moved to ${pot?.label||moveTo}`);
   };
 
-  // Revert a pot movement — returns money to available cash automatically
   const revertMovement=useCallback(mvId=>{
     setData(p=>{
       const mv=(p.potMovements||[]).find(m=>m.id===mvId);
@@ -662,10 +689,13 @@ function App(){
     const sob=amt-total;
     const pct=total>0?Math.round(((paid+reserved)/total)*100):0;
     const done=gastos.length>0&&gastos.every(g=>g.state==="paid");
-    const ci=checks.findIndex(c=>c.id===check.id);
-    const pd=upcomingPaydays[ci]||upcomingPaydays[0];
-    const pdDays=pd?Math.ceil((pd-today)/86400000):null;
     const isActive=check.id===activeCheck.id;
+    // Show the next payday that belongs to this check's cycle slot
+    // For biweekly with 2 checks: check at index 0 gets paydays 0,2,4... check at index 1 gets paydays 1,3,5...
+    const checkIdx=checks.findIndex(c=>c.id===check.id);
+    const slotPaydays=upcomingPaydays.filter((_,i)=>i%checks.length===checkIdx);
+    const pd=slotPaydays[0]||upcomingPaydays[0];
+    const pdDays=pd?Math.ceil((pd-today)/86400000):null;
     return(<div className="anim">
       <div style={{display:"flex",gap:8,marginBottom:12}}>
         {isActive&&<div style={{flex:1,background:"rgba(88,166,255,0.1)",border:"1px solid rgba(88,166,255,0.3)",borderRadius:10,padding:"8px 12px",fontSize:11,color:"#58a6ff",fontWeight:600}}>✓ Active check period</div>}
@@ -762,7 +792,7 @@ function App(){
             </div>
           </div>
           <div style={{display:"flex",gap:8}}>
-            <button style={{...BTN,flex:1,padding:"12px",background:"#238636",color:"#fff",fontSize:14}} onClick={addQuickExpense}>➕ Add &amp; Deduct</button>
+            <button style={{...BTN,flex:1,padding:"12px",background:"#238636",color:"#fff",fontSize:14}} onClick={addQuickExpense}>✅ Add — Already Paid</button>
             <button style={{...BTN,padding:"12px 16px",background:T.surface2,color:T.muted,fontSize:14}} onClick={()=>setQuickOpen(false)}>Cancel</button>
           </div>
         </div>
@@ -813,7 +843,6 @@ function App(){
         {/* ══ OVERVIEW ══ */}
         {tab==="overview"&&(<div className="anim">
 
-          {/* Summary cards */}
           <div className="g2" style={{marginBottom:12}}>
             {[
               {label:"MONTHLY INCOME",val:totalIncome,color:"#3fb950",sub:checks.map(c=>fmt(n(data[c.id]||0))).join("+")},
@@ -827,12 +856,15 @@ function App(){
             </div>))}
           </div>
 
-          {/* Available cash — derived from active check, always in sync */}
+          {/* Available cash */}
           <div style={{...CARD,padding:"13px 16px",marginBottom:12,borderColor:"#3fb950"}}>
             <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:8}}>
               <div>
                 <div style={{fontSize:10,color:T.muted,letterSpacing:1.5,fontWeight:700}}>💵 AVAILABLE CASH</div>
-                <div style={{fontSize:9,color:T.muted,marginTop:2}}>Active: {activeCheck.label} · {fmd(activePeriod.payday)} payday</div>
+                <div style={{fontSize:9,color:T.muted,marginTop:2}}>
+                  Active: <strong style={{color:T.accent}}>{activeCheck.label}</strong>
+                  {" · "}period {fmd(activePeriod.start)} → {fmd(activePeriod.end)}
+                </div>
               </div>
               <div style={{display:"flex",gap:6}}>
                 <button style={{...BTN,padding:"4px 9px",background:"rgba(63,185,80,0.1)",color:"#3fb950",fontSize:11,border:"1px solid rgba(63,185,80,0.3)"}} onClick={()=>setMoveOpen(true)}>💸 Move</button>
@@ -851,14 +883,12 @@ function App(){
               <div style={{fontFamily:"monospace",fontSize:28,fontWeight:800,color:availableCash>=0?"#3fb950":"#f85149"}}>{fmt(availableCash)}</div>
               <div style={{fontSize:10,color:T.muted,marginTop:3}}>{fmt(activeCheckAmt)} income − {fmt(activeExp)} expenses{cashOffset!==0?` ${cashOffset>0?"+":"-"}${fmt(Math.abs(cashOffset))} adj`:""}{totalPotted>0?` − ${fmt(totalPotted)} in pots`:""}</div>
             </div>)}
-            {/* Pots */}
             {Object.entries(pots).some(([,v])=>n(v)>0)&&(<div style={{marginTop:10,display:"flex",gap:7,flexWrap:"wrap"}}>
               {Object.entries(pots).filter(([,v])=>n(v)>0).map(([k,v])=>{const p=POTS[k]||{label:k,icon:"📌",color:"#8b949e"};return(<div key={k} style={{padding:"5px 10px",borderRadius:8,background:T.surface2,border:`1px solid ${T.border}`,display:"flex",alignItems:"center",gap:5}}>
                 <span style={{fontSize:13}}>{p.icon}</span>
                 <div><div style={{fontSize:9,color:T.muted}}>{p.label}</div><div style={{fontFamily:"monospace",fontWeight:700,color:p.color,fontSize:13}}>{fmt(v)}</div></div>
               </div>);})}
             </div>)}
-            {/* Pot movements history with revert */}
             {potMovements.length>0&&(<div style={{marginTop:10}}>
               <div style={{fontSize:10,color:T.muted,marginBottom:6}}>MOVEMENT HISTORY</div>
               {potMovements.slice().reverse().slice(0,5).map(mv=>{const p=POTS[mv.potKey]||{label:mv.potKey,icon:"📌",color:"#8b949e"};return(<div key={mv.id} style={{display:"flex",alignItems:"center",gap:8,padding:"5px 0",borderBottom:`1px solid ${T.border}`}}>
@@ -872,13 +902,20 @@ function App(){
           {/* Paydays */}
           {upcomingPaydays.length>0&&(<div style={{...CARD,padding:"13px 16px",marginBottom:12}}>
             <div style={{fontSize:10,color:T.muted,letterSpacing:1.5,fontWeight:700,marginBottom:10}}>💵 UPCOMING PAYDAYS</div>
-            {upcomingPaydays.slice(0,4).map((pd,i)=>{const dias=Math.ceil((pd-today)/86400000);return(<div key={i} style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"7px 0",borderBottom:i<3?`1px solid ${T.border}`:"none"}}>
-              <div>
-                <div style={{fontSize:12,fontWeight:600,color:dias===0?"#58a6ff":i===0?"#3fb950":T.text}}>{dias===0?"Today — Payday! 🎉":i===0?"Next check":checks[i%checks.length]?.label||`Check ${i+1}`}</div>
-                <div style={{fontSize:10,color:T.muted,marginTop:1}}>{pd.toLocaleDateString("en-US",{weekday:"short",month:"short",day:"numeric"})}</div>
-              </div>
-              <div style={{fontFamily:"monospace",fontWeight:800,color:dias===0?"#58a6ff":i===0?"#3fb950":T.muted,fontSize:14}}>{dias===0?"Today":dias+"d"}</div>
-            </div>);})}
+            {upcomingPaydays.slice(0,4).map((pd,i)=>{
+              const dias=Math.ceil((pd-today)/86400000);
+              const checkForSlot=checks[i%checks.length];
+              return(<div key={i} style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"7px 0",borderBottom:i<3?`1px solid ${T.border}`:"none"}}>
+                <div>
+                  <div style={{fontSize:12,fontWeight:600,color:dias===0?"#58a6ff":i===0?"#3fb950":T.text}}>
+                    {dias===0?"Today — Payday! 🎉":checkForSlot?.label||`Check ${i+1}`}
+                    {i===0&&dias>0&&<span style={{fontSize:9,color:"#3fb950",marginLeft:5,fontWeight:700}}>← next</span>}
+                  </div>
+                  <div style={{fontSize:10,color:T.muted,marginTop:1}}>{pd.toLocaleDateString("en-US",{weekday:"short",month:"short",day:"numeric"})}</div>
+                </div>
+                <div style={{fontFamily:"monospace",fontWeight:800,color:dias===0?"#58a6ff":i===0?"#3fb950":T.muted,fontSize:14}}>{dias===0?"Today":dias+"d"}</div>
+              </div>);
+            })}
           </div>)}
 
           {/* Debt overview */}
@@ -1082,7 +1119,6 @@ function App(){
 
         {/* ══ SETTINGS ══ */}
         {tab==="settings"&&(<div className="anim">
-          {/* Theme */}
           <div style={{...CARD,padding:"14px 16px",marginBottom:14}}>
             <div style={{fontSize:11,color:T.accent,letterSpacing:1.5,fontWeight:700,marginBottom:12}}>🎨 APPEARANCE</div>
             <div style={{display:"flex",gap:8}}>
@@ -1091,11 +1127,10 @@ function App(){
               </button>))}
             </div>
           </div>
-          {/* Payday */}
           <div style={{...CARD,padding:"14px 16px",marginBottom:14}}>
             <div style={{fontSize:11,color:T.accent,letterSpacing:1.5,fontWeight:700,marginBottom:12}}>💵 PAYDAY SETTINGS</div>
-            <div style={{marginBottom:10}}><div style={{fontSize:9,color:T.muted,marginBottom:5}}>FIRST PAYDAY DATE</div><input style={{...INP,fontSize:14,padding:"9px 12px"}} type="date" value={data.proximoCobro||""} onChange={e=>setData(p=>({...p,proximoCobro:e.target.value}))}/></div>
-            <div><div style={{fontSize:9,color:T.muted,marginBottom:5}}>FREQUENCY</div>
+            <div style={{marginBottom:10}}><div style={{fontSize:9,color:T.muted,marginBottom:5}}>ANCHOR PAYDAY DATE</div><input style={{...INP,fontSize:14,padding:"9px 12px"}} type="date" value={data.proximoCobro||""} onChange={e=>setData(p=>({...p,proximoCobro:e.target.value}))}/></div>
+            <div style={{marginBottom:10}}><div style={{fontSize:9,color:T.muted,marginBottom:5}}>FREQUENCY</div>
               <select style={{...INP,fontSize:14,padding:"9px 12px"}} value={data.payFreq||"biweekly"} onChange={e=>setData(p=>({...p,payFreq:e.target.value}))}>
                 <option value="weekly">Weekly — every 7 days</option>
                 <option value="biweekly">Biweekly — every 14 days</option>
@@ -1103,9 +1138,12 @@ function App(){
                 <option value="monthly">Monthly</option>
               </select>
             </div>
-            <div style={{fontSize:10,color:T.muted,marginTop:8}}>Current active check: <strong style={{color:T.accent}}>{activeCheck.label}</strong> · Period ends {fmd(activePeriod.end)}</div>
+            <div style={{background:T.surface2,borderRadius:10,padding:"10px 12px",fontSize:11,color:T.muted,lineHeight:1.7}}>
+              <div>Active check: <strong style={{color:T.accent}}>{activeCheck.label}</strong></div>
+              <div>Period: <strong style={{color:T.text}}>{fmd(activePeriod.start)}</strong> → <strong style={{color:T.text}}>{fmd(activePeriod.end)}</strong></div>
+              <div>Next payday: <strong style={{color:"#3fb950"}}>{nextPayday?fmd(nextPayday):"-"}</strong> ({diasProx===0?"today":diasProx+"d away"})</div>
+            </div>
           </div>
-          {/* Manage checks */}
           <div style={{...CARD,padding:"14px 16px",marginBottom:14}}>
             <div style={{fontSize:11,color:T.accent,letterSpacing:1.5,fontWeight:700,marginBottom:12}}>📋 MANAGE CHECKS</div>
             {checks.map((c,i)=>(<div key={c.id} style={{display:"flex",alignItems:"center",gap:10,padding:"10px 12px",background:T.bg,borderRadius:10,marginBottom:8,border:`1px solid ${c.id===activeCheck.id?"#3fb950":T.border}`}}>
@@ -1128,7 +1166,6 @@ function App(){
               toast_(`✅ Check ${newNum} added`);
             }}>+ Add New Check</button>
           </div>
-          {/* Backup */}
           <div style={{...CARD,padding:"14px 16px",marginBottom:14}}>
             <div style={{fontSize:11,color:T.accent,letterSpacing:1.5,fontWeight:700,marginBottom:12}}>💾 DATA BACKUP</div>
             <div style={{display:"flex",gap:8,marginBottom:8}}>
@@ -1137,7 +1174,6 @@ function App(){
             </div>
             <div style={{fontSize:10,color:T.muted}}>Export before updating the app. Data is stored locally on this device.</div>
           </div>
-          {/* Danger */}
           <div style={{background:"rgba(248,81,73,0.04)",border:"1px solid rgba(248,81,73,0.2)",borderRadius:14,padding:"14px 16px"}}>
             <div style={{fontSize:11,color:"#f85149",letterSpacing:1.5,fontWeight:700,marginBottom:12}}>⚠️ DANGER ZONE</div>
             <button style={{...BTN,width:"100%",padding:"11px",background:"rgba(248,81,73,0.1)",color:"#f85149",fontSize:13,border:"1px solid rgba(248,81,73,0.3)"}} onClick={()=>{if(window.confirm("Reset ALL data to defaults? Cannot be undone.")){localStorage.removeItem(SK);setData(DD);setTab("overview");toast_("🔄 App reset");}}}>🗑 Reset All Data</button>
