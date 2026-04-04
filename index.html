@@ -689,10 +689,10 @@ function App(){
     const sob=amt-total;
     const pct=total>0?Math.round(((paid+reserved)/total)*100):0;
     const done=gastos.length>0&&gastos.every(g=>g.state==="paid");
-    const isActive=check.id===activeCheck.id;
-    // Show the next payday that belongs to this check's cycle slot
-    // For biweekly with 2 checks: check at index 0 gets paydays 0,2,4... check at index 1 gets paydays 1,3,5...
+    // Compare by index position in the checks array, not by id reference,
+    // so the label always matches the same logic used to compute activeCheckIdx.
     const checkIdx=checks.findIndex(c=>c.id===check.id);
+    const isActive=checkIdx===activeCheckIdx;
     const slotPaydays=upcomingPaydays.filter((_,i)=>i%checks.length===checkIdx);
     const pd=slotPaydays[0]||upcomingPaydays[0];
     const pdDays=pd?Math.ceil((pd-today)/86400000):null;
@@ -740,7 +740,7 @@ function App(){
 
   const TABS=[
     {id:"overview",icon:"📊",label:"Overview"},
-    ...checks.map(c=>({id:c.id,icon:c.icon,label:c.label,active:c.id===activeCheck.id})),
+    ...checks.map((c,ci)=>({id:c.id,icon:c.icon,label:c.label,active:ci===activeCheckIdx})),
     {id:"debts",   icon:"💳",label:"Debts",urgent:urgentDebts.length>0},
     {id:"calendar",icon:"📅",label:"Calendar"},
     {id:"history", icon:"📆",label:"History"},
@@ -788,7 +788,7 @@ function App(){
           <div style={{marginBottom:14}}>
             <div style={{fontSize:10,color:T.muted,marginBottom:5}}>DEDUCT FROM</div>
             <div style={{display:"flex",gap:7,flexWrap:"wrap"}}>
-              {checks.map(c=>(<button key={c.id} style={{...BTN,flex:1,padding:"9px",fontSize:12,background:quickCheck===c.id?"rgba(88,166,255,0.2)":T.surface2,color:quickCheck===c.id?T.accent:T.muted,border:`1px solid ${quickCheck===c.id?T.accent:T.border}`}} onClick={()=>setQuickCheck(c.id)}>{c.icon} {c.label}{c.id===activeCheck.id?" ✓":""}</button>))}
+              {checks.map((c,ci)=>(<button key={c.id} style={{...BTN,flex:1,padding:"9px",fontSize:12,background:quickCheck===c.id?"rgba(88,166,255,0.2)":T.surface2,color:quickCheck===c.id?T.accent:T.muted,border:`1px solid ${quickCheck===c.id?T.accent:T.border}`}} onClick={()=>setQuickCheck(c.id)}>{c.icon} {c.label}{ci===activeCheckIdx?" ✓":""}</button>))}
             </div>
           </div>
           <div style={{display:"flex",gap:8}}>
@@ -988,7 +988,7 @@ function App(){
             const paid=gastos.filter(g=>g.state==="paid").reduce((s,g)=>s+n(g.monto),0);
             const reserved=gastos.filter(g=>g.state==="reserved").reduce((s,g)=>s+n(g.monto),0);
             const sob=amt-total,done=gastos.length>0&&gastos.every(g=>g.state==="paid");
-            const isAct=c.id===activeCheck.id;
+            const isAct=checks.findIndex(x=>x.id===c.id)===activeCheckIdx;
             return(<div key={c.id} style={{...CARD,padding:"13px 16px",marginBottom:10,borderColor:isAct?"#3fb950":done?"#2ea043":T.border}}>
               <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:8}}>
                 <div>
@@ -1146,11 +1146,11 @@ function App(){
           </div>
           <div style={{...CARD,padding:"14px 16px",marginBottom:14}}>
             <div style={{fontSize:11,color:T.accent,letterSpacing:1.5,fontWeight:700,marginBottom:12}}>📋 MANAGE CHECKS</div>
-            {checks.map((c,i)=>(<div key={c.id} style={{display:"flex",alignItems:"center",gap:10,padding:"10px 12px",background:T.bg,borderRadius:10,marginBottom:8,border:`1px solid ${c.id===activeCheck.id?"#3fb950":T.border}`}}>
+            {checks.map((c,ci)=>(<div key={c.id} style={{display:"flex",alignItems:"center",gap:10,padding:"10px 12px",background:T.bg,borderRadius:10,marginBottom:8,border:`1px solid ${ci===activeCheckIdx?"#3fb950":T.border}`}}>
               <span style={{fontSize:18,flexShrink:0}}>{c.icon}</span>
               <div style={{flex:1}}>
                 <input style={{...INP,fontSize:14,padding:"5px 8px",background:"transparent",border:"none",borderBottom:`1px solid ${T.border}`,borderRadius:0,fontWeight:600}} value={c.label} onChange={e=>setData(p=>({...p,checks:p.checks.map(x=>x.id===c.id?{...x,label:e.target.value}:x)}))}/>
-                <div style={{fontSize:10,color:T.muted,marginTop:3}}>{c.id} · {fmt(n(data[c.id]||0))}/check{c.id===activeCheck.id?" · 🟢 Active":""}</div>
+                <div style={{fontSize:10,color:T.muted,marginTop:3}}>{c.id} · {fmt(n(data[c.id]||0))}/check{ci===activeCheckIdx?" · 🟢 Active":""}</div>
               </div>
               <button style={{...BTN,padding:"5px 10px",background:"rgba(248,81,73,0.12)",color:"#f85149",fontSize:11,border:"1px solid rgba(248,81,73,0.25)",flexShrink:0}} onClick={()=>{
                 if(checks.length<=1)return toast_("Need at least 1 check","err");
