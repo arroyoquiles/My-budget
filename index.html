@@ -1,0 +1,59 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no"/>
+  <meta name="theme-color" content="#0b1220"/>
+  <meta name="apple-mobile-web-app-capable" content="yes"/>
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent"/>
+  <meta name="apple-mobile-web-app-title" content="My Budget"/>
+  <title>My Budget</title>
+
+  <!-- PWA manifest + apple icon (inline, no server required) -->
+  <script>
+  (function(){
+    const svg='<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><rect width="512" height="512" rx="100" fill="#0b1220"/><rect x="76" y="158" width="324" height="224" rx="30" fill="none" stroke="white" stroke-width="22"/><rect x="318" y="188" width="102" height="72" rx="18" fill="none" stroke="white" stroke-width="18"/><circle cx="371" cy="224" r="13" fill="white"/><line x1="156" y1="118" x2="206" y2="158" stroke="white" stroke-width="21" stroke-linecap="round"/><line x1="238" y1="106" x2="268" y2="158" stroke="white" stroke-width="21" stroke-linecap="round"/><text x="100" y="330" font-family="-apple-system,BlinkMacSystemFont,Helvetica,sans-serif" font-size="96" font-weight="700" fill="white">MB</text></svg>';
+    const enc=encodeURIComponent(svg);
+    const m={name:"My Budget",short_name:"My Budget",start_url:"/",display:"standalone",background_color:"#0b1220",theme_color:"#0b1220",icons:[{src:"data:image/svg+xml,"+enc,sizes:"512x512",type:"image/svg+xml"},{src:"data:image/svg+xml,"+enc,sizes:"192x192",type:"image/svg+xml"}]};
+    const b=new Blob([JSON.stringify(m)],{type:"application/json"});
+    const l=document.createElement("link");l.rel="manifest";l.href=URL.createObjectURL(b);document.head.appendChild(l);
+    const al=document.createElement("link");al.rel="apple-touch-icon";al.href="data:image/svg+xml,"+enc;document.head.appendChild(al);
+  })();
+  </script>
+
+  <!-- React + Babel (CDN, no build step required) -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.23.2/babel.min.js"></script>
+
+  <!-- App styles -->
+  <link rel="stylesheet" href="styles.css"/>
+</head>
+<body class="dark">
+<div id="root"></div>
+
+<!--
+  Load order matters — each file depends on symbols defined before it.
+  All files use type="text/babel" so Babel transpiles JSX in the browser.
+-->
+
+<!-- 1. Pure utility functions (no React, no globals from other files) -->
+<script type="text/babel" src="utils/dateHelpers.js"></script>
+<script type="text/babel" src="utils/calculations.js"></script>
+<script type="text/babel" src="utils/payPeriods.js"></script>
+
+<!-- 2. Storage: depends on dateHelpers + payPeriods (getCurrentPeriodStart, dateStr) -->
+<script type="text/babel" src="storage/localStorage.js"></script>
+
+<!-- 3. Components: depend on all of the above + React hooks -->
+<script type="text/babel" src="components/CheckCard.js"></script>
+<script type="text/babel" src="components/DebtCard.js"></script>
+<script type="text/babel" src="components/PotCard.js"></script>
+<script type="text/babel" src="components/CalendarView.js"></script>
+<script type="text/babel" src="components/HistoryView.js"></script>
+
+<!-- 4. Main app: depends on everything above -->
+<script type="text/babel" src="app.js"></script>
+
+</body>
+</html>
