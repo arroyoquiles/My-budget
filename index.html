@@ -29,7 +29,6 @@
     body.light{background:#f6f8fa;color:#1c2128;}
     ::-webkit-scrollbar{width:3px;}::-webkit-scrollbar-thumb{background:#30363d;}
     input[type=text],input[type=number],input[type=email],input[type=date],select,textarea{font-size:16px!important;-webkit-text-size-adjust:100%!important;}
-    /* ── Fix 1: prevent iOS text-selection on interactive expense rows ── */
     .expense-row{
       user-select:none;
       -webkit-user-select:none;
@@ -48,6 +47,7 @@ const THEMES = {
   light: { bg:"#f6f8fa", surface:"#ffffff", surface2:"#f0f3f6", border:"#d0d7de", text:"#1c2128", muted:"#656d76", accent:"#0969da", inp:{background:"#ffffff",color:"#1c2128",border:"1.5px solid #d0d7de"} },
 };
 
+// Fix 4: Added dining, entertainment, medical categories
 const DEST = {
   savings_acct:{label:"Savings Acct.", icon:"🏦",color:"#3fb950",bg:"rgba(63,185,80,0.1)",  border:"rgba(63,185,80,0.3)"},
   credit_card: {label:"Credit Card",   icon:"💳",color:"#ec4899",bg:"rgba(236,72,153,0.12)",border:"rgba(236,72,153,0.3)"},
@@ -61,6 +61,9 @@ const DEST = {
   emergency:   {label:"Emergency Fund",icon:"🆘",color:"#06b6d4",bg:"rgba(6,182,212,0.1)",  border:"rgba(6,182,212,0.3)"},
   investment:  {label:"Investment",    icon:"📈",color:"#10b981",bg:"rgba(16,185,129,0.1)", border:"rgba(16,185,129,0.3)"},
   temp:        {label:"Temporary",     icon:"🔄",color:"#d29922",bg:"rgba(210,153,34,0.1)", border:"rgba(210,153,34,0.3)"},
+  dining:      {label:"Dining",        icon:"🍽️",color:"#f472b6",bg:"rgba(244,114,182,0.1)",border:"rgba(244,114,182,0.3)"},
+  entertainment:{label:"Entertainment",icon:"🎬",color:"#a78bfa",bg:"rgba(167,139,250,0.1)",border:"rgba(167,139,250,0.3)"},
+  medical:     {label:"Medical/Health",icon:"🏥",color:"#34d399",bg:"rgba(52,211,153,0.1)", border:"rgba(52,211,153,0.3)"},
   other:       {label:"Other",         icon:"📌",color:"#8b949e",bg:"transparent",           border:"#21262d"},
 };
 
@@ -76,9 +79,39 @@ const CC = {
   "Prime Card": {color:"#58a6ff",bg:"rgba(88,166,255,0.12)", border:"rgba(88,166,255,0.35)", dot:"🔵"},
 };
 
-const CICONS={auto:"🚗",rent:"🏠",subscription:"📱",gas:"⛽",credit_card:"💳",groceries:"🛒",other:"📌",insurance:"🛡️",utilities:"⚡",savings_acct:"🏦",emergency:"🆘",investment:"📈",loan:"🏦"};
-const CATCOLORS={auto:"#f97316",rent:"#3b82f6",subscription:"#8b5cf6",gas:"#ef4444",credit_card:"#ec4899",groceries:"#22c55e",other:"#94a3b8",insurance:"#6366f1",utilities:"#f59e0b",savings_acct:"#3fb950",emergency:"#06b6d4",investment:"#10b981",loan:"#f97316"};
-const DORDER=["savings_acct","emergency","investment","rent","auto","insurance","utilities","gas","credit_card","groceries","subscription","temp","other"];
+// Fix 3 & 6: Unified icon mapping for all categories including new ones and loan types
+const CICONS={
+  auto:"🚗",rent:"🏠",subscription:"📱",gas:"⛽",credit_card:"💳",
+  groceries:"🛒",other:"📌",insurance:"🛡️",utilities:"⚡",savings_acct:"🏦",
+  emergency:"🆘",investment:"📈",loan:"🏦",temp:"🔄",
+  dining:"🍽️",entertainment:"🎬",medical:"🏥",
+};
+const CATCOLORS={
+  auto:"#f97316",rent:"#3b82f6",subscription:"#8b5cf6",gas:"#ef4444",
+  credit_card:"#ec4899",groceries:"#22c55e",other:"#94a3b8",insurance:"#6366f1",
+  utilities:"#f59e0b",savings_acct:"#3fb950",emergency:"#06b6d4",investment:"#10b981",
+  loan:"#f97316",temp:"#d29922",dining:"#f472b6",entertainment:"#a78bfa",medical:"#34d399",
+};
+
+// Fix 6: Loan type icon mapping
+const LOAN_ICONS={
+  "auto loan":"🚗","auto":"🚗","car loan":"🚗","car":"🚗",
+  "personal loan":"🏦","personal":"🏦",
+  "student loan":"🎓","student":"🎓",
+  "mortgage":"🏠","home loan":"🏠",
+  "credit line":"💳","line of credit":"💳","heloc":"💳",
+};
+const getLoanIcon=(nombre)=>{
+  if(!nombre)return"🏦";
+  const lower=nombre.toLowerCase();
+  for(const[k,v] of Object.entries(LOAN_ICONS)){if(lower.includes(k))return v;}
+  return"🏦";
+};
+
+const DORDER=["savings_acct","emergency","investment","rent","auto","insurance","utilities","gas","credit_card","groceries","subscription","dining","entertainment","medical","temp","other"];
+
+// Fix 8: Categories that show Due Day field
+const DUE_DAY_CATS=new Set(["credit_card","rent","utilities","insurance","subscription","auto","medical"]);
 
 const gds=(d,r)=>{if(d==="credit_card"&&r&&CC[r])return{...DEST.credit_card,...CC[r],label:r};return DEST[d]||DEST.other;};
 const fmt=v=>new Intl.NumberFormat("en-US",{style:"currency",currency:"USD",maximumFractionDigits:0}).format(v||0);
@@ -110,7 +143,6 @@ const calcLoan=(balance,apr,pmt)=>{
   return{interest:Math.max(0,interest),principal:Math.max(0,principal),newBalance:Math.max(0,b-principal)};
 };
 
-// ── Pay period engine ─────────────────────────────────────────────────────────
 const parseAnchor=anchor=>{
   const[y,m,d]=anchor.split("-").map(Number);
   const dt=new Date(y,m-1,d);dt.setHours(0,0,0,0);return dt;
@@ -230,11 +262,10 @@ const buildMonthPeriods=(anchor,freq)=>{
   }));
 };
 
-// ── Migration ─────────────────────────────────────────────────────────────────
 const migrate=raw=>{
   if(!raw)return null;
-  const dm={savings:"savings_acct",directo:"rent",temporal:"temp",ninguno:"other",tarjeta:"credit_card",savings_acct:"savings_acct",credit_card:"credit_card",rent:"rent",utilities:"utilities",auto:"auto",insurance:"insurance",groceries:"groceries",subscription:"subscription",gas:"gas",emergency:"emergency",investment:"investment",temp:"temp",other:"other"};
-  const cm={carro:"auto",vivienda:"rent",servicios:"subscription",gas:"gas",tarjeta:"credit_card",comida:"groceries",otro:"other",auto:"auto",rent:"rent",subscription:"subscription",credit_card:"credit_card",groceries:"groceries",other:"other",insurance:"insurance",utilities:"utilities"};
+  const dm={savings:"savings_acct",directo:"rent",temporal:"temp",ninguno:"other",tarjeta:"credit_card",savings_acct:"savings_acct",credit_card:"credit_card",rent:"rent",utilities:"utilities",auto:"auto",insurance:"insurance",groceries:"groceries",subscription:"subscription",gas:"gas",emergency:"emergency",investment:"investment",temp:"temp",dining:"dining",entertainment:"entertainment",medical:"medical",other:"other"};
+  const cm={carro:"auto",vivienda:"rent",servicios:"subscription",gas:"gas",tarjeta:"credit_card",comida:"groceries",otro:"other",auto:"auto",rent:"rent",subscription:"subscription",credit_card:"credit_card",groceries:"groceries",other:"other",insurance:"insurance",utilities:"utilities",dining:"dining",entertainment:"entertainment",medical:"medical"};
   const mg=g=>({...g,cat:cm[g.cat]||cm[g.categoria]||"other",destino:dm[g.destino]||"other",diaPago:g.diaPago||null,tarjetaRef:g.tarjetaRef||"",state:g.state||(g.pagado?"paid":"pending"),_quick:g._quick||false});
 
   const anchor=raw.proximoCobro||"2026-04-03";
@@ -291,7 +322,6 @@ const migrate=raw=>{
   };
 };
 
-// ── Default data ──────────────────────────────────────────────────────────────
 const DD={
   proximoCobro:"2026-04-03",payFreq:"biweekly",theme:"dark",
   checkAmount:1520,
@@ -343,20 +373,35 @@ const DragList=memo(({items,onReorder,renderItem})=>{
   return(<div>{items.map((item,i)=>(<div key={item.id} ref={el=>refs.current[i]=el} style={{opacity:drag===i?0.35:1,transition:"opacity 0.1s"}}>{renderItem(item,i,{onTouchStart:e=>onTS(e,i),onTouchMove:e=>onTM(e,i),onTouchEnd:onTE})}</div>))}</div>);
 });
 
-// ── Fix 2: GastoItem with auto-fill due day when credit card is selected ──────
+// Fix 3: Unified icon resolution - use CICONS consistently for all check views
+const getCatIcon=(cat)=>CICONS[cat]||"📌";
+
 const GastoItem=memo(({item,pid,editId,setEditId,tarjetas,onCycle,onLongPress,onUpdate,onRemove,touch,T})=>{
   const dest=gds(item.destino,item.tarjetaRef);
   const INP=mkINP(T),BTN=mkBTN(),CARD=mkCARD(T);
+  // Fix 5: Long press flag to prevent tap firing after long press
   const pressTimer=useRef(null);
-  const hTS=()=>{pressTimer.current=setTimeout(()=>onLongPress(item.id),500);};
-  const hTE=()=>clearTimeout(pressTimer.current);
+  const longPressed=useRef(false);
 
-  // ── Fix 2 helper: look up fechaPago for a card name ──
+  const hTS=()=>{
+    longPressed.current=false;
+    pressTimer.current=setTimeout(()=>{
+      longPressed.current=true;
+      onLongPress(item.id);
+    },500);
+  };
+  const hTE=()=>{
+    clearTimeout(pressTimer.current);
+  };
+
   const getCardDueDay=(cardName)=>{
     if(!cardName)return null;
     const card=tarjetas.find(t=>t.nombre===cardName);
     return card&&card.fechaPago?parseInt(card.fechaPago)||null:null;
   };
+
+  // Fix 8: Show due day only for relevant categories
+  const showDueDay=DUE_DAY_CATS.has(item.destino)||DUE_DAY_CATS.has(item.cat);
 
   if(editId===item.id)return(
     <div style={{marginBottom:8,...CARD,padding:"14px",border:`1px solid ${T.accent}`}}>
@@ -369,6 +414,7 @@ const GastoItem=memo(({item,pid,editId,setEditId,tarjetas,onCycle,onLongPress,on
             onMouseDown={e=>{
               e.preventDefault();
               onUpdate(item.id,"destino",k);
+              onUpdate(item.id,"cat",k);
               if(k!=="credit_card"){
                 onUpdate(item.id,"tarjetaRef","");
               }
@@ -383,7 +429,6 @@ const GastoItem=memo(({item,pid,editId,setEditId,tarjetas,onCycle,onLongPress,on
           <select style={INP} value={item.tarjetaRef} onChange={e=>{
             const cardName=e.target.value;
             onUpdate(item.id,"tarjetaRef",cardName);
-            // ── Fix 2: auto-fill due day from selected card's fechaPago ──
             const dueDay=getCardDueDay(cardName);
             if(dueDay)onUpdate(item.id,"diaPago",dueDay);
           }}>
@@ -392,15 +437,18 @@ const GastoItem=memo(({item,pid,editId,setEditId,tarjetas,onCycle,onLongPress,on
           </select>
         </div>
       )}
-      <div style={{marginBottom:12}}>
-        <div style={{fontSize:10,color:T.muted,marginBottom:5}}>
-          DUE DAY (optional)
-          {item.destino==="credit_card"&&item.tarjetaRef&&getCardDueDay(item.tarjetaRef)&&(
-            <span style={{marginLeft:6,color:"#58a6ff",fontSize:9}}>← auto-filled from card</span>
-          )}
+      {/* Fix 8: Only show Due Day for relevant categories */}
+      {showDueDay&&(
+        <div style={{marginBottom:12}}>
+          <div style={{fontSize:10,color:T.muted,marginBottom:5}}>
+            DUE DAY (optional)
+            {item.destino==="credit_card"&&item.tarjetaRef&&getCardDueDay(item.tarjetaRef)&&(
+              <span style={{marginLeft:6,color:"#58a6ff",fontSize:9}}>← auto-filled from card</span>
+            )}
+          </div>
+          <input style={INP} type="number" inputMode="numeric" placeholder="e.g. 7" value={item.diaPago||""} onChange={e=>onUpdate(item.id,"diaPago",e.target.value?parseInt(e.target.value):null)}/>
         </div>
-        <input style={INP} type="number" inputMode="numeric" placeholder="e.g. 7" value={item.diaPago||""} onChange={e=>onUpdate(item.id,"diaPago",e.target.value?parseInt(e.target.value):null)}/>
-      </div>
+      )}
       <div style={{display:"flex",gap:8}}>
         <button style={{...BTN,flex:1,padding:"11px",background:"#238636",color:"#fff",fontSize:14}} onClick={()=>setEditId(null)}>✓ Done</button>
         <button style={{...BTN,padding:"11px 14px",background:"rgba(248,81,73,0.15)",color:"#f85149",fontSize:14}} onClick={()=>{onRemove(item.id);setEditId(null);}}>🗑</button>
@@ -410,15 +458,23 @@ const GastoItem=memo(({item,pid,editId,setEditId,tarjetas,onCycle,onLongPress,on
 
   const stBg={pending:"transparent",reserved:"rgba(210,153,34,0.07)",paid:"rgba(63,185,80,0.07)"}[item.state||"pending"];
   const stBorder={pending:T.border,reserved:"rgba(210,153,34,0.3)",paid:"#2ea043"}[item.state||"pending"];
+
+  // Fix 3: Use unified getCatIcon for consistent icon display everywhere
+  const catIcon=getCatIcon(item.cat)||getCatIcon(item.destino)||"📌";
+  const catColor=CATCOLORS[item.cat]||CATCOLORS[item.destino]||"#94a3b8";
+
   return(
-    // ── Fix 1: expense-row class prevents iOS text-selection on long-press ──
     <div className="expense-row" style={{marginBottom:7}}>
       <div style={{display:"flex",alignItems:"center",gap:8,padding:"10px 11px",borderRadius:11,background:stBg,border:`1px solid ${stBorder}`,transition:"background 0.15s,border 0.15s"}}>
         <div onTouchStart={touch.onTouchStart} onTouchMove={touch.onTouchMove} onTouchEnd={touch.onTouchEnd}
           style={{display:"flex",flexDirection:"column",gap:3,padding:"6px 5px",flexShrink:0,touchAction:"none",cursor:"grab"}}>
           {[0,1,2].map(l=><div key={l} style={{width:14,height:2,background:T.muted,borderRadius:2}}/>)}
         </div>
-        <div onClick={()=>onCycle(item.id)} onTouchStart={hTS} onTouchEnd={hTE}
+        {/* Fix 5: cycle only fires if long press did NOT trigger */}
+        <div
+          onClick={()=>{if(!longPressed.current)onCycle(item.id);longPressed.current=false;}}
+          onTouchStart={hTS}
+          onTouchEnd={hTE}
           style={{width:24,height:24,borderRadius:"50%",flexShrink:0,
             background:item.state==="paid"?"#2ea043":item.state==="reserved"?"rgba(210,153,34,0.25)":"transparent",
             border:`2px solid ${item.state==="paid"?"#2ea043":item.state==="reserved"?"#d29922":T.border}`,
@@ -426,10 +482,10 @@ const GastoItem=memo(({item,pid,editId,setEditId,tarjetas,onCycle,onLongPress,on
             color:item.state==="paid"?"#fff":item.state==="reserved"?"#d29922":T.muted,fontWeight:700}}>
           {item.state==="paid"?"✓":item.state==="reserved"?"◑":""}
         </div>
-        <div style={{width:26,height:26,borderRadius:7,background:(CATCOLORS[item.cat]||"#94a3b8")+"22",display:"flex",alignItems:"center",justifyContent:"center",fontSize:13,flexShrink:0}}>
-          {CICONS[item.cat]||"📌"}
+        <div style={{width:26,height:26,borderRadius:7,background:catColor+"22",display:"flex",alignItems:"center",justifyContent:"center",fontSize:13,flexShrink:0}}>
+          {catIcon}
         </div>
-        <div onClick={()=>onCycle(item.id)} style={{flex:1,minWidth:0,cursor:"pointer"}}>
+        <div onClick={()=>{if(!longPressed.current)onCycle(item.id);longPressed.current=false;}} style={{flex:1,minWidth:0,cursor:"pointer"}}>
           <div style={{display:"flex",alignItems:"center",gap:5,flexWrap:"wrap"}}>
             <span style={{fontSize:13,fontWeight:600,color:item.state==="paid"?"#3fb950":item.state==="reserved"?"#d29922":T.text,textDecoration:item.state==="paid"?"line-through":"none",opacity:item.state==="paid"?0.75:1}}>{item.nombre||"Untitled"}</span>
             {item.destino!=="other"&&<span style={{fontSize:9,fontWeight:700,color:dest.color,background:dest.bg,border:`1px solid ${dest.border}`,borderRadius:5,padding:"1px 5px",flexShrink:0}}>{dest.icon} {dest.label}</span>}
@@ -462,12 +518,15 @@ const DebtCard=memo(({debt,idx,isFirst,tipo,accion,setAccion,montoAccion,setMont
   const dueBorder=dp<=0?"rgba(88,166,255,0.3)":dp<=5?"rgba(248,81,73,0.3)":"rgba(63,185,80,0.2)";
   const dueColor=dp<=0?"#58a6ff":dp<=5?"#f85149":"#3fb950";
 
+  // Fix 6: Use getLoanIcon for loan type icons
+  const debtIcon=tipo==="card"?(CC[debt.nombre]?.dot||"💳"):getLoanIcon(debt.nombre);
+
   return(
     <div style={{...CARD,padding:"15px 17px",marginBottom:12,borderColor:isFirst?"#d29922":showEdit?"rgba(88,166,255,0.5)":T.border,transition:"border-color 0.2s"}}>
       <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:8}}>
         {isFirst?<div style={{padding:"2px 9px",borderRadius:20,fontSize:10,fontWeight:700,background:"rgba(210,153,34,0.15)",color:"#d29922"}}>🎯 ATTACK FIRST</div>:<div style={{padding:"2px 9px",borderRadius:20,fontSize:10,fontWeight:700,background:T.surface2,color:T.muted}}>#{idx+1}</div>}
         <div style={{display:"flex",gap:6,alignItems:"center"}}>
-          <span style={{fontSize:15}}>{tipo==="card"?(CC[debt.nombre]?.dot||"💳"):"🚗"}</span>
+          <span style={{fontSize:15}}>{debtIcon}</span>
           {!isAdding&&(
             <button style={{...BTN,background:editing?"rgba(88,166,255,0.15)":"transparent",color:editing?T.accent:T.muted,padding:"3px 8px",fontSize:12,border:`1px solid ${editing?T.accent:"transparent"}`,borderRadius:8}} onClick={()=>setEditing(e=>!e)}>
               {editing?"✓ Done":"✏️ Edit"}
@@ -594,7 +653,6 @@ function App(){
   const [accion,setAccion]=useState(null);
   const [montoAccion,setMontoAccion]=useState("");
   const [alertDim,setAlertDim]=useState(false);
-  const [calView,setCalView]=useState("list");
   const [addingDebt,setAddingDebt]=useState(null);
   const [quickOpen,setQuickOpen]=useState(false);
   const [quickNote,setQuickNote]=useState("");
@@ -605,8 +663,11 @@ function App(){
   const [moveAmt,setMoveAmt]=useState("");
   const [moveNote,setMoveNote]=useState("");
   const toastRef=useRef();
+  // Fix 2: Track swipe origin to prevent swipe from tab bar
   const swipeStart=useRef(null);
+  const swipeFromContent=useRef(false);
   const mainRef=useRef(null);
+  const tabBarRef=useRef(null);
 
   const theme=data.theme||"dark";
   const T=THEMES[theme];
@@ -663,12 +724,29 @@ function App(){
   useEffect(()=>{if(!quickPid&&currentPid)setQuickPid(currentPid);},[currentPid]);
 
   const TABS_ORDER=useMemo(()=>["overview",...monthPeriods.map(p=>p.id),"debts","calendar","history","settings"],[monthPeriods]);
-  const handleSwipeTouchStart=useCallback(e=>{const t=e.touches[0];swipeStart.current={x:t.clientX,y:t.clientY};},[]);
+
+  // Fix 2: Swipe only triggers when gesture starts in main content area, not tab bar
+  const handleSwipeTouchStart=useCallback(e=>{
+    const t=e.touches[0];
+    // Check if touch started on or near the tab bar
+    if(tabBarRef.current){
+      const rect=tabBarRef.current.getBoundingClientRect();
+      if(t.clientY>=rect.top&&t.clientY<=rect.bottom){
+        swipeFromContent.current=false;
+        swipeStart.current=null;
+        return;
+      }
+    }
+    swipeFromContent.current=true;
+    swipeStart.current={x:t.clientX,y:t.clientY};
+  },[]);
+
   const handleSwipeTouchEnd=useCallback(e=>{
-    if(!swipeStart.current)return;
+    if(!swipeStart.current||!swipeFromContent.current)return;
     const t=e.changedTouches[0];
     const dx=t.clientX-swipeStart.current.x,dy=t.clientY-swipeStart.current.y;
     swipeStart.current=null;
+    swipeFromContent.current=false;
     if(Math.abs(dx)<60||Math.abs(dx)<Math.abs(dy)*1.5)return;
     const idx=TABS_ORDER.indexOf(tab);
     if(dx<0&&idx<TABS_ORDER.length-1)setTab(TABS_ORDER[idx+1]);
@@ -910,7 +988,8 @@ function App(){
           </div>)}
         </div>
 
-        <div className="tabs">
+        {/* Fix 2: Tab bar gets its own ref so swipe can detect if gesture starts here */}
+        <div ref={tabBarRef} className="tabs">
           {TABS.map(t=>(<button key={t.id} style={{...BTN,padding:"7px 11px",fontSize:10,whiteSpace:"nowrap",flexShrink:0,background:tab===t.id?T.accent:T.surface2,color:tab===t.id?(theme==="dark"?"#0d1117":"#fff"):T.muted,border:`1px solid ${tab===t.id?T.accent:t.urgent?"#f85149":t.isCurrent?"#3fb950":T.border}`,position:"relative"}} onClick={()=>setTab(t.id)}>
             <div style={{display:"flex",flexDirection:"column",alignItems:"center",gap:1}}>
               <span>{t.icon} {t.label}</span>
@@ -959,12 +1038,14 @@ function App(){
             {allDebts.map((d,i)=>{
               const dp=getDU(d.fechaPago),isUrgent=dp!==null&&dp<=3;
               const tc=CC[d.nombre]||null;
+              // Fix 6: Use getLoanIcon in overview debt list
+              const debtDot=d.tipo==="card"?(tc?.dot||"💳"):getLoanIcon(d.nombre);
               const pct2=d.tipo==="card"&&n(d.limite)>0?Math.min(100,Math.round((n(d.balance)/n(d.limite))*100)):d.tipo==="loan"&&n(d.original)>0?Math.round(((n(d.original)-n(d.balance))/n(d.original))*100):0;
               const barColor=d.tipo==="card"?(pct2>=90?"#f85149":pct2>=70?"#d29922":"#3fb950"):"#58a6ff";
               return(<div key={d.id} style={{marginBottom:i<allDebts.length-1?10:0,paddingBottom:i<allDebts.length-1?10:0,borderBottom:i<allDebts.length-1?`1px solid ${T.border}`:"none"}}>
                 <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:4}}>
                   <div style={{display:"flex",alignItems:"center",gap:6}}>
-                    <span style={{fontSize:13}}>{d.tipo==="card"?(tc?.dot||"💳"):"🚗"}</span>
+                    <span style={{fontSize:13}}>{debtDot}</span>
                     <span style={{fontSize:12,fontWeight:600}}>{d.nombre}</span>
                     {isUrgent&&<span style={{fontSize:9,fontWeight:700,color:"#f85149",background:"rgba(248,81,73,0.1)",border:"1px solid rgba(248,81,73,0.3)",borderRadius:5,padding:"1px 5px"}}>{dp===0?"TODAY":"Due in "+dp+"d"}</span>}
                   </div>
@@ -1036,13 +1117,16 @@ function App(){
                 <div style={{width:`${total>0?Math.round((paid/total)*100):0}%`,background:"#2ea043"}}/>
                 <div style={{width:`${total>0?Math.round((reserved/total)*100):0}%`,background:"#d29922"}}/>
               </div>
-              {gastos.map(g=>{const d=gds(g.destino,g.tarjetaRef);return(<div key={g.id} style={{display:"flex",alignItems:"center",gap:7,padding:"5px 0",borderBottom:`1px solid ${T.border}`}}>
-                <div style={{fontSize:11,color:g.state==="paid"?"#3fb950":g.state==="reserved"?"#d29922":T.muted}}>{g.state==="paid"?"●":g.state==="reserved"?"◑":"○"}</div>
-                <div style={{fontSize:12,flexShrink:0}}>{CICONS[g.cat]||"📌"}</div>
-                <div style={{flex:1,fontSize:11,color:g.state==="paid"?"#3fb950":T.text,textDecoration:g.state==="paid"?"line-through":"none",opacity:g.state==="paid"?0.7:1}}>{g.nombre}</div>
-                {g.destino!=="other"&&<span style={{fontSize:9,color:d.color}}>{d.icon}</span>}
-                <div style={{fontFamily:"monospace",fontWeight:700,fontSize:11,color:g.state==="paid"?"#3fb950":g.state==="reserved"?"#d29922":d.color||"#f85149",flexShrink:0}}>{fmt(g.monto)}</div>
-              </div>);})}
+              {gastos.map(g=>{const d=gds(g.destino,g.tarjetaRef);
+                // Fix 3: consistent icon in overview check rows
+                const rowIcon=getCatIcon(g.cat)||getCatIcon(g.destino)||"📌";
+                return(<div key={g.id} style={{display:"flex",alignItems:"center",gap:7,padding:"5px 0",borderBottom:`1px solid ${T.border}`}}>
+                  <div style={{fontSize:11,color:g.state==="paid"?"#3fb950":g.state==="reserved"?"#d29922":T.muted}}>{g.state==="paid"?"●":g.state==="reserved"?"◑":"○"}</div>
+                  <div style={{fontSize:12,flexShrink:0}}>{rowIcon}</div>
+                  <div style={{flex:1,fontSize:11,color:g.state==="paid"?"#3fb950":T.text,textDecoration:g.state==="paid"?"line-through":"none",opacity:g.state==="paid"?0.7:1}}>{g.nombre}</div>
+                  {g.destino!=="other"&&<span style={{fontSize:9,color:d.color}}>{d.icon}</span>}
+                  <div style={{fontFamily:"monospace",fontWeight:700,fontSize:11,color:g.state==="paid"?"#3fb950":g.state==="reserved"?"#d29922":d.color||"#f85149",flexShrink:0}}>{fmt(g.monto)}</div>
+                </div>);})}
               <button style={{...BTN,width:"100%",marginTop:9,padding:"7px",background:T.surface2,color:T.muted,fontSize:11,border:`1px solid ${T.border}`}} onClick={()=>setTab(p.id)}>Go to {p.label} →</button>
             </div>);
           })}
@@ -1051,11 +1135,10 @@ function App(){
 
         {monthPeriods.map(p=>tab===p.id&&<div key={p.id}>{renderCheckTab(p)}</div>)}
 
-        {/* ── Fix 3: Debts tab split into Credit Cards + Loans sections ── */}
+        {/* Fix 7: Debts tab with polished section headers */}
         {tab==="debts"&&(()=>{
           const cards=allDebts.filter(d=>d.tipo==="card");
           const loans=allDebts.filter(d=>d.tipo==="loan");
-          // avalanche target is still the first of allDebts (highest APR overall)
           const avalancheTarget=allDebts[0];
           const totalCards=data.tarjetas.reduce((s,t)=>s+n(t.balance),0);
           const totalLoans=(data.loans||[]).reduce((s,l)=>s+n(l.balance),0);
@@ -1064,43 +1147,43 @@ function App(){
               🎯 Avalanche: pay minimums on all · all extra to <strong style={{color:"#d29922"}}>{avalancheTarget?.nombre}</strong> ({avalancheTarget?.interes}% APR)
             </div>
 
-            {/* ── Credit Cards section ── */}
+            {/* Fix 7: Credit Cards section — polished header */}
             {cards.length>0&&(<>
-              <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:10}}>
-                <div style={{height:1,flex:1,background:T.border}}/>
-                <div style={{display:"flex",alignItems:"center",gap:6,padding:"4px 12px",borderRadius:20,background:"rgba(236,72,153,0.1)",border:"1px solid rgba(236,72,153,0.25)"}}>
-                  <span style={{fontSize:13}}>💳</span>
-                  <span style={{fontSize:11,fontWeight:700,color:"#ec4899",letterSpacing:0.5}}>CREDIT CARDS</span>
-                  <span style={{fontSize:10,color:"#ec4899",fontFamily:"monospace",fontWeight:700}}>{fmt(totalCards)}</span>
+              <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:12,marginTop:4}}>
+                <div style={{flex:1,height:1,background:`linear-gradient(90deg,transparent,${T.border})`}}/>
+                <div style={{display:"flex",alignItems:"center",gap:7,padding:"5px 14px",borderRadius:20,background:"rgba(236,72,153,0.08)",border:"1px solid rgba(236,72,153,0.22)"}}>
+                  <span style={{fontSize:14}}>💳</span>
+                  <span style={{fontSize:11,fontWeight:700,color:"#ec4899",letterSpacing:0.8}}>CREDIT CARDS</span>
+                  <span style={{fontSize:10,color:"#ec4899",fontFamily:"monospace",fontWeight:800,marginLeft:2}}>{fmt(totalCards)}</span>
                 </div>
-                <div style={{height:1,flex:1,background:T.border}}/>
+                <div style={{flex:1,height:1,background:`linear-gradient(90deg,${T.border},transparent)`}}/>
               </div>
-              {cards.map((d,i)=>{
+              {cards.map((d)=>{
                 const globalIdx=allDebts.findIndex(x=>x.id===d.id&&x.tipo===d.tipo);
                 return(<DebtCard key={d.id} debt={d} idx={globalIdx} isFirst={globalIdx===0} tipo="card" accion={accion} setAccion={setAccion} montoAccion={montoAccion} setMontoAccion={setMontoAccion} onApply={applyAccion} onUpdate={updateTarjeta} onRemove={removeTarjeta} isAdding={addingDebt?.id===d.id} setAddingDebt={setAddingDebt} T={T}/>);
               })}
-              <button style={{...BTN,width:"100%",marginBottom:20,padding:"10px",background:"transparent",color:T.accent,fontSize:12,border:`1.5px dashed ${T.border}`}} onClick={addCard}>+ Add Card</button>
+              <button style={{...BTN,width:"100%",marginBottom:24,padding:"10px",background:"transparent",color:"#ec4899",fontSize:12,border:`1.5px dashed rgba(236,72,153,0.3)`}} onClick={addCard}>+ Add Card</button>
             </>)}
 
-            {/* ── Loans section ── */}
+            {/* Fix 7: Loans section — polished header */}
             {loans.length>0&&(<>
-              <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:10}}>
-                <div style={{height:1,flex:1,background:T.border}}/>
-                <div style={{display:"flex",alignItems:"center",gap:6,padding:"4px 12px",borderRadius:20,background:"rgba(249,115,22,0.1)",border:"1px solid rgba(249,115,22,0.25)"}}>
-                  <span style={{fontSize:13}}>🚗</span>
-                  <span style={{fontSize:11,fontWeight:700,color:"#f97316",letterSpacing:0.5}}>LOANS</span>
-                  <span style={{fontSize:10,color:"#f97316",fontFamily:"monospace",fontWeight:700}}>{fmt(totalLoans)}</span>
+              <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:12}}>
+                <div style={{flex:1,height:1,background:`linear-gradient(90deg,transparent,${T.border})`}}/>
+                <div style={{display:"flex",alignItems:"center",gap:7,padding:"5px 14px",borderRadius:20,background:"rgba(249,115,22,0.08)",border:"1px solid rgba(249,115,22,0.22)"}}>
+                  {/* Fix 6: Use loan icon from the first loan or fallback */}
+                  <span style={{fontSize:14}}>{loans.length===1?getLoanIcon(loans[0].nombre):"🏦"}</span>
+                  <span style={{fontSize:11,fontWeight:700,color:"#f97316",letterSpacing:0.8}}>LOANS</span>
+                  <span style={{fontSize:10,color:"#f97316",fontFamily:"monospace",fontWeight:800,marginLeft:2}}>{fmt(totalLoans)}</span>
                 </div>
-                <div style={{height:1,flex:1,background:T.border}}/>
+                <div style={{flex:1,height:1,background:`linear-gradient(90deg,${T.border},transparent)`}}/>
               </div>
-              {loans.map((d,i)=>{
+              {loans.map((d)=>{
                 const globalIdx=allDebts.findIndex(x=>x.id===d.id&&x.tipo===d.tipo);
                 return(<DebtCard key={d.id} debt={d} idx={globalIdx} isFirst={globalIdx===0} tipo="loan" accion={accion} setAccion={setAccion} montoAccion={montoAccion} setMontoAccion={setMontoAccion} onApply={applyAccion} onUpdate={updateLoan} onRemove={removeLoan} isAdding={addingDebt?.id===d.id} setAddingDebt={setAddingDebt} T={T}/>);
               })}
-              <button style={{...BTN,width:"100%",marginBottom:20,padding:"10px",background:"transparent",color:"#f97316",fontSize:12,border:`1.5px dashed ${T.border}`}} onClick={addLoan}>+ Add Loan</button>
+              <button style={{...BTN,width:"100%",marginBottom:24,padding:"10px",background:"transparent",color:"#f97316",fontSize:12,border:`1.5px dashed rgba(249,115,22,0.3)`}} onClick={addLoan}>+ Add Loan</button>
             </>)}
 
-            {/* Show add buttons even when sections are empty */}
             {cards.length===0&&(
               <button style={{...BTN,width:"100%",marginBottom:12,padding:"11px",background:"transparent",color:T.accent,fontSize:12,border:`1.5px dashed ${T.border}`}} onClick={addCard}>+ Add Card</button>
             )}
@@ -1108,71 +1191,210 @@ function App(){
               <button style={{...BTN,width:"100%",marginBottom:12,padding:"11px",background:"transparent",color:"#f97316",fontSize:12,border:`1.5px dashed ${T.border}`}} onClick={addLoan}>+ Add Loan</button>
             )}
 
-            {/* ── Summary footer ── */}
-            <div style={{...CARD,padding:"13px 17px",background:"rgba(248,81,73,0.04)",borderColor:"#da3633"}}>
-              <div style={{display:"flex",justifyContent:"space-between",marginBottom:5}}><span style={{fontSize:12,color:T.muted}}>Total debt</span><span style={{fontFamily:"monospace",fontWeight:800,fontSize:20,color:"#f85149"}}>{fmt(totalDebt)}</span></div>
-              <div style={{display:"flex",justifyContent:"space-between",marginBottom:4}}><span style={{fontSize:11,color:T.muted}}>Cards</span><span style={{fontFamily:"monospace",fontWeight:700,color:"#ec4899",fontSize:12}}>{fmt(totalCards)}</span></div>
-              <div style={{display:"flex",justifyContent:"space-between",marginBottom:4}}><span style={{fontSize:11,color:T.muted}}>Loans</span><span style={{fontFamily:"monospace",fontWeight:700,color:"#f97316",fontSize:12}}>{fmt(totalLoans)}</span></div>
-              <div style={{display:"flex",justifyContent:"space-between"}}><span style={{fontSize:11,color:T.muted}}>Monthly interest</span><span style={{fontFamily:"monospace",fontWeight:700,color:"#d29922",fontSize:12}}>{fmt(interesTotal)}/mo</span></div>
+            {/* Fix 7: Summary footer */}
+            <div style={{...CARD,padding:"14px 17px",background:"rgba(248,81,73,0.04)",borderColor:"rgba(218,54,51,0.4)"}}>
+              <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:10,paddingBottom:10,borderBottom:`1px solid ${T.border}`}}>
+                <span style={{fontSize:12,color:T.muted,fontWeight:600}}>Total debt</span>
+                <span style={{fontFamily:"monospace",fontWeight:800,fontSize:20,color:"#f85149"}}>{fmt(totalDebt)}</span>
+              </div>
+              <div style={{display:"flex",justifyContent:"space-between",marginBottom:6}}>
+                <span style={{fontSize:11,color:T.muted,display:"flex",alignItems:"center",gap:5}}>💳 Cards</span>
+                <span style={{fontFamily:"monospace",fontWeight:700,color:"#ec4899",fontSize:12}}>{fmt(totalCards)}</span>
+              </div>
+              <div style={{display:"flex",justifyContent:"space-between",marginBottom:6}}>
+                <span style={{fontSize:11,color:T.muted,display:"flex",alignItems:"center",gap:5}}>🏦 Loans</span>
+                <span style={{fontFamily:"monospace",fontWeight:700,color:"#f97316",fontSize:12}}>{fmt(totalLoans)}</span>
+              </div>
+              <div style={{display:"flex",justifyContent:"space-between"}}>
+                <span style={{fontSize:11,color:T.muted}}>Monthly interest</span>
+                <span style={{fontFamily:"monospace",fontWeight:700,color:"#d29922",fontSize:12}}>{fmt(interesTotal)}/mo</span>
+              </div>
             </div>
           </div>);
         })()}
 
+        {/* Fix 1: Calendar — monthly view only, read-only, informational */}
         {tab==="calendar"&&(()=>{
-          const hoy=new Date();hoy.setHours(0,0,0,0);const en35=new Date(hoy.getTime()+35*86400000);
-          const events=[];
-          upcomingPaydays.slice(0,6).forEach((pd,i)=>{if(pd<=en35)events.push({fecha:pd,tipo:"payday",label:`💵 Payday`,color:"#3fb950",monto:globalCheckAmount});});
-          [...data.tarjetas,...(data.loans||[])].forEach(d=>{
-            if(d.fechaPago){const c=new Date(hoy.getFullYear(),hoy.getMonth(),parseInt(d.fechaPago));if(c<hoy)c.setMonth(c.getMonth()+1);if(c<=en35){const tc=CC[d.nombre]||{};events.push({fecha:c,tipo:"payment",label:`${tc.dot||"💳"} ${d.nombre}`,color:tc.color||"#ec4899",monto:d.minimo,dias:getDU(d.fechaPago)});}}
-            if(d.fechaCorte){const cc=new Date(hoy.getFullYear(),hoy.getMonth(),parseInt(d.fechaCorte));if(cc<hoy)cc.setMonth(cc.getMonth()+1);if(cc<=en35)events.push({fecha:cc,tipo:"cutoff",label:`✂️ Cutoff ${d.nombre}`,color:T.muted,subtipo:"cutoff"});}
-          });
-          const seen=new Set();
-          monthPeriods.flatMap(p=>getPGastos(p.id)).forEach(g=>{if(!g.diaPago||seen.has(g.nombre)||g.destino==="credit_card"||g.destino==="temp"||g.destino==="other")return;seen.add(g.nombre);const c=new Date(hoy.getFullYear(),hoy.getMonth(),parseInt(g.diaPago));if(c<hoy)c.setMonth(c.getMonth()+1);if(c<=en35){const d=gds(g.destino,g.tarjetaRef);events.push({fecha:c,tipo:"expense",label:`${CICONS[g.cat]||"📌"} ${g.nombre}`,color:d.color,monto:g.monto});}});
-          events.sort((a,b)=>a.fecha-b.fecha);
-          const grupos={};events.forEach(e=>{const k=e.fecha.toLocaleDateString("en-US",{month:"short",day:"numeric",year:"numeric"});if(!grupos[k])grupos[k]={fecha:e.fecha,items:[]};grupos[k].items.push(e);});
+          const hoy=new Date();hoy.setHours(0,0,0,0);
           const mo=["January","February","March","April","May","June","July","August","September","October","November","December"];
-          const yr=hoy.getFullYear(),mth=hoy.getMonth(),fd=new Date(yr,mth,1).getDay(),dim=new Date(yr,mth+1,0).getDate();
-          const ebd={};events.forEach(e=>{if(e.fecha.getMonth()===mth&&e.fecha.getFullYear()===yr){const d=e.fecha.getDate();if(!ebd[d])ebd[d]=[];ebd[d].push(e);}});
+          const yr=hoy.getFullYear(),mth=hoy.getMonth();
+          const fd=new Date(yr,mth,1).getDay();
+          const dim=new Date(yr,mth+1,0).getDate();
+
+          // Collect events for this month only — read existing data, no modifications
+          const monthEvents={};
+          const addEv=(day,label,color,dotColor)=>{
+            if(!monthEvents[day])monthEvents[day]=[];
+            monthEvents[day].push({label,color,dotColor});
+          };
+
+          // Payday dates
+          upcomingPaydays.forEach(pd=>{
+            if(pd.getMonth()===mth&&pd.getFullYear()===yr){
+              addEv(pd.getDate(),"Payday","#3fb950","#3fb950");
+            }
+          });
+          // Current period payday
+          monthPeriods.forEach(p=>{
+            if(p.payday.getMonth()===mth&&p.payday.getFullYear()===yr){
+              addEv(p.payday.getDate(),"Payday","#3fb950","#3fb950");
+            }
+          });
+
+          // Credit card due dates and cutoff dates
+          data.tarjetas.forEach(t=>{
+            if(t.fechaPago){
+              const day=parseInt(t.fechaPago);
+              if(day>=1&&day<=dim){
+                const shortName=t.nombre.replace(/\s*(card|Card)\s*/i,"").trim();
+                addEv(day,`${shortName} due`,"#ec4899","#ec4899");
+              }
+            }
+            if(t.fechaCorte){
+              const day=parseInt(t.fechaCorte);
+              if(day>=1&&day<=dim){
+                const shortName=t.nombre.replace(/\s*(card|Card)\s*/i,"").trim();
+                addEv(day,`${shortName} cutoff`,T.muted,"#8b949e");
+              }
+            }
+          });
+
+          // Loan due dates
+          (data.loans||[]).forEach(l=>{
+            if(l.fechaPago){
+              const day=parseInt(l.fechaPago);
+              if(day>=1&&day<=dim){
+                const loanIcon=getLoanIcon(l.nombre);
+                const shortName=l.nombre.replace(/(loan|Loan)/i,"").trim().replace(/\s+/g," ").trim();
+                addEv(day,`${shortName}`,"#f97316","#f97316");
+              }
+            }
+          });
+
+          // Expense due dates from all periods
+          const seenExp=new Set();
+          monthPeriods.forEach(p=>{
+            getPGastos(p.id).forEach(g=>{
+              if(!g.diaPago||seenExp.has(g.nombre+g.diaPago)||g.destino==="temp"||g.destino==="other"||g._quick)return;
+              seenExp.add(g.nombre+g.diaPago);
+              const day=parseInt(g.diaPago);
+              if(day>=1&&day<=dim){
+                const d=gds(g.destino,g.tarjetaRef);
+                const shortLabel=g.nombre.length>12?g.nombre.slice(0,11)+"…":g.nombre;
+                addEv(day,shortLabel+" due",d.color||"#8b949e",d.color||"#8b949e");
+              }
+            });
+          });
+
+          // Remove duplicate payday entries
+          Object.keys(monthEvents).forEach(day=>{
+            const seen=new Set();
+            monthEvents[day]=monthEvents[day].filter(e=>{
+              const key=e.label+e.color;
+              if(seen.has(key))return false;
+              seen.add(key);return true;
+            });
+          });
+
           return(<div className="anim">
-            <div style={{display:"flex",gap:7,marginBottom:14}}>
-              <button style={{...BTN,flex:1,padding:"8px",fontSize:12,background:calView==="list"?T.accent:T.surface2,color:calView==="list"?(theme==="dark"?"#0d1117":"#fff"):T.muted,border:`1px solid ${calView==="list"?T.accent:T.border}`}} onClick={()=>setCalView("list")}>📋 List</button>
-              <button style={{...BTN,flex:1,padding:"8px",fontSize:12,background:calView==="cal"?T.accent:T.surface2,color:calView==="cal"?(theme==="dark"?"#0d1117":"#fff"):T.muted,border:`1px solid ${calView==="cal"?T.accent:T.border}`}} onClick={()=>setCalView("cal")}>📅 Month</button>
-            </div>
-            {calView==="cal"?(<div style={{...CARD,padding:"14px"}}>
-              <div style={{textAlign:"center",fontWeight:700,fontSize:14,marginBottom:12}}>{mo[mth]} {yr}</div>
-              <div style={{display:"grid",gridTemplateColumns:"repeat(7,1fr)",gap:2,marginBottom:12}}>
-                {["S","M","T","W","T","F","S"].map((d,i)=><div key={i} style={{textAlign:"center",fontSize:10,color:T.muted,fontWeight:700,padding:"4px 0"}}>{d}</div>)}
+            <div style={{...CARD,padding:"14px"}}>
+              <div style={{textAlign:"center",fontWeight:700,fontSize:15,marginBottom:4,color:T.text}}>{mo[mth]} {yr}</div>
+              <div style={{textAlign:"center",fontSize:10,color:T.muted,marginBottom:14}}>Financial calendar — read only</div>
+
+              {/* Day-of-week headers */}
+              <div style={{display:"grid",gridTemplateColumns:"repeat(7,1fr)",gap:2,marginBottom:4}}>
+                {["Sun","Mon","Tue","Wed","Thu","Fri","Sat"].map((d,i)=>(
+                  <div key={i} style={{textAlign:"center",fontSize:9,color:T.muted,fontWeight:600,padding:"3px 0",letterSpacing:0.3}}>{d}</div>
+                ))}
+              </div>
+
+              {/* Calendar grid */}
+              <div style={{display:"grid",gridTemplateColumns:"repeat(7,1fr)",gap:2}}>
                 {[...Array(fd).fill(null),...Array.from({length:dim},(_,i)=>i+1)].map((d,i)=>{
-                  if(!d)return<div key={i}/>;const isT=d===hoy.getDate();const evts=ebd[d]||[];const dots=[...new Set(evts.map(e=>e.color))].slice(0,3);
-                  return(<div key={i} style={{aspectRatio:"1",display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",borderRadius:8,background:isT?"rgba(88,166,255,0.2)":"transparent",border:isT?"1px solid #58a6ff":"1px solid transparent"}}>
-                    <span style={{fontSize:12,fontWeight:isT?800:400,color:isT?"#58a6ff":evts.length?T.text:T.muted}}>{d}</span>
-                    {dots.length>0&&<div style={{display:"flex",gap:2,marginTop:2}}>{dots.map((c,ci)=><div key={ci} style={{width:4,height:4,borderRadius:"50%",background:c}}/>)}</div>}
-                  </div>);
+                  if(!d)return<div key={i} style={{aspectRatio:"1"}}/>;
+                  const isToday=d===hoy.getDate();
+                  const evts=monthEvents[d]||[];
+                  const dotColors=[...new Set(evts.map(e=>e.dotColor))].slice(0,3);
+                  return(
+                    <div key={i} style={{
+                      aspectRatio:"1",
+                      display:"flex",
+                      flexDirection:"column",
+                      alignItems:"center",
+                      justifyContent:"flex-start",
+                      borderRadius:8,
+                      padding:"4px 2px 2px",
+                      background:isToday?"rgba(88,166,255,0.15)":evts.length?"rgba(255,255,255,0.02)":"transparent",
+                      border:isToday?"1px solid rgba(88,166,255,0.5)":"1px solid transparent",
+                    }}>
+                      <span style={{
+                        fontSize:11,
+                        fontWeight:isToday?800:evts.length?600:400,
+                        color:isToday?"#58a6ff":evts.length?T.text:T.muted,
+                        lineHeight:1.2,
+                      }}>{d}</span>
+                      {dotColors.length>0&&(
+                        <div style={{display:"flex",gap:2,marginTop:2,flexWrap:"wrap",justifyContent:"center"}}>
+                          {dotColors.map((c,ci)=>(
+                            <div key={ci} style={{width:4,height:4,borderRadius:"50%",background:c,flexShrink:0}}/>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  );
                 })}
               </div>
-              {Object.entries(ebd).sort(([a],[b])=>+a-+b).map(([day,evts])=>(<div key={day} style={{marginBottom:8}}>
-                <div style={{fontSize:10,color:T.muted,fontWeight:700,marginBottom:4}}>{mo[mth].slice(0,3)} {day}</div>
-                {evts.map((ev,i)=>(<div key={i} style={{display:"flex",alignItems:"center",gap:8,padding:"6px 10px",borderRadius:8,background:ev.subtipo==="cutoff"?"transparent":T.bg,border:`1px solid ${ev.subtipo==="cutoff"?T.border:T.surface2}`,marginBottom:3,opacity:ev.subtipo==="cutoff"?0.5:1}}>
-                  <div style={{width:6,height:6,borderRadius:"50%",background:ev.color,flexShrink:0}}/>
-                  <div style={{flex:1,fontSize:11}}>{ev.label}</div>
-                  {ev.monto&&<div style={{fontFamily:"monospace",fontWeight:700,fontSize:11,color:ev.tipo==="payday"?"#3fb950":"#f85149"}}>{ev.tipo==="payday"?"+":"-"}{fmt(ev.monto)}</div>}
-                </div>))}
-              </div>))}
-            </div>)
-            :(<><div style={{fontSize:11,color:T.muted,marginBottom:12}}>Next 35 days</div>
-              {Object.entries(grupos).map(([dk,g])=>{const dh=Math.ceil((g.fecha-hoy)/86400000);const isH=dh===0;return(<div key={dk} style={{marginBottom:12}}>
-                <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:5}}>
-                  <div style={{fontFamily:"monospace",fontSize:12,fontWeight:700,color:isH?"#58a6ff":dh<=3?"#f85149":T.text}}>{dk}</div>
-                  {isH&&<div style={{padding:"2px 6px",borderRadius:8,background:"rgba(88,166,255,0.2)",color:"#58a6ff",fontSize:9,fontWeight:700}}>TODAY</div>}
-                  {!isH&&dh>0&&<div style={{fontSize:10,color:T.muted}}>in {dh}d</div>}
+
+              {/* Legend / event list for this month */}
+              {Object.keys(monthEvents).length>0&&(
+                <div style={{marginTop:16,borderTop:`1px solid ${T.border}`,paddingTop:12}}>
+                  <div style={{fontSize:10,color:T.muted,fontWeight:700,letterSpacing:1,marginBottom:8}}>THIS MONTH</div>
+                  {Object.entries(monthEvents)
+                    .sort(([a],[b])=>+a-+b)
+                    .map(([day,evts])=>(
+                      <div key={day} style={{display:"flex",alignItems:"flex-start",gap:10,marginBottom:8}}>
+                        <div style={{
+                          minWidth:28,
+                          textAlign:"center",
+                          fontSize:12,
+                          fontWeight:700,
+                          color:+day===hoy.getDate()?"#58a6ff":T.muted,
+                          paddingTop:1,
+                          flexShrink:0,
+                        }}>{day}</div>
+                        <div style={{flex:1,display:"flex",flexDirection:"column",gap:3}}>
+                          {evts.map((ev,i)=>(
+                            <div key={i} style={{display:"flex",alignItems:"center",gap:6}}>
+                              <div style={{width:5,height:5,borderRadius:"50%",background:ev.dotColor,flexShrink:0}}/>
+                              <span style={{fontSize:11,color:ev.color,fontWeight:500}}>{ev.label}</span>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    ))
+                  }
                 </div>
-                {g.items.map((ev,i)=>(<div key={i} style={{display:"flex",alignItems:"center",gap:8,padding:"8px 11px",borderRadius:10,background:ev.subtipo==="cutoff"?"transparent":T.surface,border:`1px solid ${ev.subtipo==="cutoff"?T.border:ev.dias&&ev.dias<=3?"rgba(248,81,73,0.4)":T.border}`,marginBottom:4,opacity:ev.subtipo==="cutoff"?0.5:1}}>
-                  <div style={{width:7,height:7,borderRadius:"50%",background:ev.color,flexShrink:0}}/>
-                  <div style={{flex:1,fontSize:12}}>{ev.label}</div>
-                  {ev.monto&&<div style={{fontFamily:"monospace",fontWeight:700,fontSize:12,color:ev.tipo==="payday"?"#3fb950":"#f85149"}}>{ev.tipo==="payday"?"+":"-"}{fmt(ev.monto)}</div>}
-                </div>))}
-              </div>);})}
-            </>)}
+              )}
+            </div>
+
+            {/* Color legend */}
+            <div style={{...CARD,padding:"11px 14px",marginTop:10}}>
+              <div style={{fontSize:10,color:T.muted,fontWeight:700,letterSpacing:1,marginBottom:8}}>LEGEND</div>
+              <div style={{display:"flex",flexWrap:"wrap",gap:10}}>
+                {[
+                  {color:"#3fb950",label:"Payday"},
+                  {color:"#ec4899",label:"Card due"},
+                  {color:"#f97316",label:"Loan due"},
+                  {color:"#8b949e",label:"Card cutoff"},
+                  {color:"#58a6ff",label:"Expense due"},
+                ].map(({color,label})=>(
+                  <div key={label} style={{display:"flex",alignItems:"center",gap:5}}>
+                    <div style={{width:7,height:7,borderRadius:"50%",background:color}}/>
+                    <span style={{fontSize:10,color:T.muted}}>{label}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
           </div>);
         })()}
 
