@@ -578,13 +578,7 @@ function App(){
   // ── Gastos CRUD ───────────────────────────────────────────────────────────────
   const updateGasto=useCallback((cid,id,f,v)=>setData(p=>({...p,[`${cid}_gastos`]:(p[`${cid}_gastos`]||[]).map(g=>g.id===id?{...g,[f]:v}:g)})),[]);
   const removeGasto=useCallback((cid,id)=>{
-    setData(p=>{
-      const gastos=(p[`${cid}_gastos`]||[]);
-      const g=gastos.find(x=>x.id===id);
-      const newGastos=gastos.filter(x=>x.id!==id);
-      const adj=g&&g._quick?n(g.monto):0;
-      return{...p,[`${cid}_gastos`]:newGastos,cashOffset:n(p.cashOffset||0)+adj};
-    });
+    setData(p=>({...p,[`${cid}_gastos`]:(p[`${cid}_gastos`]||[]).filter(x=>x.id!==id)}));
   },[]);
   const reorder=useCallback((cid,list)=>setData(p=>({...p,[`${cid}_gastos`]:list})),[]);
   const addGasto=useCallback(cid=>{const nid=Date.now();setData(p=>({...p,[`${cid}_gastos`]:[...(p[`${cid}_gastos`]||[]),{id:nid,nombre:"",monto:0,cat:"other",state:"pending",pagado:false,destino:"other",tarjetaRef:"",diaPago:null,_quick:false}]}));setTimeout(()=>setEditId(nid),30);},[]);
@@ -616,17 +610,16 @@ function App(){
         nombre:quickNote.trim(),
         monto:m,
         cat:"other",
-        state:"paid",   // ← auto-paid: it was already spent
+        state:"paid",
         pagado:true,
         destino:"temp",
         tarjetaRef:"",
         diaPago:null,
         _quick:true
       }],
-      cashOffset:n(p.cashOffset||0)-m,
     }));
     setQuickNote("");setQuickAmt("");setQuickOpen(false);
-    toast_(`✅ "${quickNote.trim()}" ${fmt(m)} — marked paid`);
+    toast_(`✅ "${quickNote.trim()}" ${fmt(m)} added & paid`);
   };
 
   // ── Move money ────────────────────────────────────────────────────────────────
@@ -740,7 +733,7 @@ function App(){
 
   const TABS=[
     {id:"overview",icon:"📊",label:"Overview"},
-    ...checks.map((c,ci)=>({id:c.id,icon:c.icon,label:c.label,active:ci===activeCheckIdx})),
+    ...checks.map((c,ci)=>({id:c.id,icon:c.icon,label:c.label,active:ci===activeCheckIdx,statusLabel:ci===activeCheckIdx?"Current":ci===(activeCheckIdx+1)%checks.length?"Upcoming":null})),
     {id:"debts",   icon:"💳",label:"Debts",urgent:urgentDebts.length>0},
     {id:"calendar",icon:"📅",label:"Calendar"},
     {id:"history", icon:"📆",label:"History"},
@@ -833,10 +826,12 @@ function App(){
 
         {/* Tabs */}
         <div className="tabs">
-          {TABS.map(t=>(<button key={t.id} style={{...BTN,padding:"7px 11px",fontSize:10,whiteSpace:"nowrap",flexShrink:0,background:tab===t.id?T.accent:T.surface2,color:tab===t.id?(theme==="dark"?"#0d1117":"#fff"):T.muted,border:`1px solid ${tab===t.id?T.accent:t.urgent?"#f85149":T.border}`,position:"relative"}} onClick={()=>setTab(t.id)}>
-            {t.icon} {t.label}
+          {TABS.map(t=>(<button key={t.id} style={{...BTN,padding:"7px 11px",fontSize:10,whiteSpace:"nowrap",flexShrink:0,background:tab===t.id?T.accent:T.surface2,color:tab===t.id?(theme==="dark"?"#0d1117":"#fff"):T.muted,border:`1px solid ${tab===t.id?T.accent:t.urgent?"#f85149":t.statusLabel==="Current"?"#3fb950":T.border}`,position:"relative"}} onClick={()=>setTab(t.id)}>
+            <div style={{display:"flex",flexDirection:"column",alignItems:"center",gap:1}}>
+              <span>{t.icon} {t.label}</span>
+              {t.statusLabel&&<span style={{fontSize:8,fontWeight:700,letterSpacing:0.5,color:tab===t.id?(theme==="dark"?"#0d1117":"#fff"):t.statusLabel==="Current"?"#3fb950":"#d29922",lineHeight:1}}>{t.statusLabel.toUpperCase()}</span>}
+            </div>
             {t.urgent&&tab!==t.id&&<span style={{position:"absolute",top:-3,right:-3,width:8,height:8,borderRadius:"50%",background:"#f85149",border:"2px solid "+T.bg}}/>}
-            {t.active&&tab!==t.id&&<span style={{position:"absolute",top:-3,right:-3,width:8,height:8,borderRadius:"50%",background:"#3fb950",border:"2px solid "+T.bg}}/>}
           </button>))}
         </div>
 
