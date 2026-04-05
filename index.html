@@ -29,6 +29,12 @@
     body.light{background:#f6f8fa;color:#1c2128;}
     ::-webkit-scrollbar{width:3px;}::-webkit-scrollbar-thumb{background:#30363d;}
     input[type=text],input[type=number],input[type=email],input[type=date],select,textarea{font-size:16px!important;-webkit-text-size-adjust:100%!important;}
+    /* ── Fix 1: prevent iOS text-selection on interactive expense rows ── */
+    .expense-row{
+      user-select:none;
+      -webkit-user-select:none;
+      -webkit-touch-callout:none;
+    }
   </style>
 </head>
 <body class="dark">
@@ -259,7 +265,6 @@ const migrate=raw=>{
         const key=i===0?curKey:prevKey;
         if(!periods[key])periods[key]={gastos:[]};
         periods[key].gastos=[...(periods[key].gastos||[]),...gastos];
-        // Do NOT store amount here — legacy data will fall back to global checkAmount
       }
     });
     const defaultAmt=n(raw.c1||raw.c2||raw.check1||raw.check2||raw.cheque1||raw.cheque2||1520);
@@ -338,12 +343,20 @@ const DragList=memo(({items,onReorder,renderItem})=>{
   return(<div>{items.map((item,i)=>(<div key={item.id} ref={el=>refs.current[i]=el} style={{opacity:drag===i?0.35:1,transition:"opacity 0.1s"}}>{renderItem(item,i,{onTouchStart:e=>onTS(e,i),onTouchMove:e=>onTM(e,i),onTouchEnd:onTE})}</div>))}</div>);
 });
 
+// ── Fix 2: GastoItem with auto-fill due day when credit card is selected ──────
 const GastoItem=memo(({item,pid,editId,setEditId,tarjetas,onCycle,onLongPress,onUpdate,onRemove,touch,T})=>{
   const dest=gds(item.destino,item.tarjetaRef);
   const INP=mkINP(T),BTN=mkBTN(),CARD=mkCARD(T);
   const pressTimer=useRef(null);
   const hTS=()=>{pressTimer.current=setTimeout(()=>onLongPress(item.id),500);};
   const hTE=()=>clearTimeout(pressTimer.current);
+
+  // ── Fix 2 helper: look up fechaPago for a card name ──
+  const getCardDueDay=(cardName)=>{
+    if(!cardName)return null;
+    const card=tarjetas.find(t=>t.nombre===cardName);
+    return card&&card.fechaPago?parseInt(card.fechaPago)||null:null;
+  };
 
   if(editId===item.id)return(
     <div style={{marginBottom:8,...CARD,padding:"14px",border:`1px solid ${T.accent}`}}>
@@ -353,13 +366,41 @@ const GastoItem=memo(({item,pid,editId,setEditId,tarjetas,onCycle,onLongPress,on
         <div style={{fontSize:10,color:T.muted,marginBottom:5}}>DESTINATION</div>
         <div style={{display:"flex",flexWrap:"wrap",gap:5}}>
           {Object.entries(DEST).map(([k,d])=>(<button key={k} style={{...BTN,padding:"5px 9px",fontSize:11,background:item.destino===k?d.bg:"#21262d",color:item.destino===k?d.color:T.muted,border:`1px solid ${item.destino===k?d.border:T.border}`}}
-            onMouseDown={e=>{e.preventDefault();onUpdate(item.id,"destino",k);if(k!=="credit_card")onUpdate(item.id,"tarjetaRef","");}}>
+            onMouseDown={e=>{
+              e.preventDefault();
+              onUpdate(item.id,"destino",k);
+              if(k!=="credit_card"){
+                onUpdate(item.id,"tarjetaRef","");
+              }
+            }}>
             {d.icon} {d.label}
           </button>))}
         </div>
       </div>
-      {item.destino==="credit_card"&&(<div style={{marginBottom:10}}><div style={{fontSize:10,color:T.muted,marginBottom:5}}>WHICH CARD?</div><select style={INP} value={item.tarjetaRef} onChange={e=>onUpdate(item.id,"tarjetaRef",e.target.value)}><option value="">Select...</option>{tarjetas.map(t=><option key={t.id} value={t.nombre}>{t.nombre}</option>)}</select></div>)}
-      <div style={{marginBottom:12}}><div style={{fontSize:10,color:T.muted,marginBottom:5}}>DUE DAY (optional)</div><input style={INP} type="number" inputMode="numeric" placeholder="e.g. 7" value={item.diaPago||""} onChange={e=>onUpdate(item.id,"diaPago",e.target.value?parseInt(e.target.value):null)}/></div>
+      {item.destino==="credit_card"&&(
+        <div style={{marginBottom:10}}>
+          <div style={{fontSize:10,color:T.muted,marginBottom:5}}>WHICH CARD?</div>
+          <select style={INP} value={item.tarjetaRef} onChange={e=>{
+            const cardName=e.target.value;
+            onUpdate(item.id,"tarjetaRef",cardName);
+            // ── Fix 2: auto-fill due day from selected card's fechaPago ──
+            const dueDay=getCardDueDay(cardName);
+            if(dueDay)onUpdate(item.id,"diaPago",dueDay);
+          }}>
+            <option value="">Select...</option>
+            {tarjetas.map(t=><option key={t.id} value={t.nombre}>{t.nombre}{t.fechaPago?` (due ${t.fechaPago})`:""}</option>)}
+          </select>
+        </div>
+      )}
+      <div style={{marginBottom:12}}>
+        <div style={{fontSize:10,color:T.muted,marginBottom:5}}>
+          DUE DAY (optional)
+          {item.destino==="credit_card"&&item.tarjetaRef&&getCardDueDay(item.tarjetaRef)&&(
+            <span style={{marginLeft:6,color:"#58a6ff",fontSize:9}}>← auto-filled from card</span>
+          )}
+        </div>
+        <input style={INP} type="number" inputMode="numeric" placeholder="e.g. 7" value={item.diaPago||""} onChange={e=>onUpdate(item.id,"diaPago",e.target.value?parseInt(e.target.value):null)}/>
+      </div>
       <div style={{display:"flex",gap:8}}>
         <button style={{...BTN,flex:1,padding:"11px",background:"#238636",color:"#fff",fontSize:14}} onClick={()=>setEditId(null)}>✓ Done</button>
         <button style={{...BTN,padding:"11px 14px",background:"rgba(248,81,73,0.15)",color:"#f85149",fontSize:14}} onClick={()=>{onRemove(item.id);setEditId(null);}}>🗑</button>
@@ -370,7 +411,8 @@ const GastoItem=memo(({item,pid,editId,setEditId,tarjetas,onCycle,onLongPress,on
   const stBg={pending:"transparent",reserved:"rgba(210,153,34,0.07)",paid:"rgba(63,185,80,0.07)"}[item.state||"pending"];
   const stBorder={pending:T.border,reserved:"rgba(210,153,34,0.3)",paid:"#2ea043"}[item.state||"pending"];
   return(
-    <div style={{marginBottom:7}}>
+    // ── Fix 1: expense-row class prevents iOS text-selection on long-press ──
+    <div className="expense-row" style={{marginBottom:7}}>
       <div style={{display:"flex",alignItems:"center",gap:8,padding:"10px 11px",borderRadius:11,background:stBg,border:`1px solid ${stBorder}`,transition:"background 0.15s,border 0.15s"}}>
         <div onTouchStart={touch.onTouchStart} onTouchMove={touch.onTouchMove} onTouchEnd={touch.onTouchEnd}
           style={{display:"flex",flexDirection:"column",gap:3,padding:"6px 5px",flexShrink:0,touchAction:"none",cursor:"grab"}}>
@@ -416,14 +458,12 @@ const DebtCard=memo(({debt,idx,isFirst,tipo,accion,setAccion,montoAccion,setMont
   const dpLabel=dp===0?"TODAY 🎉":dp===null?null:`${dp}d left`;
   const showEdit=editing||isAdding;
 
-  // color helpers for due date
   const dueBg=dp<=0?"rgba(88,166,255,0.1)":dp<=5?"rgba(248,81,73,0.1)":"rgba(63,185,80,0.07)";
   const dueBorder=dp<=0?"rgba(88,166,255,0.3)":dp<=5?"rgba(248,81,73,0.3)":"rgba(63,185,80,0.2)";
   const dueColor=dp<=0?"#58a6ff":dp<=5?"#f85149":"#3fb950";
 
   return(
     <div style={{...CARD,padding:"15px 17px",marginBottom:12,borderColor:isFirst?"#d29922":showEdit?"rgba(88,166,255,0.5)":T.border,transition:"border-color 0.2s"}}>
-      {/* ── Header row ── */}
       <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:8}}>
         {isFirst?<div style={{padding:"2px 9px",borderRadius:20,fontSize:10,fontWeight:700,background:"rgba(210,153,34,0.15)",color:"#d29922"}}>🎯 ATTACK FIRST</div>:<div style={{padding:"2px 9px",borderRadius:20,fontSize:10,fontWeight:700,background:T.surface2,color:T.muted}}>#{idx+1}</div>}
         <div style={{display:"flex",gap:6,alignItems:"center"}}>
@@ -437,20 +477,17 @@ const DebtCard=memo(({debt,idx,isFirst,tipo,accion,setAccion,montoAccion,setMont
         </div>
       </div>
 
-      {/* ── Name field — always editable inline ── */}
       {showEdit
         ?<input style={{...INP,fontWeight:700,fontSize:15,marginBottom:12,background:"transparent",border:"none",borderBottom:`1.5px solid ${T.accent}`,borderRadius:0,padding:"3px 0"}} value={debt.nombre} onChange={e=>onUpdate(debt.id,"nombre",e.target.value)} autoFocus={editing&&!isAdding}/>
         :<div style={{fontWeight:700,fontSize:15,marginBottom:12,paddingBottom:6,borderBottom:`1px solid ${T.border}`,color:T.text}}>{debt.nombre}</div>
       }
 
-      {/* ── Progress bars (always visible) ── */}
       {tipo==="card"&&<LimitBar balance={n(debt.balance)} limite={n(debt.limite)} T={T}/>}
       {tipo==="loan"&&n(debt.original)>0&&(<div style={{marginBottom:12}}>
         <div style={{display:"flex",justifyContent:"space-between",fontSize:11,marginBottom:5}}><span style={{color:T.muted}}>Paid {fmt(n(debt.original)-n(debt.balance))} of {fmt(debt.original)}</span><span style={{color:"#3fb950",fontWeight:700}}>{pct}% done</span></div>
         <div style={{height:9,background:T.surface2,borderRadius:8,overflow:"hidden"}}><div style={{height:"100%",width:`${pct}%`,background:"linear-gradient(90deg,#3fb950,#58a6ff)",borderRadius:8}}/></div>
       </div>)}
 
-      {/* ── Loan next payment breakdown (always visible) ── */}
       {tipo==="loan"&&lc&&n(lc.interest)>0&&(<div style={{background:"rgba(210,153,34,0.07)",border:"1px solid rgba(210,153,34,0.2)",borderRadius:10,padding:"10px 12px",marginBottom:12}}>
         <div style={{fontSize:10,color:"#d29922",fontWeight:700,marginBottom:8}}>📊 NEXT PAYMENT BREAKDOWN</div>
         <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:6}}>
@@ -461,7 +498,6 @@ const DebtCard=memo(({debt,idx,isFirst,tipo,accion,setAccion,montoAccion,setMont
         </div>
       </div>)}
 
-      {/* ── EDIT MODE: numeric input fields ── */}
       {showEdit&&(<>
         <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:7,marginBottom:10}}>
           {(isAdding?newFields:fields).map(([l,f])=>(<div key={f}><div style={{fontSize:9,color:T.muted,marginBottom:4}}>{l}</div><input style={{...INP,fontSize:14,padding:"8px 11px"}} type="number" inputMode="decimal" value={debt[f]||""} onChange={e=>onUpdate(debt.id,f,e.target.value)}/></div>))}
@@ -473,9 +509,7 @@ const DebtCard=memo(({debt,idx,isFirst,tipo,accion,setAccion,montoAccion,setMont
         {isAdding&&<button style={{...BTN,width:"100%",padding:"11px",background:"#238636",color:"#fff",fontSize:14,marginBottom:4}} onClick={()=>setAddingDebt(null)}>✓ Done Adding</button>}
       </>)}
 
-      {/* ── VIEW MODE: clean date display ── */}
       {!showEdit&&(<>
-        {/* Stats row */}
         <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:7,marginBottom:10}}>
           {(tipo==="card"
             ?[["Balance",fmt(n(debt.balance)),"#ec4899"],[`Limit`,fmt(n(debt.limite)),T.muted],["Min/mo",fmt(n(debt.minimo)),"#f85149"],["APR",n(debt.interes)+"%","#d29922"]]
@@ -488,7 +522,6 @@ const DebtCard=memo(({debt,idx,isFirst,tipo,accion,setAccion,montoAccion,setMont
           ))}
         </div>
 
-        {/* Due date display */}
         {fpd&&dp!==null&&(
           <div style={{padding:"9px 13px",borderRadius:9,background:dueBg,border:`1px solid ${dueBorder}`,marginBottom:tipo==="card"&&fcd?8:10,display:"flex",justifyContent:"space-between",alignItems:"center"}}>
             <div>
@@ -499,7 +532,6 @@ const DebtCard=memo(({debt,idx,isFirst,tipo,accion,setAccion,montoAccion,setMont
           </div>
         )}
 
-        {/* Cutoff date display (cards only) */}
         {tipo==="card"&&fcd&&(
           <div style={{padding:"8px 13px",borderRadius:9,background:T.surface2,border:`1px solid ${T.border}`,marginBottom:10,display:"flex",justifyContent:"space-between",alignItems:"center"}}>
             <div>
@@ -511,7 +543,6 @@ const DebtCard=memo(({debt,idx,isFirst,tipo,accion,setAccion,montoAccion,setMont
         )}
       </>)}
 
-      {/* ── Min/check + interest row (always visible when not in add mode) ── */}
       {!isAdding&&(
         <div style={{fontSize:11,color:T.muted,marginBottom:10,display:"flex",justifyContent:"space-between",paddingTop:2}}>
           <span>Min/check: <strong style={{color:T.text}}>{fmt(n(debt.minimo)/2)}</strong></span>
@@ -519,7 +550,6 @@ const DebtCard=memo(({debt,idx,isFirst,tipo,accion,setAccion,montoAccion,setMont
         </div>
       )}
 
-      {/* ── Payment / Charge actions (hidden while editing or adding) ── */}
       {!isAdding&&!editing&&(
         isActive?(<div style={{background:T.bg,borderRadius:10,padding:"12px",border:`1px solid ${accion.tipo==="pago"?"#3fb950":"#f85149"}`}}>
           <div style={{fontSize:12,fontWeight:700,color:accion.tipo==="pago"?"#3fb950":"#f85149",marginBottom:8}}>{accion.tipo==="pago"?"💳 How much did you pay?":"🛒 How much did you charge?"}</div>
@@ -599,17 +629,14 @@ function App(){
   const nextPayday=useMemo(()=>getNextPayday(anchor,freq),[anchor,freq,today]);
   const diasProx=nextPayday?Math.ceil((nextPayday-today)/86400000):null;
 
-  // Helper: get gastos for a period
   const getPGastos=pid=>(data.periods[pid]||{}).gastos||[];
 
-  // Helper: get the effective amount for a period (period-specific or fall back to global)
   const getPeriodAmount=useCallback(pid=>{
     const stored=(data.periods[pid]||{}).amount;
     if(stored!=null&&stored!==undefined&&n(stored)>0)return n(stored);
     return globalCheckAmount;
   },[data.periods,globalCheckAmount]);
 
-  // Helper: set period-specific amount
   const setPeriodAmount=useCallback((pid,val)=>{
     setData(p=>({
       ...p,
@@ -623,7 +650,6 @@ function App(){
     }));
   },[]);
 
-  // Monthly totals using each period's real amount
   const totalMonthlyIncome=monthPeriods.reduce((s,p)=>s+getPeriodAmount(p.id),0);
   const totalMonthlyExp=monthPeriods.reduce((s,p)=>s+getPGastos(p.id).reduce((ss,g)=>ss+n(g.monto),0),0);
 
@@ -649,7 +675,6 @@ function App(){
     if(dx>0&&idx>0)setTab(TABS_ORDER[idx-1]);
   },[tab,TABS_ORDER]);
 
-  // Period CRUD helpers
   const updPeriodGastos=(pid,fn)=>setData(p=>{
     const cur=(p.periods[pid]||{}).gastos||[];
     return{...p,periods:{...p.periods,[pid]:{...(p.periods[pid]||{}),gastos:fn(cur)}}};
@@ -733,7 +758,6 @@ function App(){
   const renderCheckTab=(period)=>{
     const{id:pid,label,isCurrent,isUpcoming,statusLabel,payday}=period;
     const gastos=getPGastos(pid);
-    // Use per-period amount (falls back to global if not set)
     const amt=getPeriodAmount(pid);
     const periodAmountIsCustom=(data.periods[pid]||{}).amount!=null&&n((data.periods[pid]||{}).amount)>0&&n((data.periods[pid]||{}).amount)!==globalCheckAmount;
     const total=gastos.reduce((s,g)=>s+n(g.monto),0);
@@ -1027,22 +1051,72 @@ function App(){
 
         {monthPeriods.map(p=>tab===p.id&&<div key={p.id}>{renderCheckTab(p)}</div>)}
 
-        {tab==="debts"&&(<div className="anim">
-          <div style={{background:"rgba(210,153,34,0.07)",border:"1px solid rgba(210,153,34,0.2)",borderRadius:11,padding:"10px 13px",marginBottom:12,fontSize:11,color:T.muted}}>
-            🎯 Avalanche: pay minimums on all · all extra to <strong style={{color:"#d29922"}}>{allDebts[0]?.nombre}</strong> ({allDebts[0]?.interes}% APR)
-          </div>
-          {allDebts.map((d,i)=>(<DebtCard key={d.id} debt={d} idx={i} isFirst={i===0} tipo={d.tipo} accion={accion} setAccion={setAccion} montoAccion={montoAccion} setMontoAccion={setMontoAccion} onApply={applyAccion} onUpdate={d.tipo==="card"?updateTarjeta:updateLoan} onRemove={d.tipo==="card"?removeTarjeta:removeLoan} isAdding={addingDebt?.id===d.id} setAddingDebt={setAddingDebt} T={T}/>))}
-          <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8,marginBottom:12}}>
-            <button style={{...BTN,padding:"11px",background:"transparent",color:T.accent,fontSize:12,border:`1.5px dashed ${T.border}`}} onClick={addCard}>+ Add Card</button>
-            <button style={{...BTN,padding:"11px",background:"transparent",color:"#f97316",fontSize:12,border:`1.5px dashed ${T.border}`}} onClick={addLoan}>+ Add Loan</button>
-          </div>
-          <div style={{...CARD,padding:"13px 17px",background:"rgba(248,81,73,0.04)",borderColor:"#da3633"}}>
-            <div style={{display:"flex",justifyContent:"space-between",marginBottom:5}}><span style={{fontSize:12,color:T.muted}}>Total debt</span><span style={{fontFamily:"monospace",fontWeight:800,fontSize:20,color:"#f85149"}}>{fmt(totalDebt)}</span></div>
-            <div style={{display:"flex",justifyContent:"space-between",marginBottom:4}}><span style={{fontSize:11,color:T.muted}}>Cards</span><span style={{fontFamily:"monospace",fontWeight:700,color:"#ec4899",fontSize:12}}>{fmt(data.tarjetas.reduce((s,t)=>s+n(t.balance),0))}</span></div>
-            <div style={{display:"flex",justifyContent:"space-between",marginBottom:4}}><span style={{fontSize:11,color:T.muted}}>Loans</span><span style={{fontFamily:"monospace",fontWeight:700,color:"#f97316",fontSize:12}}>{fmt((data.loans||[]).reduce((s,l)=>s+n(l.balance),0))}</span></div>
-            <div style={{display:"flex",justifyContent:"space-between"}}><span style={{fontSize:11,color:T.muted}}>Monthly interest</span><span style={{fontFamily:"monospace",fontWeight:700,color:"#d29922",fontSize:12}}>{fmt(interesTotal)}/mo</span></div>
-          </div>
-        </div>)}
+        {/* ── Fix 3: Debts tab split into Credit Cards + Loans sections ── */}
+        {tab==="debts"&&(()=>{
+          const cards=allDebts.filter(d=>d.tipo==="card");
+          const loans=allDebts.filter(d=>d.tipo==="loan");
+          // avalanche target is still the first of allDebts (highest APR overall)
+          const avalancheTarget=allDebts[0];
+          const totalCards=data.tarjetas.reduce((s,t)=>s+n(t.balance),0);
+          const totalLoans=(data.loans||[]).reduce((s,l)=>s+n(l.balance),0);
+          return(<div className="anim">
+            <div style={{background:"rgba(210,153,34,0.07)",border:"1px solid rgba(210,153,34,0.2)",borderRadius:11,padding:"10px 13px",marginBottom:16,fontSize:11,color:T.muted}}>
+              🎯 Avalanche: pay minimums on all · all extra to <strong style={{color:"#d29922"}}>{avalancheTarget?.nombre}</strong> ({avalancheTarget?.interes}% APR)
+            </div>
+
+            {/* ── Credit Cards section ── */}
+            {cards.length>0&&(<>
+              <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:10}}>
+                <div style={{height:1,flex:1,background:T.border}}/>
+                <div style={{display:"flex",alignItems:"center",gap:6,padding:"4px 12px",borderRadius:20,background:"rgba(236,72,153,0.1)",border:"1px solid rgba(236,72,153,0.25)"}}>
+                  <span style={{fontSize:13}}>💳</span>
+                  <span style={{fontSize:11,fontWeight:700,color:"#ec4899",letterSpacing:0.5}}>CREDIT CARDS</span>
+                  <span style={{fontSize:10,color:"#ec4899",fontFamily:"monospace",fontWeight:700}}>{fmt(totalCards)}</span>
+                </div>
+                <div style={{height:1,flex:1,background:T.border}}/>
+              </div>
+              {cards.map((d,i)=>{
+                const globalIdx=allDebts.findIndex(x=>x.id===d.id&&x.tipo===d.tipo);
+                return(<DebtCard key={d.id} debt={d} idx={globalIdx} isFirst={globalIdx===0} tipo="card" accion={accion} setAccion={setAccion} montoAccion={montoAccion} setMontoAccion={setMontoAccion} onApply={applyAccion} onUpdate={updateTarjeta} onRemove={removeTarjeta} isAdding={addingDebt?.id===d.id} setAddingDebt={setAddingDebt} T={T}/>);
+              })}
+              <button style={{...BTN,width:"100%",marginBottom:20,padding:"10px",background:"transparent",color:T.accent,fontSize:12,border:`1.5px dashed ${T.border}`}} onClick={addCard}>+ Add Card</button>
+            </>)}
+
+            {/* ── Loans section ── */}
+            {loans.length>0&&(<>
+              <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:10}}>
+                <div style={{height:1,flex:1,background:T.border}}/>
+                <div style={{display:"flex",alignItems:"center",gap:6,padding:"4px 12px",borderRadius:20,background:"rgba(249,115,22,0.1)",border:"1px solid rgba(249,115,22,0.25)"}}>
+                  <span style={{fontSize:13}}>🚗</span>
+                  <span style={{fontSize:11,fontWeight:700,color:"#f97316",letterSpacing:0.5}}>LOANS</span>
+                  <span style={{fontSize:10,color:"#f97316",fontFamily:"monospace",fontWeight:700}}>{fmt(totalLoans)}</span>
+                </div>
+                <div style={{height:1,flex:1,background:T.border}}/>
+              </div>
+              {loans.map((d,i)=>{
+                const globalIdx=allDebts.findIndex(x=>x.id===d.id&&x.tipo===d.tipo);
+                return(<DebtCard key={d.id} debt={d} idx={globalIdx} isFirst={globalIdx===0} tipo="loan" accion={accion} setAccion={setAccion} montoAccion={montoAccion} setMontoAccion={setMontoAccion} onApply={applyAccion} onUpdate={updateLoan} onRemove={removeLoan} isAdding={addingDebt?.id===d.id} setAddingDebt={setAddingDebt} T={T}/>);
+              })}
+              <button style={{...BTN,width:"100%",marginBottom:20,padding:"10px",background:"transparent",color:"#f97316",fontSize:12,border:`1.5px dashed ${T.border}`}} onClick={addLoan}>+ Add Loan</button>
+            </>)}
+
+            {/* Show add buttons even when sections are empty */}
+            {cards.length===0&&(
+              <button style={{...BTN,width:"100%",marginBottom:12,padding:"11px",background:"transparent",color:T.accent,fontSize:12,border:`1.5px dashed ${T.border}`}} onClick={addCard}>+ Add Card</button>
+            )}
+            {loans.length===0&&(
+              <button style={{...BTN,width:"100%",marginBottom:12,padding:"11px",background:"transparent",color:"#f97316",fontSize:12,border:`1.5px dashed ${T.border}`}} onClick={addLoan}>+ Add Loan</button>
+            )}
+
+            {/* ── Summary footer ── */}
+            <div style={{...CARD,padding:"13px 17px",background:"rgba(248,81,73,0.04)",borderColor:"#da3633"}}>
+              <div style={{display:"flex",justifyContent:"space-between",marginBottom:5}}><span style={{fontSize:12,color:T.muted}}>Total debt</span><span style={{fontFamily:"monospace",fontWeight:800,fontSize:20,color:"#f85149"}}>{fmt(totalDebt)}</span></div>
+              <div style={{display:"flex",justifyContent:"space-between",marginBottom:4}}><span style={{fontSize:11,color:T.muted}}>Cards</span><span style={{fontFamily:"monospace",fontWeight:700,color:"#ec4899",fontSize:12}}>{fmt(totalCards)}</span></div>
+              <div style={{display:"flex",justifyContent:"space-between",marginBottom:4}}><span style={{fontSize:11,color:T.muted}}>Loans</span><span style={{fontFamily:"monospace",fontWeight:700,color:"#f97316",fontSize:12}}>{fmt(totalLoans)}</span></div>
+              <div style={{display:"flex",justifyContent:"space-between"}}><span style={{fontSize:11,color:T.muted}}>Monthly interest</span><span style={{fontFamily:"monospace",fontWeight:700,color:"#d29922",fontSize:12}}>{fmt(interesTotal)}/mo</span></div>
+            </div>
+          </div>);
+        })()}
 
         {tab==="calendar"&&(()=>{
           const hoy=new Date();hoy.setHours(0,0,0,0);const en35=new Date(hoy.getTime()+35*86400000);
