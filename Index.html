@@ -105,13 +105,11 @@ const calcLoan=(balance,apr,pmt)=>{
 };
 
 // ── Pay period engine ─────────────────────────────────────────────────────────
-// Parse anchor "YYYY-MM-DD" as local date
 const parseAnchor=anchor=>{
   const[y,m,d]=anchor.split("-").map(Number);
   const dt=new Date(y,m-1,d);dt.setHours(0,0,0,0);return dt;
 };
 
-// All payday dates (period start dates) within a given month
 const getPaydaysInMonth=(anchor,freq,yr,mth)=>{
   if(freq==="semimonthly")return[new Date(yr,mth,1),new Date(yr,mth,15)];
   if(freq==="monthly"){
@@ -134,7 +132,6 @@ const getPaydaysInMonth=(anchor,freq,yr,mth)=>{
   return days;
 };
 
-// The period start that CONTAINS today (period starts on payday and runs until day before next payday)
 const getCurrentPeriodStart=(anchor,freq)=>{
   const today=new Date();today.setHours(0,0,0,0);
   if(freq==="semimonthly"){
@@ -155,7 +152,6 @@ const getCurrentPeriodStart=(anchor,freq)=>{
   return new Date(base.getTime()+periodsDone*step*86400000);
 };
 
-// Next payday after current period start
 const getNextPayday=(anchor,freq)=>{
   const today=new Date();today.setHours(0,0,0,0);
   if(freq==="semimonthly"){
@@ -178,7 +174,6 @@ const getNextPayday=(anchor,freq)=>{
   return new Date(curStart.getTime()+step*86400000);
 };
 
-// Upcoming paydays on or after today
 const getUpcomingPaydays=(anchor,count=8,freq="biweekly")=>{
   const today=new Date();today.setHours(0,0,0,0);
   const days=[];
@@ -205,22 +200,17 @@ const getUpcomingPaydays=(anchor,count=8,freq="biweekly")=>{
   const diffDays=Math.round((today.getTime()-base.getTime())/86400000);
   const periodsDone=today>=base?Math.floor(diffDays/step):0;
   const curStart=new Date(base.getTime()+periodsDone*step*86400000);
-  // next payday is always curStart+step (even if curStart===today)
   let cur=new Date(curStart.getTime()+step*86400000);
   while(days.length<count){days.push(new Date(cur));cur=new Date(cur.getTime()+step*86400000);}
   return days.slice(0,count);
 };
 
-// Build the period descriptors for the current calendar month.
-// Returns [{id, payday, label, num, isCurrent, isUpcoming}]
-// id = "period_YYYY-MM-DD" keyed on period start date
 const buildMonthPeriods=(anchor,freq)=>{
   const today=new Date();today.setHours(0,0,0,0);
   const yr=today.getFullYear(),mth=today.getMonth();
   const paydays=getPaydaysInMonth(anchor,freq,yr,mth);
   const curStart=getCurrentPeriodStart(anchor,freq);
   const curKey="period_"+dateStr(curStart);
-  // Find which index is current and upcoming within this month
   let curIdx=-1;
   paydays.forEach((pd,i)=>{if("period_"+dateStr(pd)===curKey)curIdx=i;});
   return paydays.map((pd,i)=>({
@@ -244,15 +234,11 @@ const migrate=raw=>{
   const anchor=raw.proximoCobro||"2026-04-03";
   const freq=raw.payFreq||"biweekly";
 
-  // Build periods map
   let periods=raw.periods||{};
 
-  // Migrate legacy c1/c2 gastos if periods not yet in data
   if(!raw.periods){
-    // Compute current and previous period start keys
     const curStart=getCurrentPeriodStart(anchor,freq);
     const curKey="period_"+dateStr(curStart);
-    // Previous period start
     let prevStart;
     if(freq==="semimonthly"){
       const d1=new Date(curStart.getFullYear(),curStart.getMonth(),1);
@@ -265,23 +251,20 @@ const migrate=raw=>{
       prevStart=new Date(curStart.getTime()-step);
     }
     const prevKey="period_"+dateStr(prevStart);
-    // legacy check arrays
     const legacyChecks=raw.checks||[{id:"c1",num:1},{id:"c2",num:2}];
     legacyChecks.forEach((c,i)=>{
       const gastos=(raw[`${c.id}_gastos`]||raw[`check${c.num}_gastos`]||raw[`cheque${c.num}_gastos`]||[]).map(mg);
       const amt=n(raw[c.id]||raw[`check${c.num}`]||raw[`cheque${c.num}`]||0);
       if(gastos.length>0||amt>0){
         const key=i===0?curKey:prevKey;
-        if(!periods[key])periods[key]={amount:amt,gastos:[]};
+        if(!periods[key])periods[key]={gastos:[]};
         periods[key].gastos=[...(periods[key].gastos||[]),...gastos];
-        if(!periods[key].amount&&amt)periods[key].amount=amt;
+        // Do NOT store amount here — legacy data will fall back to global checkAmount
       }
     });
-    // Default amount from any check
     const defaultAmt=n(raw.c1||raw.c2||raw.check1||raw.check2||raw.cheque1||raw.cheque2||1520);
     if(!raw.checkAmount)raw.checkAmount=defaultAmt;
   } else {
-    // Re-migrate gastos within existing periods
     Object.keys(periods).forEach(k=>{
       if(periods[k].gastos)periods[k]={...periods[k],gastos:periods[k].gastos.map(mg)};
     });
@@ -537,15 +520,13 @@ function App(){
 
   const freq=data.payFreq||"biweekly";
   const anchor=data.proximoCobro||"2026-04-03";
-  const checkAmount=n(data.checkAmount||1520);
+  const globalCheckAmount=n(data.checkAmount||1520);
   const today=useMemo(()=>{const d=new Date();d.setHours(0,0,0,0);return d;},[]);
 
-  // Dynamic month periods — computed fresh from anchor+freq+today
   const monthPeriods=useMemo(()=>buildMonthPeriods(anchor,freq),[anchor,freq,today]);
   const currentPeriod=monthPeriods.find(p=>p.isCurrent)||monthPeriods[0];
   const currentPid=currentPeriod?.id||"";
 
-  // Upcoming paydays
   const upcomingPaydays=useMemo(()=>getUpcomingPaydays(anchor,8,freq),[anchor,freq,today]);
   const nextPayday=useMemo(()=>getNextPayday(anchor,freq),[anchor,freq,today]);
   const diasProx=nextPayday?Math.ceil((nextPayday-today)/86400000):null;
@@ -553,8 +534,29 @@ function App(){
   // Helper: get gastos for a period
   const getPGastos=pid=>(data.periods[pid]||{}).gastos||[];
 
-  // Monthly totals across all month periods
-  const totalMonthlyIncome=checkAmount*monthPeriods.length;
+  // Helper: get the effective amount for a period (period-specific or fall back to global)
+  const getPeriodAmount=useCallback(pid=>{
+    const stored=(data.periods[pid]||{}).amount;
+    if(stored!=null&&stored!==undefined&&n(stored)>0)return n(stored);
+    return globalCheckAmount;
+  },[data.periods,globalCheckAmount]);
+
+  // Helper: set period-specific amount
+  const setPeriodAmount=useCallback((pid,val)=>{
+    setData(p=>({
+      ...p,
+      periods:{
+        ...p.periods,
+        [pid]:{
+          ...(p.periods[pid]||{}),
+          amount:parseFloat(val)||0,
+        }
+      }
+    }));
+  },[]);
+
+  // Monthly totals using each period's real amount
+  const totalMonthlyIncome=monthPeriods.reduce((s,p)=>s+getPeriodAmount(p.id),0);
   const totalMonthlyExp=monthPeriods.reduce((s,p)=>s+getPGastos(p.id).reduce((ss,g)=>ss+n(g.monto),0),0);
 
   const allDebts=[...data.tarjetas.map(t=>({...t,tipo:"card"})),...(data.loans||[]).map(l=>({...l,tipo:"loan"}))].sort((a,b)=>n(b.interes)-n(a.interes));
@@ -663,7 +665,9 @@ function App(){
   const renderCheckTab=(period)=>{
     const{id:pid,label,isCurrent,isUpcoming,statusLabel,payday}=period;
     const gastos=getPGastos(pid);
-    const amt=checkAmount;
+    // Use per-period amount (falls back to global if not set)
+    const amt=getPeriodAmount(pid);
+    const periodAmountIsCustom=(data.periods[pid]||{}).amount!=null&&n((data.periods[pid]||{}).amount)>0&&n((data.periods[pid]||{}).amount)!==globalCheckAmount;
     const total=gastos.reduce((s,g)=>s+n(g.monto),0);
     const paid=gastos.filter(g=>g.state==="paid").reduce((s,g)=>s+n(g.monto),0);
     const reserved=gastos.filter(g=>g.state==="reserved").reduce((s,g)=>s+n(g.monto),0);
@@ -683,8 +687,20 @@ function App(){
         </div>}
       </div>
       <div style={{...CARD,padding:"13px 16px",marginBottom:12,borderColor:T.accent}}>
-        <div style={{fontSize:10,color:T.accent,fontWeight:700,letterSpacing:1.5,marginBottom:7}}>{label.toUpperCase()} AMOUNT</div>
-        <input style={{...INP,fontFamily:"monospace",fontSize:22,fontWeight:700}} type="number" inputMode="decimal" value={data.checkAmount||""} onChange={e=>setData(p=>({...p,checkAmount:parseFloat(e.target.value)||0}))}/>
+        <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:7}}>
+          <div style={{fontSize:10,color:T.accent,fontWeight:700,letterSpacing:1.5}}>{label.toUpperCase()} AMOUNT</div>
+          {periodAmountIsCustom&&(
+            <button style={{...BTN,padding:"2px 8px",fontSize:10,background:"rgba(210,153,34,0.1)",color:"#d29922",border:"1px solid rgba(210,153,34,0.3)"}}
+              onClick={()=>setData(p=>{const np={...p.periods};if(np[pid]){const{amount:_,...rest}=np[pid];np[pid]=rest;}return{...p,periods:np};})}>
+              ↩ Use default ({fmt(globalCheckAmount)})
+            </button>
+          )}
+        </div>
+        <input style={{...INP,fontFamily:"monospace",fontSize:22,fontWeight:700}} type="number" inputMode="decimal"
+          value={amt||""}
+          onChange={e=>setPeriodAmount(pid,e.target.value)}
+          placeholder={String(globalCheckAmount)}/>
+        {!periodAmountIsCustom&&<div style={{fontSize:10,color:T.muted,marginTop:5}}>Using default amount · edit to override for this check only</div>}
       </div>
       <div style={{...CARD,padding:"13px 16px",marginBottom:12,borderColor:done?"#2ea043":T.border}}>
         <div style={{display:"flex",justifyContent:"space-between",marginBottom:7}}>
@@ -815,7 +831,7 @@ function App(){
         {tab==="overview"&&(<div className="anim">
           <div className="g2" style={{marginBottom:12}}>
             {[
-              {label:"MONTHLY INCOME",val:totalMonthlyIncome,color:"#3fb950",sub:`${monthPeriods.length} checks × ${fmt(checkAmount)}`},
+              {label:"MONTHLY INCOME",val:totalMonthlyIncome,color:"#3fb950",sub:`${monthPeriods.length} checks · ${monthPeriods.map(p=>fmt(getPeriodAmount(p.id))).join(" + ")}`},
               {label:"MONTHLY EXPENSES",val:totalMonthlyExp,color:"#f85149",sub:"all checks"},
               {label:"NET SURPLUS",val:totalMonthlyIncome-totalMonthlyExp,color:(totalMonthlyIncome-totalMonthlyExp)>=0?"#3fb950":"#f85149",sub:"income − expenses"},
               {label:"TOTAL DEBT",val:totalDebt,color:"#d29922",sub:`~${fmt(interesTotal)}/mo interest`},
@@ -906,15 +922,17 @@ function App(){
 
           {monthPeriods.map(p=>{
             const gastos=getPGastos(p.id);
+            const periodAmt=getPeriodAmount(p.id);
             const total=gastos.reduce((s,g)=>s+n(g.monto),0);
             const paid=gastos.filter(g=>g.state==="paid").reduce((s,g)=>s+n(g.monto),0);
             const reserved=gastos.filter(g=>g.state==="reserved").reduce((s,g)=>s+n(g.monto),0);
-            const sob=checkAmount-total,done=gastos.length>0&&gastos.every(g=>g.state==="paid");
+            const sob=periodAmt-total,done=gastos.length>0&&gastos.every(g=>g.state==="paid");
+            const hasCustomAmt=(data.periods[p.id]||{}).amount!=null&&n((data.periods[p.id]||{}).amount)>0&&n((data.periods[p.id]||{}).amount)!==globalCheckAmount;
             return(<div key={p.id} style={{...CARD,padding:"13px 16px",marginBottom:10,borderColor:p.isCurrent?"#3fb950":done?"#2ea043":T.border}}>
               <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:8}}>
                 <div>
                   <div style={{display:"flex",alignItems:"center",gap:6}}>
-                    <div style={{fontSize:10,color:T.muted,letterSpacing:1.5,fontWeight:700}}>{p.label.toUpperCase()} — {fmt(checkAmount)}</div>
+                    <div style={{fontSize:10,color:T.muted,letterSpacing:1.5,fontWeight:700}}>{p.label.toUpperCase()} — {fmt(periodAmt)}{hasCustomAmt&&<span style={{color:"#d29922",marginLeft:4}}>✎</span>}</div>
                     {p.isCurrent&&<span style={{fontSize:9,color:"#3fb950",fontWeight:700,background:"rgba(63,185,80,0.1)",border:"1px solid rgba(63,185,80,0.3)",borderRadius:5,padding:"1px 5px"}}>ACTIVE</span>}
                   </div>
                   <div style={{fontSize:9,color:T.muted,marginTop:2}}>Payday: {fmd(p.payday)}</div>
@@ -961,8 +979,7 @@ function App(){
         {tab==="calendar"&&(()=>{
           const hoy=new Date();hoy.setHours(0,0,0,0);const en35=new Date(hoy.getTime()+35*86400000);
           const events=[];
-          // Use dynamic upcoming paydays for calendar
-          upcomingPaydays.slice(0,6).forEach((pd,i)=>{if(pd<=en35)events.push({fecha:pd,tipo:"payday",label:`💵 Payday`,color:"#3fb950",monto:checkAmount});});
+          upcomingPaydays.slice(0,6).forEach((pd,i)=>{if(pd<=en35)events.push({fecha:pd,tipo:"payday",label:`💵 Payday`,color:"#3fb950",monto:globalCheckAmount});});
           [...data.tarjetas,...(data.loans||[])].forEach(d=>{
             if(d.fechaPago){const c=new Date(hoy.getFullYear(),hoy.getMonth(),parseInt(d.fechaPago));if(c<hoy)c.setMonth(c.getMonth()+1);if(c<=en35){const tc=CC[d.nombre]||{};events.push({fecha:c,tipo:"payment",label:`${tc.dot||"💳"} ${d.nombre}`,color:tc.color||"#ec4899",monto:d.minimo,dias:getDU(d.fechaPago)});}}
             if(d.fechaCorte){const cc=new Date(hoy.getFullYear(),hoy.getMonth(),parseInt(d.fechaCorte));if(cc<hoy)cc.setMonth(cc.getMonth()+1);if(cc<=en35)events.push({fecha:cc,tipo:"cutoff",label:`✂️ Cutoff ${d.nombre}`,color:T.muted,subtipo:"cutoff"});}
@@ -1047,7 +1064,11 @@ function App(){
           </div>
           <div style={{...CARD,padding:"14px 16px",marginBottom:14}}>
             <div style={{fontSize:11,color:T.accent,letterSpacing:1.5,fontWeight:700,marginBottom:12}}>💵 PAYDAY SETTINGS</div>
-            <div style={{marginBottom:10}}><div style={{fontSize:9,color:T.muted,marginBottom:5}}>PAYCHECK AMOUNT ($)</div><input style={{...INP,fontSize:16,fontFamily:"monospace",fontWeight:700}} type="number" inputMode="decimal" value={data.checkAmount||""} onChange={e=>setData(p=>({...p,checkAmount:parseFloat(e.target.value)||0}))} placeholder="1520"/></div>
+            <div style={{marginBottom:10}}>
+              <div style={{fontSize:9,color:T.muted,marginBottom:5}}>DEFAULT PAYCHECK AMOUNT ($)</div>
+              <input style={{...INP,fontSize:16,fontFamily:"monospace",fontWeight:700}} type="number" inputMode="decimal" value={data.checkAmount||""} onChange={e=>setData(p=>({...p,checkAmount:parseFloat(e.target.value)||0}))} placeholder="1520"/>
+              <div style={{fontSize:10,color:T.muted,marginTop:5}}>Used as the default for all pay periods. You can override each period's amount individually in its own Check tab.</div>
+            </div>
             <div style={{marginBottom:10}}><div style={{fontSize:9,color:T.muted,marginBottom:5}}>ANCHOR PAYDAY DATE</div><input style={{...INP,fontSize:14,padding:"9px 12px"}} type="date" value={data.proximoCobro||""} onChange={e=>setData(p=>({...p,proximoCobro:e.target.value}))}/></div>
             <div style={{marginBottom:10}}><div style={{fontSize:9,color:T.muted,marginBottom:5}}>FREQUENCY</div>
               <select style={{...INP,fontSize:14,padding:"9px 12px"}} value={data.payFreq||"biweekly"} onChange={e=>setData(p=>({...p,payFreq:e.target.value}))}>
@@ -1061,6 +1082,13 @@ function App(){
               <div>This month: <strong style={{color:T.accent}}>{monthPeriods.length} pay period{monthPeriods.length!==1?"s":""}</strong> ({monthPeriods.map(p=>fmd(p.payday)).join(", ")})</div>
               <div>Current: <strong style={{color:T.text}}>{currentPeriod?fmd(currentPeriod.payday):"-"}</strong></div>
               <div>Next payday: <strong style={{color:"#3fb950"}}>{nextPayday?fmd(nextPayday):"-"}</strong> ({diasProx===0?"today":diasProx+"d away"})</div>
+              {monthPeriods.some(p=>(data.periods[p.id]||{}).amount!=null&&n((data.periods[p.id]||{}).amount)>0&&n((data.periods[p.id]||{}).amount)!==globalCheckAmount)&&(
+                <div style={{marginTop:6,paddingTop:6,borderTop:`1px solid ${T.border}`}}>
+                  {monthPeriods.filter(p=>(data.periods[p.id]||{}).amount!=null&&n((data.periods[p.id]||{}).amount)>0&&n((data.periods[p.id]||{}).amount)!==globalCheckAmount).map(p=>(
+                    <div key={p.id} style={{color:"#d29922"}}>✎ {p.label}: <strong>{fmt(n((data.periods[p.id]||{}).amount))}</strong> (custom)</div>
+                  ))}
+                </div>
+              )}
             </div>
           </div>
           <div style={{...CARD,padding:"14px 16px",marginBottom:14}}>
