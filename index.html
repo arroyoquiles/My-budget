@@ -541,8 +541,8 @@ const getSnapshotReminder=(today,snapshots)=>{
     const prevY=today.getMonth()===0?today.getFullYear()-1:today.getFullYear();
     return s.fecha.includes(prevMonthName)&&s.fecha.includes(String(prevY));
   });
-  if(d>=dim-2){if(!hasThisMonth)return{type:"warn",msg:"Save Monthly Snapshot before exporting backup"};else return{type:"info",msg:"Snapshot saved ✓ — Backup recommended"};}
-  if(d<=3){if(!hasPrevMonth)return{type:"warn",msg:`Last month (${prevMonthName}) snapshot missing`};else return{type:"info",msg:"Export monthly backup recommended"};}
+  if(d>=dim-2){if(!hasThisMonth)return{type:"warn",msg:"Save Monthly Snapshot before exporting backup"};else return{type:"info",msg:"Backup recommended"};}
+  if(d<=3){if(!hasPrevMonth)return{type:"warn",msg:`Last month snapshot missing`};else return{type:"info",msg:"Export monthly backup recommended"};}
   return null;
 };
 function App(){
@@ -1101,13 +1101,15 @@ function App(){
           };
           monthPeriods.forEach(p=>{if(p.payday.getMonth()===mth&&p.payday.getFullYear()===yr)addEv(p.payday.getDate(),"Payday","#3fb950");});
           data.tarjetas.forEach(t=>{
-            if(t.fechaPago){const sn=t.nombre.replace(/\s*(card|Card)\s*/i,"").trim();addEv(t.fechaPago,`${sn} due`,"#ec4899");}
-            if(t.fechaCorte){const sn=t.nombre.replace(/\s*(card|Card)\s*/i,"").trim();addEv(t.fechaCorte,`${sn} cutoff`,"#8b949e");}
+            const sn=t.nombre.replace(/\s*(card|Card)\s*/i,"").trim().slice(0,8);
+            if(t.fechaPago)addEv(t.fechaPago,`${sn} due`,"#ec4899");
+            if(t.fechaCorte)addEv(t.fechaCorte,`${sn} cutoff`,"#8b949e");
           });
           (data.loans||[]).forEach(l=>{if(l.fechaPago){const sn=l.nombre.replace(/(loan|Loan)/i,"").replace(/\s+/g," ").trim();addEv(l.fechaPago,sn||"Loan","#f97316");}});
+          const FIXED_CAL_CATS=new Set(["rent","utilities","insurance"]);
           const seenExp=new Set();
           monthPeriods.forEach(p=>{getPGastos(p.id).forEach(g=>{
-            if(!g.diaPago||g.destino==="temp"||g.destino==="other"||g._quick)return;
+            if(!g.diaPago||!FIXED_CAL_CATS.has(g.destino))return;
             const key=g.nombre+g.diaPago;if(seenExp.has(key))return;seenExp.add(key);
             const shortLabel=g.nombre.length>10?g.nombre.slice(0,9)+"…":g.nombre;
             addEv(g.diaPago,shortLabel,"#58a6ff");
