@@ -317,8 +317,6 @@ const mkINP=T=>({display:"block",width:"100%",...T.inp,borderRadius:10,fontFamil
 const mkBTN=()=>({cursor:"pointer",border:"none",borderRadius:10,fontFamily:"inherit",fontWeight:600,WebkitTapHighlightColor:"transparent"});
 const mkCARD=T=>({background:T.surface,border:`1px solid ${T.border}`,borderRadius:14});
 
-// FIX 4: Updated utilization color thresholds
-// 0-29: Healthy (green), 30-49: Acceptable (yellow), 50-74: High (orange), 75-99: Risk (red), 100+: Maxed (strong red)
 const getUtilColor=(pct)=>{
   if(pct>=100)return"#f85149";
   if(pct>=75) return"#da3633";
@@ -577,8 +575,7 @@ function App(){
   const [quickNote,setQuickNote]=useState("");
   const [quickAmt,setQuickAmt]=useState("");
   const [quickPid,setQuickPid]=useState("");
-  // New: quick expense apply-to mode and selected card
-  const [quickApplyTo,setQuickApplyTo]=useState("check"); // "check" | "card"
+  const [quickApplyTo,setQuickApplyTo]=useState("check");
   const [quickCardId,setQuickCardId]=useState("");
   const [moveOpen,setMoveOpen]=useState(false);
   const [moveTo,setMoveTo]=useState("savings_acct");
@@ -625,7 +622,6 @@ function App(){
   const urgentDebts=allDebts.filter(d=>getDU(d.fechaPago)!==null&&getDU(d.fechaPago)<=3);
   const pots=data.pots||{};
   useEffect(()=>{if(!quickPid&&currentPid)setQuickPid(currentPid);},[currentPid]);
-  // Init quickCardId to first card when cards available
   useEffect(()=>{if(!quickCardId&&data.tarjetas.length>0)setQuickCardId(String(data.tarjetas[0].id));},[data.tarjetas]);
   const TABS_ORDER=useMemo(()=>["overview",...monthPeriods.map(p=>p.id),"debts","calendar","history","settings"],[monthPeriods]);
   const handleSwipeTouchStart=useCallback(e=>{
@@ -691,7 +687,6 @@ function App(){
   const addCard=useCallback(()=>{const id=Date.now();setData(p=>({...p,tarjetas:[...p.tarjetas,{id,nombre:"New Card",balance:0,limite:0,minimo:0,interes:0,fechaCorte:"",fechaPago:"",historial:[],tipo:"card"}]}));setAddingDebt({id,tipo:"card"});},[]);
   const addLoan=useCallback(()=>{const id=Date.now();setData(p=>({...p,loans:[...(p.loans||[]),{id,nombre:"New Loan",balance:0,original:0,minimo:0,interes:0,fechaPago:"",historial:[],tipo:"loan"}]}));setAddingDebt({id,tipo:"loan"});},[]);
 
-  // Quick expense: add to check (existing behavior)
   const addQuickExpenseToCheck=()=>{
     const m=parseFloat(quickAmt);if(!m||m<=0||!quickNote.trim())return toast_("Add name and amount","err");
     const pid=quickPid||currentPid;const nid=Date.now();
@@ -699,7 +694,6 @@ function App(){
     setQuickNote("");setQuickAmt("");setQuickOpen(false);toast_(`✅ "${quickNote.trim()}" ${fmt(m)} added & paid`);
   };
 
-  // Quick expense: charge to credit card (same logic as Charge button in DebtCard)
   const addQuickExpenseToCard=()=>{
     const m=parseFloat(quickAmt);if(!m||m<=0)return toast_("Add amount","err");
     if(!quickCardId)return toast_("Select a card","err");
@@ -715,7 +709,6 @@ function App(){
     else addQuickExpenseToCheck();
   };
 
-  // Compute live preview values
   const quickAmtNum=parseFloat(quickAmt)||0;
   const quickPreviewCheck=useMemo(()=>{
     if(quickApplyTo!=="check"||!quickAmtNum)return null;
@@ -736,6 +729,19 @@ function App(){
     const pct=n(card.limite)>0?Math.min(100,Math.round((newBalance/n(card.limite))*100)):null;
     return{newBalance,pct,limite:card.limite};
   },[quickApplyTo,quickAmtNum,quickCardId,data.tarjetas]);
+
+  // Compute min-height for the dynamic section so the modal doesn't jump.
+  // The card selector height depends on number of cards: label row (≈24px) + cards (each ≈42px) + gaps.
+  // The check description field height is: label row (≈24px) + input (≈46px) = ≈70px.
+  // We use the taller of the two as the fixed reserved height.
+  const cardSectionHeight=useMemo(()=>{
+    const cardCount=data.tarjetas.length||1;
+    // label: 24px, each card button ~42px, gaps ~5px each, bottom margin 12px
+    return 24 + cardCount*42 + Math.max(0,cardCount-1)*5 + 12;
+  },[data.tarjetas.length]);
+  // check description section: label 24px + input 46px + bottom margin 10px = 80px
+  const checkDescHeight=80;
+  const dynamicSectionMinHeight=Math.max(cardSectionHeight,checkDescHeight);
 
   const doMoveMoney=()=>{
     const m=parseFloat(moveAmt);if(!m||m<=0)return toast_("Invalid amount","err");
@@ -891,8 +897,6 @@ function App(){
       <button style={{...BTN,position:"fixed",bottom:22,right:18,zIndex:200,width:52,height:52,borderRadius:"50%",background:"#238636",color:"#fff",fontSize:26,boxShadow:"0 4px 20px rgba(35,134,54,0.5)",display:"flex",alignItems:"center",justifyContent:"center"}} onClick={()=>setQuickOpen(true)}>+</button>
 
       {/* ── Quick Expense Modal ── */}
-      {/* FIX 2: Modal uses fixed min-height to prevent jump when keyboard opens/closes and mode switches.
-          The inner content uses a stable layout that doesn't reflow based on keyboard state. */}
       {quickOpen&&(<div style={{position:"fixed",inset:0,zIndex:300,background:"rgba(0,0,0,0.72)",display:"flex",alignItems:"flex-end"}} onClick={e=>{if(e.target===e.currentTarget)setQuickOpen(false);}}>
         <div style={{width:"100%",maxWidth:500,margin:"0 auto",background:T.surface,borderRadius:"20px 20px 0 0",padding:"20px 18px 34px",border:`1px solid ${T.border}`}}>
           <div style={{fontSize:14,fontWeight:700,marginBottom:14}}>⚡ Quick Expense</div>
@@ -906,13 +910,42 @@ function App(){
             </div>
           </div>
 
-          {/* FIX 1 & 3: In check mode show description field; in card mode hide it completely.
-              FIX 2: Use a fixed-height placeholder area to prevent layout jump when switching modes.
-              The "name" row is rendered in check mode; card mode skips it entirely but the amount field
-              is always present so the modal height stays stable. */}
-          {quickApplyTo==="check"&&(
-            <div style={{marginBottom:10}}><div style={{fontSize:10,color:T.muted,marginBottom:5}}>WHAT WAS IT?</div><input style={INP} value={quickNote} onChange={e=>setQuickNote(e.target.value)} placeholder="e.g. Walmart, gas stop..." autoFocus/></div>
-          )}
+          {/*
+            Dynamic section: both check-description and card-selector are always in the DOM.
+            Visibility is toggled via `visibility` + `height/overflow` so the reserved
+            min-height keeps the modal stable when the keyboard is open.
+          */}
+          <div style={{minHeight:dynamicSectionMinHeight}}>
+            {/* Check mode: description field */}
+            <div style={{visibility:quickApplyTo==="check"?"visible":"hidden",height:quickApplyTo==="check"?"auto":0,overflow:"hidden"}}>
+              <div style={{marginBottom:10}}>
+                <div style={{fontSize:10,color:T.muted,marginBottom:5}}>WHAT WAS IT?</div>
+                <input style={INP} value={quickNote} onChange={e=>setQuickNote(e.target.value)} placeholder="e.g. Walmart, gas stop..." autoFocus={quickApplyTo==="check"}/>
+              </div>
+            </div>
+
+            {/* Card mode: card selector */}
+            <div style={{visibility:quickApplyTo==="card"?"visible":"hidden",height:quickApplyTo==="card"?"auto":0,overflow:"hidden"}}>
+              <div style={{marginBottom:12}}>
+                <div style={{fontSize:10,color:T.muted,marginBottom:5}}>WHICH CARD?</div>
+                {data.tarjetas.length===0
+                  ?<div style={{fontSize:11,color:T.muted,padding:"8px 0"}}>No cards found. Add one in Debts.</div>
+                  :<div style={{display:"flex",flexDirection:"column",gap:5}}>
+                    {data.tarjetas.map(t=>{
+                      const tc=CC[t.nombre]||null;
+                      const dot=tc?.dot||"💳";
+                      const cardColor=tc?.color||"#ec4899";
+                      const isSelected=quickCardId===String(t.id);
+                      return(<button key={t.id} style={{...BTN,padding:"9px 12px",fontSize:12,textAlign:"left",background:isSelected?"rgba(236,72,153,0.12)":T.surface2,color:isSelected?cardColor:T.muted,border:`1px solid ${isSelected?(tc?.border||"rgba(236,72,153,0.4)"):T.border}`,display:"flex",justifyContent:"space-between",alignItems:"center"}} onClick={()=>setQuickCardId(String(t.id))}>
+                        <span>{dot} {t.nombre}</span>
+                        <span style={{fontFamily:"monospace",fontSize:11,color:isSelected?cardColor:T.muted}}>{fmt(t.balance)}</span>
+                      </button>);
+                    })}
+                  </div>
+                }
+              </div>
+            </div>
+          </div>
 
           <div style={{marginBottom:10}}><div style={{fontSize:10,color:T.muted,marginBottom:5}}>AMOUNT ($)</div><input style={INP} type="number" inputMode="decimal" value={quickAmt} onChange={e=>setQuickAmt(e.target.value)} placeholder="0" autoFocus={quickApplyTo==="card"}/></div>
 
@@ -922,26 +955,6 @@ function App(){
             <div style={{display:"flex",gap:7,flexWrap:"wrap"}}>
               {monthPeriods.map(p=>(<button key={p.id} style={{...BTN,flex:1,padding:"9px",fontSize:12,background:quickPid===p.id?"rgba(88,166,255,0.2)":T.surface2,color:quickPid===p.id?T.accent:T.muted,border:`1px solid ${quickPid===p.id?T.accent:T.border}`}} onClick={()=>setQuickPid(p.id)}>{p.isCurrent?"💰":"📋"} {p.label}{p.isCurrent?" ✓":""}</button>))}
             </div>
-          </div>)}
-
-          {/* Card selector */}
-          {quickApplyTo==="card"&&(<div style={{marginBottom:12}}>
-            <div style={{fontSize:10,color:T.muted,marginBottom:5}}>WHICH CARD?</div>
-            {data.tarjetas.length===0
-              ?<div style={{fontSize:11,color:T.muted,padding:"8px 0"}}>No cards found. Add one in Debts.</div>
-              :<div style={{display:"flex",flexDirection:"column",gap:5}}>
-                {data.tarjetas.map(t=>{
-                  const tc=CC[t.nombre]||null;
-                  const dot=tc?.dot||"💳";
-                  const cardColor=tc?.color||"#ec4899";
-                  const isSelected=quickCardId===String(t.id);
-                  return(<button key={t.id} style={{...BTN,padding:"9px 12px",fontSize:12,textAlign:"left",background:isSelected?"rgba(236,72,153,0.12)":T.surface2,color:isSelected?cardColor:T.muted,border:`1px solid ${isSelected?(tc?.border||"rgba(236,72,153,0.4)"):T.border}`,display:"flex",justifyContent:"space-between",alignItems:"center"}} onClick={()=>setQuickCardId(String(t.id))}>
-                    <span>{dot} {t.nombre}</span>
-                    <span style={{fontFamily:"monospace",fontSize:11,color:isSelected?cardColor:T.muted}}>{fmt(t.balance)}</span>
-                  </button>);
-                })}
-              </div>
-            }
           </div>)}
 
           {/* Live preview */}
