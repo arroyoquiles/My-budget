@@ -370,7 +370,7 @@ const DragList=memo(({items,onReorder,renderItem})=>{
 
 const getCatIcon=(cat)=>CICONS[cat]||"📌";
 
-const GastoItem=memo(({item,pid,editId,setEditId,tarjetas,onCycle,onLongPress,onUpdate,onRemove,touch,T})=>{
+const GastoItem=memo(({item,pid,editId,setEditId,tarjetas,onCycle,onLongPress,onUpdate,onBatchUpdate,onRemove,touch,T})=>{
   const dest=gds(item.destino,item.tarjetaRef);
   const INP=mkINP(T),BTN=mkBTN(),CARD=mkCARD(T);
   const pressTimer=useRef(null);
@@ -397,10 +397,10 @@ const GastoItem=memo(({item,pid,editId,setEditId,tarjetas,onCycle,onLongPress,on
       <div style={{marginBottom:10}}>
         <div style={{fontSize:10,color:T.muted,marginBottom:5}}>DESTINATION</div>
         {/*
-          Fix 1: Category picker uses a stable CSS grid layout.
-          - grid with fixed 2-column layout prevents any reflow when selection changes
-          - only the selected visual state (background/color/border) updates
-          - no reordering, no regrouping, no layout shift on selection
+          Category picker uses a fixed stable grid layout.
+          DEST_ORDER is a fixed array — never sorted, never regrouped.
+          Only the selected visual state (background/color/border) changes on selection.
+          onBatchUpdate batches destino+cat into a single state update to prevent double re-render jump.
         */}
         <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:5}}>
           {DEST_ORDER.map(k=>{
@@ -429,9 +429,10 @@ const GastoItem=memo(({item,pid,editId,setEditId,tarjetas,onCycle,onLongPress,on
                 }}
                 onMouseDown={e=>{
                   e.preventDefault();
-                  onUpdate(item.id,"destino",k);
-                  onUpdate(item.id,"cat",k);
-                  if(k!=="credit_card")onUpdate(item.id,"tarjetaRef","");
+                  // Batch both field updates into a single state change to prevent layout jump
+                  const updates={destino:k,cat:k};
+                  if(k!=="credit_card")updates.tarjetaRef="";
+                  onBatchUpdate(item.id,updates);
                 }}
               >
                 {d.icon} {d.label}
@@ -445,9 +446,10 @@ const GastoItem=memo(({item,pid,editId,setEditId,tarjetas,onCycle,onLongPress,on
           <div style={{fontSize:10,color:T.muted,marginBottom:5}}>WHICH CARD?</div>
           <select style={INP} value={item.tarjetaRef} onChange={e=>{
             const cardName=e.target.value;
-            onUpdate(item.id,"tarjetaRef",cardName);
             const dueDay=getCardDueDay(cardName);
-            if(dueDay)onUpdate(item.id,"diaPago",dueDay);
+            const updates={tarjetaRef:cardName};
+            if(dueDay)updates.diaPago=dueDay;
+            onBatchUpdate(item.id,updates);
           }}>
             <option value="">Select...</option>
             {tarjetas.map(t=><option key={t.id} value={t.nombre}>{t.nombre}{t.fechaPago?` (due ${t.fechaPago})`:""}</option>)}
@@ -774,6 +776,8 @@ function App(){
   const cycleState=useCallback((pid,id)=>updPeriodGastos(pid,g=>g.map(x=>x.id!==id?x:{...x,state:x.state==="paid"?"pending":"paid",pagado:x.state!=="paid"})),[]);
   const setReserved=useCallback((pid,id)=>updPeriodGastos(pid,g=>g.map(x=>x.id!==id?x:{...x,state:x.state==="reserved"?"pending":"reserved",pagado:false})),[]);
   const updateGasto=useCallback((pid,id,f,v)=>updPeriodGastos(pid,g=>g.map(x=>x.id===id?{...x,[f]:v}:x)),[]);
+  // Batch update: apply multiple field changes in a single state update to prevent double re-render
+  const batchUpdateGasto=useCallback((pid,id,fields)=>updPeriodGastos(pid,g=>g.map(x=>x.id===id?{...x,...fields}:x)),[]);
   const removeGasto=useCallback((pid,id)=>updPeriodGastos(pid,g=>g.filter(x=>x.id!==id)),[]);
   const reorder=useCallback((pid,list)=>updPeriodGastos(pid,()=>list),[]);
   const addGasto=useCallback(pid=>{
@@ -853,7 +857,9 @@ function App(){
         <DragList items={items} onReorder={newItems=>{const rest=gastos.filter(g=>!items.find(i=>i.id===g.id));reorder(pid,[...newItems,...rest]);}}
           renderItem={(item,_,touch)=>(<GastoItem key={item.id} item={item} pid={pid} editId={editId} setEditId={setEditId} tarjetas={data.tarjetas}
             onCycle={id=>cycleState(pid,id)} onLongPress={id=>setReserved(pid,id)}
-            onUpdate={(id,f,v)=>updateGasto(pid,id,f,v)} onRemove={id=>removeGasto(pid,id)} touch={touch} T={T}/>)}/>
+            onUpdate={(id,f,v)=>updateGasto(pid,id,f,v)}
+            onBatchUpdate={(id,fields)=>batchUpdateGasto(pid,id,fields)}
+            onRemove={id=>removeGasto(pid,id)} touch={touch} T={T}/>)}/>
       </div>);
     });
   };
