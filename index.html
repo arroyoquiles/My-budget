@@ -316,13 +316,32 @@ const loadData=()=>{
 const mkINP=T=>({display:"block",width:"100%",...T.inp,borderRadius:10,fontFamily:"inherit",fontSize:"16px",padding:"11px 14px",outline:"none",WebkitAppearance:"none",boxSizing:"border-box"});
 const mkBTN=()=>({cursor:"pointer",border:"none",borderRadius:10,fontFamily:"inherit",fontWeight:600,WebkitTapHighlightColor:"transparent"});
 const mkCARD=T=>({background:T.surface,border:`1px solid ${T.border}`,borderRadius:14});
+
+// FIX 4: Updated utilization color thresholds
+// 0-29: Healthy (green), 30-49: Acceptable (yellow), 50-74: High (orange), 75-99: Risk (red), 100+: Maxed (strong red)
+const getUtilColor=(pct)=>{
+  if(pct>=100)return"#f85149";
+  if(pct>=75) return"#da3633";
+  if(pct>=50) return"#f97316";
+  if(pct>=30) return"#d29922";
+  return"#3fb950";
+};
+const getUtilLabel=(pct)=>{
+  if(pct>=100)return"🔴 Maxed";
+  if(pct>=75) return"🔴 Risk";
+  if(pct>=50) return"🟠 High";
+  if(pct>=30) return"🟡 Acceptable";
+  return"🟢 Healthy";
+};
+
 const LimitBar=memo(({balance,limite,T})=>{
   const pct=limite>0?Math.min(100,Math.round((n(balance)/n(limite))*100)):0;
-  const color=pct>=90?"#f85149":pct>=70?"#d29922":"#3fb950";
+  const color=getUtilColor(pct);
+  const label=getUtilLabel(pct);
   return(<div style={{marginBottom:12}}>
     <div style={{display:"flex",justifyContent:"space-between",fontSize:11,marginBottom:5}}>
       <span style={{color:T.muted}}>Used {fmt(balance)} of {fmt(limite)}</span>
-      <span style={{color,fontWeight:700}}>{pct}% {pct>=90?"🔴 Maxed":pct>=70?"🟡 High":"🟢 Good"}</span>
+      <span style={{color,fontWeight:700}}>{pct}% {label}</span>
     </div>
     <div style={{height:9,background:T.surface2,borderRadius:8,overflow:"hidden"}}>
       <div style={{height:"100%",width:`${pct}%`,background:color,borderRadius:8,transition:"width 0.5s"}}/>
@@ -682,7 +701,7 @@ function App(){
 
   // Quick expense: charge to credit card (same logic as Charge button in DebtCard)
   const addQuickExpenseToCard=()=>{
-    const m=parseFloat(quickAmt);if(!m||m<=0||!quickNote.trim())return toast_("Add name and amount","err");
+    const m=parseFloat(quickAmt);if(!m||m<=0)return toast_("Add amount","err");
     if(!quickCardId)return toast_("Select a card","err");
     const cardIdNum=parseInt(quickCardId);
     const entry={fecha:new Date().toLocaleDateString("en-US",{month:"short",day:"numeric"}),tipo:"gasto",monto:m};
@@ -872,6 +891,8 @@ function App(){
       <button style={{...BTN,position:"fixed",bottom:22,right:18,zIndex:200,width:52,height:52,borderRadius:"50%",background:"#238636",color:"#fff",fontSize:26,boxShadow:"0 4px 20px rgba(35,134,54,0.5)",display:"flex",alignItems:"center",justifyContent:"center"}} onClick={()=>setQuickOpen(true)}>+</button>
 
       {/* ── Quick Expense Modal ── */}
+      {/* FIX 2: Modal uses fixed min-height to prevent jump when keyboard opens/closes and mode switches.
+          The inner content uses a stable layout that doesn't reflow based on keyboard state. */}
       {quickOpen&&(<div style={{position:"fixed",inset:0,zIndex:300,background:"rgba(0,0,0,0.72)",display:"flex",alignItems:"flex-end"}} onClick={e=>{if(e.target===e.currentTarget)setQuickOpen(false);}}>
         <div style={{width:"100%",maxWidth:500,margin:"0 auto",background:T.surface,borderRadius:"20px 20px 0 0",padding:"20px 18px 34px",border:`1px solid ${T.border}`}}>
           <div style={{fontSize:14,fontWeight:700,marginBottom:14}}>⚡ Quick Expense</div>
@@ -885,8 +906,15 @@ function App(){
             </div>
           </div>
 
-          <div style={{marginBottom:10}}><div style={{fontSize:10,color:T.muted,marginBottom:5}}>WHAT WAS IT?</div><input style={INP} value={quickNote} onChange={e=>setQuickNote(e.target.value)} placeholder="e.g. Walmart, gas stop..." autoFocus/></div>
-          <div style={{marginBottom:10}}><div style={{fontSize:10,color:T.muted,marginBottom:5}}>AMOUNT ($)</div><input style={INP} type="number" inputMode="decimal" value={quickAmt} onChange={e=>setQuickAmt(e.target.value)} placeholder="0"/></div>
+          {/* FIX 1 & 3: In check mode show description field; in card mode hide it completely.
+              FIX 2: Use a fixed-height placeholder area to prevent layout jump when switching modes.
+              The "name" row is rendered in check mode; card mode skips it entirely but the amount field
+              is always present so the modal height stays stable. */}
+          {quickApplyTo==="check"&&(
+            <div style={{marginBottom:10}}><div style={{fontSize:10,color:T.muted,marginBottom:5}}>WHAT WAS IT?</div><input style={INP} value={quickNote} onChange={e=>setQuickNote(e.target.value)} placeholder="e.g. Walmart, gas stop..." autoFocus/></div>
+          )}
+
+          <div style={{marginBottom:10}}><div style={{fontSize:10,color:T.muted,marginBottom:5}}>AMOUNT ($)</div><input style={INP} type="number" inputMode="decimal" value={quickAmt} onChange={e=>setQuickAmt(e.target.value)} placeholder="0" autoFocus={quickApplyTo==="card"}/></div>
 
           {/* Check selector (existing behavior) */}
           {quickApplyTo==="check"&&(<div style={{marginBottom:12}}>
@@ -1035,7 +1063,7 @@ function App(){
               const tc=CC[d.nombre]||null;
               const debtDot=d.tipo==="card"?(tc?.dot||"💳"):getLoanIcon(d.nombre);
               const pct2=d.tipo==="card"&&n(d.limite)>0?Math.min(100,Math.round((n(d.balance)/n(d.limite))*100)):d.tipo==="loan"&&n(d.original)>0?Math.round(((n(d.original)-n(d.balance))/n(d.original))*100):0;
-              const barColor=d.tipo==="card"?(pct2>=90?"#f85149":pct2>=70?"#d29922":"#3fb950"):"#58a6ff";
+              const barColor=d.tipo==="card"?getUtilColor(pct2):"#58a6ff";
               return(<div key={d.id} style={{marginBottom:i<allDebts.length-1?10:0,paddingBottom:i<allDebts.length-1?10:0,borderBottom:i<allDebts.length-1?`1px solid ${T.border}`:"none"}}>
                 <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:4}}>
                   <div style={{display:"flex",alignItems:"center",gap:6}}>
