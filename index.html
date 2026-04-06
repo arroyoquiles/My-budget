@@ -568,7 +568,8 @@ function App(){
   const swipeFromContent=useRef(false);
   const mainRef=useRef(null);
   const tabBarRef=useRef(null);
-  // FIX: stores the group key of the item being edited so renderGrouped keeps it in place during editing
+  // Stores the group key of the item being edited so renderGrouped keeps it in place during editing.
+  // Set when editing begins; cleared when Done is pressed.
   const editGroupKeyRef=useRef(null);
 
   const theme=data.theme||"dark";
@@ -640,15 +641,23 @@ function App(){
     updPeriodGastos(pid,g=>g.filter(x=>x.destino!=="temp"&&!x._quick).map(x=>({...x,state:"pending",pagado:false})));
     toast_(`🔄 ${label} reset`);
   },[]);
-  // FIX: wrap setEditId to capture or clear editGroupKeyRef
-  const openEditId=useCallback((id,gastos)=>{
-    if(id===null){editGroupKeyRef.current=null;setEditId(null);}
-    else{
+
+  // openEditId: capture the item's current group key when opening edit, clear when closing.
+  // This prevents the item from jumping to a new group while the edit form is open.
+  const openEditId=useCallback((id, gastos)=>{
+    if(id===null){
+      editGroupKeyRef.current=null;
+      setEditId(null);
+    } else {
       const item=(gastos||[]).find(g=>g.id===id);
-      if(item)editGroupKeyRef.current=item.destino==="credit_card"?(item.tarjetaRef||"Credit Card"):item.destino;
+      if(item){
+        // Compute the group key exactly as renderGrouped does
+        editGroupKeyRef.current=item.destino==="credit_card"?(item.tarjetaRef||"Credit Card"):item.destino;
+      }
       setEditId(id);
     }
   },[]);
+
   const updateTarjeta=useCallback((id,f,v)=>setData(p=>({...p,tarjetas:p.tarjetas.map(t=>t.id===id?{...t,[f]:v}:t)})),[]);
   const updateLoan=useCallback((id,f,v)=>setData(p=>({...p,loans:(p.loans||[]).map(l=>l.id===id?{...l,[f]:v}:l)})),[]);
   const removeTarjeta=useCallback(id=>{setData(p=>({...p,tarjetas:p.tarjetas.filter(t=>t.id!==id)}));toast_("🗑 Removed");},[]);
@@ -684,13 +693,16 @@ function App(){
     r.onload=ev=>{try{const parsed=JSON.parse(ev.target.result);const restored=migrate(parsed);setData(restored);localStorage.setItem(SK,JSON.stringify(restored));toast_("✅ Backup restored");}catch{toast_("❌ Invalid backup file","err");}};
     r.readAsText(f);e.target.value="";
   },[]);
+
+  // renderGrouped: while an item is in edit mode (editId === item.id),
+  // keep it pinned to its ORIGINAL group key (editGroupKeyRef.current).
+  // Only after Done (editId cleared) does the item move to its new group.
   const renderGrouped=(pid,gastos)=>{
     const groups={};
     gastos.forEach(g=>{
-      // FIX: while this item is open for editing, keep it in its original group so it doesn't jump.
-      // Only after Done (editId===null / openEditId(null)) does regrouping happen.
       let k;
-      if(editId===g.id&&editGroupKeyRef.current!==null){
+      if(editId===g.id && editGroupKeyRef.current!==null){
+        // Use the captured group key from when editing started
         k=editGroupKeyRef.current;
       } else {
         k=g.destino==="credit_card"?(g.tarjetaRef||"Credit Card"):g.destino;
@@ -698,6 +710,22 @@ function App(){
       if(!groups[k])groups[k]={d:g.destino,r:g.tarjetaRef,items:[]};
       groups[k].items.push(g);
     });
+    // For the group that contains the currently-edited item, keep its display
+    // destination consistent with the original group key so the header doesn't change.
+    if(editId!==null && editGroupKeyRef.current!==null){
+      const k=editGroupKeyRef.current;
+      if(groups[k]){
+        // Determine the original destino/tarjetaRef from the group key
+        const isCardRef=!DEST[k]; // if key isn't a DEST key, it's a card name
+        if(isCardRef){
+          groups[k].d="credit_card";
+          groups[k].r=k;
+        } else {
+          groups[k].d=k;
+          groups[k].r="";
+        }
+      }
+    }
     return Object.keys(groups).sort((a,b)=>(DORDER.indexOf(groups[a].d)+1||99)-(DORDER.indexOf(groups[b].d)+1||99)).map(k=>{
       const{d,r,items}=groups[k];const dst=gds(d,r);const sub=items.reduce((s,g)=>s+n(g.monto),0);
       return(<div key={k} style={{marginBottom:14}}>
