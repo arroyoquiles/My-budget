@@ -558,6 +558,9 @@ function App(){
   const [quickNote,setQuickNote]=useState("");
   const [quickAmt,setQuickAmt]=useState("");
   const [quickPid,setQuickPid]=useState("");
+  // New: quick expense apply-to mode and selected card
+  const [quickApplyTo,setQuickApplyTo]=useState("check"); // "check" | "card"
+  const [quickCardId,setQuickCardId]=useState("");
   const [moveOpen,setMoveOpen]=useState(false);
   const [moveTo,setMoveTo]=useState("savings_acct");
   const [moveAmt,setMoveAmt]=useState("");
@@ -568,8 +571,6 @@ function App(){
   const swipeFromContent=useRef(false);
   const mainRef=useRef(null);
   const tabBarRef=useRef(null);
-  // Stores the group key of the item being edited so renderGrouped keeps it in place during editing.
-  // Set when editing begins; cleared when Done is pressed.
   const editGroupKeyRef=useRef(null);
 
   const theme=data.theme||"dark";
@@ -605,6 +606,8 @@ function App(){
   const urgentDebts=allDebts.filter(d=>getDU(d.fechaPago)!==null&&getDU(d.fechaPago)<=3);
   const pots=data.pots||{};
   useEffect(()=>{if(!quickPid&&currentPid)setQuickPid(currentPid);},[currentPid]);
+  // Init quickCardId to first card when cards available
+  useEffect(()=>{if(!quickCardId&&data.tarjetas.length>0)setQuickCardId(String(data.tarjetas[0].id));},[data.tarjetas]);
   const TABS_ORDER=useMemo(()=>["overview",...monthPeriods.map(p=>p.id),"debts","calendar","history","settings"],[monthPeriods]);
   const handleSwipeTouchStart=useCallback(e=>{
     const t=e.touches[0];
@@ -634,7 +637,7 @@ function App(){
   const addGasto=useCallback(pid=>{
     const nid=Date.now();
     updPeriodGastos(pid,g=>[...g,{id:nid,nombre:"",monto:0,cat:"other",state:"pending",pagado:false,destino:"other",tarjetaRef:"",diaPago:null,_quick:false}]);
-    editGroupKeyRef.current="other"; // new items start in "other" group
+    editGroupKeyRef.current="other";
     setTimeout(()=>setEditId(nid),30);
   },[]);
   const resetCheck=useCallback((pid,label)=>{
@@ -642,8 +645,6 @@ function App(){
     toast_(`🔄 ${label} reset`);
   },[]);
 
-  // openEditId: capture the item's current group key when opening edit, clear when closing.
-  // This prevents the item from jumping to a new group while the edit form is open.
   const openEditId=useCallback((id, gastos)=>{
     if(id===null){
       editGroupKeyRef.current=null;
@@ -651,7 +652,6 @@ function App(){
     } else {
       const item=(gastos||[]).find(g=>g.id===id);
       if(item){
-        // Compute the group key exactly as renderGrouped does
         editGroupKeyRef.current=item.destino==="credit_card"?(item.tarjetaRef||"Credit Card"):item.destino;
       }
       setEditId(id);
@@ -671,12 +671,53 @@ function App(){
   },[montoAccion,accion]);
   const addCard=useCallback(()=>{const id=Date.now();setData(p=>({...p,tarjetas:[...p.tarjetas,{id,nombre:"New Card",balance:0,limite:0,minimo:0,interes:0,fechaCorte:"",fechaPago:"",historial:[],tipo:"card"}]}));setAddingDebt({id,tipo:"card"});},[]);
   const addLoan=useCallback(()=>{const id=Date.now();setData(p=>({...p,loans:[...(p.loans||[]),{id,nombre:"New Loan",balance:0,original:0,minimo:0,interes:0,fechaPago:"",historial:[],tipo:"loan"}]}));setAddingDebt({id,tipo:"loan"});},[]);
-  const addQuickExpense=()=>{
+
+  // Quick expense: add to check (existing behavior)
+  const addQuickExpenseToCheck=()=>{
     const m=parseFloat(quickAmt);if(!m||m<=0||!quickNote.trim())return toast_("Add name and amount","err");
     const pid=quickPid||currentPid;const nid=Date.now();
     updPeriodGastos(pid,g=>[...g,{id:nid,nombre:quickNote.trim(),monto:m,cat:"other",state:"paid",pagado:true,destino:"temp",tarjetaRef:"",diaPago:null,_quick:true}]);
     setQuickNote("");setQuickAmt("");setQuickOpen(false);toast_(`✅ "${quickNote.trim()}" ${fmt(m)} added & paid`);
   };
+
+  // Quick expense: charge to credit card (same logic as Charge button in DebtCard)
+  const addQuickExpenseToCard=()=>{
+    const m=parseFloat(quickAmt);if(!m||m<=0||!quickNote.trim())return toast_("Add name and amount","err");
+    if(!quickCardId)return toast_("Select a card","err");
+    const cardIdNum=parseInt(quickCardId);
+    const entry={fecha:new Date().toLocaleDateString("en-US",{month:"short",day:"numeric"}),tipo:"gasto",monto:m};
+    setData(p=>({...p,tarjetas:p.tarjetas.map(t=>t.id!==cardIdNum?t:{...t,balance:n(t.balance)+m,historial:[entry,...(t.historial||[])].slice(0,10)})}));
+    const cardName=data.tarjetas.find(t=>t.id===cardIdNum)?.nombre||"Card";
+    setQuickNote("");setQuickAmt("");setQuickOpen(false);toast_(`🛒 ${fmt(m)} charged to ${cardName}`);
+  };
+
+  const addQuickExpense=()=>{
+    if(quickApplyTo==="card")addQuickExpenseToCard();
+    else addQuickExpenseToCheck();
+  };
+
+  // Compute live preview values
+  const quickAmtNum=parseFloat(quickAmt)||0;
+  const quickPreviewCheck=useMemo(()=>{
+    if(quickApplyTo!=="check"||!quickAmtNum)return null;
+    const pid=quickPid||currentPid;
+    const gastos=getPGastos(pid);
+    const currentTotal=gastos.reduce((s,g)=>s+n(g.monto),0);
+    const periodAmt=getPeriodAmount(pid);
+    const newLeftover=periodAmt-(currentTotal+quickAmtNum);
+    return{newLeftover,periodAmt};
+  },[quickApplyTo,quickAmtNum,quickPid,currentPid,data.periods,getPeriodAmount]);
+
+  const quickPreviewCard=useMemo(()=>{
+    if(quickApplyTo!=="card"||!quickAmtNum||!quickCardId)return null;
+    const cardIdNum=parseInt(quickCardId);
+    const card=data.tarjetas.find(t=>t.id===cardIdNum);
+    if(!card)return null;
+    const newBalance=n(card.balance)+quickAmtNum;
+    const pct=n(card.limite)>0?Math.min(100,Math.round((newBalance/n(card.limite))*100)):null;
+    return{newBalance,pct,limite:card.limite};
+  },[quickApplyTo,quickAmtNum,quickCardId,data.tarjetas]);
+
   const doMoveMoney=()=>{
     const m=parseFloat(moveAmt);if(!m||m<=0)return toast_("Invalid amount","err");
     const mvId=Date.now();const pot=POTS[moveTo];
@@ -694,15 +735,11 @@ function App(){
     r.readAsText(f);e.target.value="";
   },[]);
 
-  // renderGrouped: while an item is in edit mode (editId === item.id),
-  // keep it pinned to its ORIGINAL group key (editGroupKeyRef.current).
-  // Only after Done (editId cleared) does the item move to its new group.
   const renderGrouped=(pid,gastos)=>{
     const groups={};
     gastos.forEach(g=>{
       let k;
       if(editId===g.id && editGroupKeyRef.current!==null){
-        // Use the captured group key from when editing started
         k=editGroupKeyRef.current;
       } else {
         k=g.destino==="credit_card"?(g.tarjetaRef||"Credit Card"):g.destino;
@@ -710,13 +747,10 @@ function App(){
       if(!groups[k])groups[k]={d:g.destino,r:g.tarjetaRef,items:[]};
       groups[k].items.push(g);
     });
-    // For the group that contains the currently-edited item, keep its display
-    // destination consistent with the original group key so the header doesn't change.
     if(editId!==null && editGroupKeyRef.current!==null){
       const k=editGroupKeyRef.current;
       if(groups[k]){
-        // Determine the original destino/tarjetaRef from the group key
-        const isCardRef=!DEST[k]; // if key isn't a DEST key, it's a card name
+        const isCardRef=!DEST[k];
         if(isCardRef){
           groups[k].d="credit_card";
           groups[k].r=k;
@@ -836,23 +870,79 @@ function App(){
         </div>
       )}
       <button style={{...BTN,position:"fixed",bottom:22,right:18,zIndex:200,width:52,height:52,borderRadius:"50%",background:"#238636",color:"#fff",fontSize:26,boxShadow:"0 4px 20px rgba(35,134,54,0.5)",display:"flex",alignItems:"center",justifyContent:"center"}} onClick={()=>setQuickOpen(true)}>+</button>
+
+      {/* ── Quick Expense Modal ── */}
       {quickOpen&&(<div style={{position:"fixed",inset:0,zIndex:300,background:"rgba(0,0,0,0.72)",display:"flex",alignItems:"flex-end"}} onClick={e=>{if(e.target===e.currentTarget)setQuickOpen(false);}}>
         <div style={{width:"100%",maxWidth:500,margin:"0 auto",background:T.surface,borderRadius:"20px 20px 0 0",padding:"20px 18px 34px",border:`1px solid ${T.border}`}}>
           <div style={{fontSize:14,fontWeight:700,marginBottom:14}}>⚡ Quick Expense</div>
+
+          {/* Apply To toggle */}
+          <div style={{marginBottom:12}}>
+            <div style={{fontSize:10,color:T.muted,marginBottom:6}}>APPLY TO</div>
+            <div style={{display:"flex",gap:7}}>
+              <button style={{...BTN,flex:1,padding:"9px",fontSize:12,background:quickApplyTo==="check"?"rgba(88,166,255,0.15)":T.surface2,color:quickApplyTo==="check"?T.accent:T.muted,border:`1px solid ${quickApplyTo==="check"?T.accent:T.border}`}} onClick={()=>setQuickApplyTo("check")}>💰 Check</button>
+              <button style={{...BTN,flex:1,padding:"9px",fontSize:12,background:quickApplyTo==="card"?"rgba(236,72,153,0.15)":T.surface2,color:quickApplyTo==="card"?"#ec4899":T.muted,border:`1px solid ${quickApplyTo==="card"?"rgba(236,72,153,0.5)":T.border}`}} onClick={()=>setQuickApplyTo("card")}>💳 Credit Card</button>
+            </div>
+          </div>
+
           <div style={{marginBottom:10}}><div style={{fontSize:10,color:T.muted,marginBottom:5}}>WHAT WAS IT?</div><input style={INP} value={quickNote} onChange={e=>setQuickNote(e.target.value)} placeholder="e.g. Walmart, gas stop..." autoFocus/></div>
           <div style={{marginBottom:10}}><div style={{fontSize:10,color:T.muted,marginBottom:5}}>AMOUNT ($)</div><input style={INP} type="number" inputMode="decimal" value={quickAmt} onChange={e=>setQuickAmt(e.target.value)} placeholder="0"/></div>
-          <div style={{marginBottom:14}}>
+
+          {/* Check selector (existing behavior) */}
+          {quickApplyTo==="check"&&(<div style={{marginBottom:12}}>
             <div style={{fontSize:10,color:T.muted,marginBottom:5}}>DEDUCT FROM</div>
             <div style={{display:"flex",gap:7,flexWrap:"wrap"}}>
               {monthPeriods.map(p=>(<button key={p.id} style={{...BTN,flex:1,padding:"9px",fontSize:12,background:quickPid===p.id?"rgba(88,166,255,0.2)":T.surface2,color:quickPid===p.id?T.accent:T.muted,border:`1px solid ${quickPid===p.id?T.accent:T.border}`}} onClick={()=>setQuickPid(p.id)}>{p.isCurrent?"💰":"📋"} {p.label}{p.isCurrent?" ✓":""}</button>))}
             </div>
-          </div>
+          </div>)}
+
+          {/* Card selector */}
+          {quickApplyTo==="card"&&(<div style={{marginBottom:12}}>
+            <div style={{fontSize:10,color:T.muted,marginBottom:5}}>WHICH CARD?</div>
+            {data.tarjetas.length===0
+              ?<div style={{fontSize:11,color:T.muted,padding:"8px 0"}}>No cards found. Add one in Debts.</div>
+              :<div style={{display:"flex",flexDirection:"column",gap:5}}>
+                {data.tarjetas.map(t=>{
+                  const tc=CC[t.nombre]||null;
+                  const dot=tc?.dot||"💳";
+                  const cardColor=tc?.color||"#ec4899";
+                  const isSelected=quickCardId===String(t.id);
+                  return(<button key={t.id} style={{...BTN,padding:"9px 12px",fontSize:12,textAlign:"left",background:isSelected?"rgba(236,72,153,0.12)":T.surface2,color:isSelected?cardColor:T.muted,border:`1px solid ${isSelected?(tc?.border||"rgba(236,72,153,0.4)"):T.border}`,display:"flex",justifyContent:"space-between",alignItems:"center"}} onClick={()=>setQuickCardId(String(t.id))}>
+                    <span>{dot} {t.nombre}</span>
+                    <span style={{fontFamily:"monospace",fontSize:11,color:isSelected?cardColor:T.muted}}>{fmt(t.balance)}</span>
+                  </button>);
+                })}
+              </div>
+            }
+          </div>)}
+
+          {/* Live preview */}
+          {quickAmtNum>0&&quickApplyTo==="check"&&quickPreviewCheck&&(
+            <div style={{marginBottom:12,padding:"8px 12px",borderRadius:9,background:quickPreviewCheck.newLeftover>=0?"rgba(63,185,80,0.06)":"rgba(248,81,73,0.06)",border:`1px solid ${quickPreviewCheck.newLeftover>=0?"rgba(63,185,80,0.2)":"rgba(248,81,73,0.2)"}`}}>
+              <div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+                <span style={{fontSize:10,color:T.muted}}>Left over after</span>
+                <span style={{fontFamily:"monospace",fontWeight:700,fontSize:13,color:quickPreviewCheck.newLeftover>=0?"#3fb950":"#f85149"}}>{fmt(quickPreviewCheck.newLeftover)}</span>
+              </div>
+            </div>
+          )}
+          {quickAmtNum>0&&quickApplyTo==="card"&&quickPreviewCard&&(
+            <div style={{marginBottom:12,padding:"8px 12px",borderRadius:9,background:"rgba(236,72,153,0.06)",border:"1px solid rgba(236,72,153,0.2)"}}>
+              <div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+                <span style={{fontSize:10,color:T.muted}}>New card balance</span>
+                <span style={{fontFamily:"monospace",fontWeight:700,fontSize:13,color:"#ec4899"}}>{fmt(quickPreviewCard.newBalance)}{quickPreviewCard.pct!==null&&<span style={{fontSize:9,fontWeight:400,color:quickPreviewCard.pct>=90?"#f85149":quickPreviewCard.pct>=70?"#d29922":T.muted,marginLeft:5}}>{quickPreviewCard.pct}%</span>}</span>
+              </div>
+            </div>
+          )}
+
           <div style={{display:"flex",gap:8}}>
-            <button style={{...BTN,flex:1,padding:"12px",background:"#238636",color:"#fff",fontSize:14}} onClick={addQuickExpense}>✅ Add — Already Paid</button>
+            <button style={{...BTN,flex:1,padding:"12px",background:quickApplyTo==="card"?"rgba(236,72,153,0.85)":"#238636",color:"#fff",fontSize:14}} onClick={addQuickExpense}>
+              {quickApplyTo==="card"?"🛒 Charge to Card":"✅ Add — Already Paid"}
+            </button>
             <button style={{...BTN,padding:"12px 16px",background:T.surface2,color:T.muted,fontSize:14}} onClick={()=>setQuickOpen(false)}>Cancel</button>
           </div>
         </div>
       </div>)}
+
       {moveOpen&&(<div style={{position:"fixed",inset:0,zIndex:300,background:"rgba(0,0,0,0.72)",display:"flex",alignItems:"flex-end"}} onClick={e=>{if(e.target===e.currentTarget)setMoveOpen(false);}}>
         <div style={{width:"100%",maxWidth:500,margin:"0 auto",background:T.surface,borderRadius:"20px 20px 0 0",padding:"20px 18px 34px",border:`1px solid ${T.border}`}}>
           <div style={{fontSize:14,fontWeight:700,marginBottom:14}}>💸 Move Money</div>
