@@ -30,6 +30,7 @@
     ::-webkit-scrollbar{width:3px;}::-webkit-scrollbar-thumb{background:#30363d;}
     input[type=text],input[type=number],input[type=email],input[type=date],select,textarea{font-size:16px!important;-webkit-text-size-adjust:100%!important;}
     .expense-row{user-select:none;-webkit-user-select:none;-webkit-touch-callout:none;}
+    .dest-picker{display:grid;grid-template-columns:repeat(2,1fr);gap:5px;}
   </style>
 </head>
 <body class="dark">
@@ -62,7 +63,7 @@ const DEST = {
   other:        {label:"Other",         icon:"📌",color:"#8b949e",bg:"transparent",            border:"#21262d"},
 };
 
-// Fix 3: Stable ordered array for category picker — never reorders
+// Stable ordered array for category picker — never reorders
 const DEST_ORDER = ["savings_acct","credit_card","rent","utilities","auto","insurance","groceries","subscription","gas","emergency","investment","temp","dining","entertainment","medical","other"];
 
 const POTS = {
@@ -90,7 +91,7 @@ const CATCOLORS={
   loan:"#f97316",temp:"#d29922",dining:"#f472b6",entertainment:"#a78bfa",medical:"#34d399",
 };
 
-// Fix 2: Loan icon mapping
+// Loan icon mapping — used everywhere loans appear
 const LOAN_ICONS={
   "auto loan":"🚗","auto":"🚗","car loan":"🚗","car":"🚗",
   "personal loan":"🏦","personal":"🏦",
@@ -395,17 +396,48 @@ const GastoItem=memo(({item,pid,editId,setEditId,tarjetas,onCycle,onLongPress,on
       <div style={{marginBottom:10}}><div style={{fontSize:10,color:T.muted,marginBottom:5}}>AMOUNT ($)</div><input style={INP} type="number" inputMode="decimal" value={item.monto||""} onChange={e=>onUpdate(item.id,"monto",e.target.value)} placeholder="0"/></div>
       <div style={{marginBottom:10}}>
         <div style={{fontSize:10,color:T.muted,marginBottom:5}}>DESTINATION</div>
-        {/* Fix 3: Use DEST_ORDER for stable button order — never reorders on selection */}
-        <div style={{display:"flex",flexWrap:"wrap",gap:5}}>
-          {DEST_ORDER.map(k=>{const d=DEST[k];return(<button key={k} style={{...BTN,padding:"5px 9px",fontSize:11,background:item.destino===k?d.bg:"#21262d",color:item.destino===k?d.color:T.muted,border:`1px solid ${item.destino===k?d.border:T.border}`}}
-            onMouseDown={e=>{
-              e.preventDefault();
-              onUpdate(item.id,"destino",k);
-              onUpdate(item.id,"cat",k);
-              if(k!=="credit_card")onUpdate(item.id,"tarjetaRef","");
-            }}>
-            {d.icon} {d.label}
-          </button>);})}
+        {/*
+          Fix 1: Category picker uses a stable CSS grid layout.
+          - grid with fixed 2-column layout prevents any reflow when selection changes
+          - only the selected visual state (background/color/border) updates
+          - no reordering, no regrouping, no layout shift on selection
+        */}
+        <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:5}}>
+          {DEST_ORDER.map(k=>{
+            const d=DEST[k];
+            const isSelected=item.destino===k;
+            return(
+              <button
+                key={k}
+                style={{
+                  cursor:"pointer",
+                  border:"none",
+                  borderRadius:10,
+                  fontFamily:"inherit",
+                  fontWeight:600,
+                  WebkitTapHighlightColor:"transparent",
+                  padding:"7px 9px",
+                  fontSize:11,
+                  textAlign:"left",
+                  background:isSelected?d.bg:"#21262d",
+                  color:isSelected?d.color:T.muted,
+                  border:`1px solid ${isSelected?d.border:T.border}`,
+                  transition:"background 0.1s, color 0.1s, border-color 0.1s",
+                  whiteSpace:"nowrap",
+                  overflow:"hidden",
+                  textOverflow:"ellipsis",
+                }}
+                onMouseDown={e=>{
+                  e.preventDefault();
+                  onUpdate(item.id,"destino",k);
+                  onUpdate(item.id,"cat",k);
+                  if(k!=="credit_card")onUpdate(item.id,"tarjetaRef","");
+                }}
+              >
+                {d.icon} {d.label}
+              </button>
+            );
+          })}
         </div>
       </div>
       {item.destino==="credit_card"&&(
@@ -494,7 +526,7 @@ const DebtCard=memo(({debt,idx,isFirst,tipo,accion,setAccion,montoAccion,setMont
   const dueBg=dp<=0?"rgba(88,166,255,0.1)":dp<=5?"rgba(248,81,73,0.1)":"rgba(63,185,80,0.07)";
   const dueBorder=dp<=0?"rgba(88,166,255,0.3)":dp<=5?"rgba(248,81,73,0.3)":"rgba(63,185,80,0.2)";
   const dueColor=dp<=0?"#58a6ff":dp<=5?"#f85149":"#3fb950";
-  // Fix 2: getLoanIcon used for loan cards
+  // Fix 2: getLoanIcon applied consistently for all loan display states
   const debtIcon=tipo==="card"?(CC[debt.nombre]?.dot||"💳"):getLoanIcon(debt.nombre);
 
   return(
@@ -502,6 +534,7 @@ const DebtCard=memo(({debt,idx,isFirst,tipo,accion,setAccion,montoAccion,setMont
       <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:8}}>
         {isFirst?<div style={{padding:"2px 9px",borderRadius:20,fontSize:10,fontWeight:700,background:"rgba(210,153,34,0.15)",color:"#d29922"}}>🎯 ATTACK FIRST</div>:<div style={{padding:"2px 9px",borderRadius:20,fontSize:10,fontWeight:700,background:T.surface2,color:T.muted}}>#{idx+1}</div>}
         <div style={{display:"flex",gap:6,alignItems:"center"}}>
+          {/* Fix 2: icon shown in header for both editing and display states */}
           <span style={{fontSize:15}}>{debtIcon}</span>
           {!isAdding&&(<button style={{...BTN,background:editing?"rgba(88,166,255,0.15)":"transparent",color:editing?T.accent:T.muted,padding:"3px 8px",fontSize:12,border:`1px solid ${editing?T.accent:"transparent"}`,borderRadius:8}} onClick={()=>setEditing(e=>!e)}>{editing?"✓ Done":"✏️ Edit"}</button>)}
           <button style={{...BTN,background:"transparent",color:T.muted,padding:"3px 7px",fontSize:14}} onClick={()=>onRemove(debt.id)}>🗑</button>
@@ -509,7 +542,11 @@ const DebtCard=memo(({debt,idx,isFirst,tipo,accion,setAccion,montoAccion,setMont
       </div>
 
       {showEdit
-        ?<input style={{...INP,fontWeight:700,fontSize:15,marginBottom:12,background:"transparent",border:"none",borderBottom:`1.5px solid ${T.accent}`,borderRadius:0,padding:"3px 0"}} value={debt.nombre} onChange={e=>onUpdate(debt.id,"nombre",e.target.value)} autoFocus={editing&&!isAdding}/>
+        ?(<div style={{display:"flex",alignItems:"center",gap:8,marginBottom:12}}>
+            {/* Fix 2: icon shown dynamically during name editing, updates as user types */}
+            <span style={{fontSize:18,flexShrink:0}}>{debtIcon}</span>
+            <input style={{...INP,fontWeight:700,fontSize:15,background:"transparent",border:"none",borderBottom:`1.5px solid ${T.accent}`,borderRadius:0,padding:"3px 0",flex:1}} value={debt.nombre} onChange={e=>onUpdate(debt.id,"nombre",e.target.value)} autoFocus={editing&&!isAdding}/>
+          </div>)
         :<div style={{fontWeight:700,fontSize:15,marginBottom:12,paddingBottom:6,borderBottom:`1px solid ${T.border}`,color:T.text}}>{debt.nombre}</div>
       }
 
@@ -655,7 +692,6 @@ function App(){
   const [moveTo,setMoveTo]=useState("savings_acct");
   const [moveAmt,setMoveAmt]=useState("");
   const [moveNote,setMoveNote]=useState("");
-  // Fix 6: snapshot detail view
   const [snapDetail,setSnapDetail]=useState(null);
   const toastRef=useRef();
   const swipeStart=useRef(null);
@@ -781,7 +817,6 @@ function App(){
     toast_(`💸 ${fmt(m)} moved to ${pot?.label||moveTo}`);
   };
 
-  // Fix 7: Export uses fixed filename mybudget_backup.json, includes full state
   const exportData=useCallback(()=>{
     const b=new Blob([JSON.stringify(data,null,2)],{type:"application/json"});
     const u=URL.createObjectURL(b);
@@ -789,7 +824,6 @@ function App(){
     toast_("📥 Backup exported");
   },[data]);
 
-  // Fix 7: Import fully replaces state, restores everything including snapshots
   const importData=useCallback(e=>{
     const f=e.target.files[0];if(!f)return;
     const r=new FileReader();
@@ -803,7 +837,6 @@ function App(){
       }catch{toast_("❌ Invalid backup file","err");}
     };
     r.readAsText(f);
-    // Reset input so same file can be re-imported
     e.target.value="";
   },[]);
 
@@ -893,7 +926,6 @@ function App(){
     {id:"settings",icon:"⚙️",label:"Settings"},
   ];
 
-  // Fix 5 & 8: Snapshot/backup reminder
   const snapReminder=useMemo(()=>getSnapshotReminder(today,data.snapshots),[today,data.snapshots]);
 
   return(
@@ -963,7 +995,6 @@ function App(){
         </div>
       </div>)}
 
-      {/* Fix 6: Snapshot detail modal */}
       {snapDetail&&(<div style={{position:"fixed",inset:0,zIndex:300,background:"rgba(0,0,0,0.72)",display:"flex",alignItems:"center",justifyContent:"center",padding:16}} onClick={e=>{if(e.target===e.currentTarget)setSnapDetail(null);}}>
         <div style={{width:"100%",maxWidth:420,background:T.surface,borderRadius:16,padding:"20px 18px",border:`1px solid ${T.border}`}}>
           <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:16}}>
@@ -1022,7 +1053,6 @@ function App(){
             </div>))}
           </div>
 
-          {/* Fix 5 & 8: Snapshot/backup reminder card */}
           {snapReminder&&(<div style={{background:snapReminder.type==="warn"?"rgba(210,153,34,0.08)":"rgba(88,166,255,0.05)",border:`1px solid ${snapReminder.type==="warn"?"rgba(210,153,34,0.25)":"rgba(88,166,255,0.15)"}`,borderRadius:11,padding:"9px 13px",marginBottom:12,display:"flex",alignItems:"center",gap:8}}>
             <span style={{fontSize:14}}>{snapReminder.type==="warn"?"⚠️":"💡"}</span>
             <span style={{fontSize:11,color:snapReminder.type==="warn"?"#d29922":T.muted,flex:1}}>{snapReminder.msg}</span>
@@ -1054,6 +1084,7 @@ function App(){
             {allDebts.map((d,i)=>{
               const dp=getDU(d.fechaPago),isUrgent=dp!==null&&dp<=3;
               const tc=CC[d.nombre]||null;
+              // Fix 2: use getLoanIcon for loans in overview debt list
               const debtDot=d.tipo==="card"?(tc?.dot||"💳"):getLoanIcon(d.nombre);
               const pct2=d.tipo==="card"&&n(d.limite)>0?Math.min(100,Math.round((n(d.balance)/n(d.limite))*100)):d.tipo==="loan"&&n(d.original)>0?Math.round(((n(d.original)-n(d.balance))/n(d.original))*100):0;
               const barColor=d.tipo==="card"?(pct2>=90?"#f85149":pct2>=70?"#d29922":"#3fb950"):"#58a6ff";
@@ -1144,7 +1175,6 @@ function App(){
             </div>);
           })}
 
-          {/* Fix 6: Snapshot saves surplus, debt, cards, loans totals */}
           <button style={{...BTN,width:"100%",padding:"12px",background:"#238636",color:"#fff",fontSize:13,border:"1px solid #2ea043"}} onClick={()=>{
             const totalCards=data.tarjetas.reduce((s,t)=>s+n(t.balance),0);
             const totalLoans=(data.loans||[]).reduce((s,l)=>s+n(l.balance),0);
@@ -1167,7 +1197,6 @@ function App(){
               🎯 Avalanche: pay minimums on all · all extra to <strong style={{color:"#d29922"}}>{avalancheTarget?.nombre}</strong> ({avalancheTarget?.interes}% APR)
             </div>
 
-            {/* Fix 4: Credit Cards section */}
             {cards.length>0&&(<>
               <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:12,marginTop:4}}>
                 <div style={{flex:1,height:1,background:`linear-gradient(90deg,transparent,${T.border})`}}/>
@@ -1185,11 +1214,11 @@ function App(){
               <button style={{...BTN,width:"100%",marginBottom:24,padding:"10px",background:"transparent",color:"#ec4899",fontSize:12,border:`1.5px dashed rgba(236,72,153,0.3)`}} onClick={addCard}>+ Add Card</button>
             </>)}
 
-            {/* Fix 4: Loans section */}
             {loans.length>0&&(<>
               <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:12}}>
                 <div style={{flex:1,height:1,background:`linear-gradient(90deg,transparent,${T.border})`}}/>
                 <div style={{display:"flex",alignItems:"center",gap:7,padding:"5px 14px",borderRadius:20,background:"rgba(249,115,22,0.08)",border:"1px solid rgba(249,115,22,0.22)"}}>
+                  {/* Fix 2: section header icon uses first loan's type when only one loan */}
                   <span style={{fontSize:14}}>{loans.length===1?getLoanIcon(loans[0].nombre):"🏦"}</span>
                   <span style={{fontSize:11,fontWeight:700,color:"#f97316",letterSpacing:0.8}}>LOANS</span>
                   <span style={{fontSize:10,color:"#f97316",fontFamily:"monospace",fontWeight:800,marginLeft:2}}>{fmt(totalLoans)}</span>
@@ -1227,7 +1256,6 @@ function App(){
           </div>);
         })()}
 
-        {/* Fix 1: Calendar — monthly only, read-only */}
         {tab==="calendar"&&(()=>{
           const hoy=new Date();hoy.setHours(0,0,0,0);
           const mo=["January","February","March","April","May","June","July","August","September","October","November","December"];
@@ -1241,18 +1269,15 @@ function App(){
             const d=parseInt(day);
             if(d<1||d>dim)return;
             if(!monthEvents[d])monthEvents[d]=[];
-            // Deduplicate
             if(!monthEvents[d].some(e=>e.label===label))
               monthEvents[d].push({label,dotColor});
           };
 
-          // Paydays
           monthPeriods.forEach(p=>{
             if(p.payday.getMonth()===mth&&p.payday.getFullYear()===yr)
               addEv(p.payday.getDate(),"Payday","#3fb950");
           });
 
-          // Credit card due & cutoff
           data.tarjetas.forEach(t=>{
             if(t.fechaPago){
               const sn=t.nombre.replace(/\s*(card|Card)\s*/i,"").trim();
@@ -1264,7 +1289,6 @@ function App(){
             }
           });
 
-          // Loan due dates
           (data.loans||[]).forEach(l=>{
             if(l.fechaPago){
               const sn=l.nombre.replace(/(loan|Loan)/i,"").replace(/\s+/g," ").trim();
@@ -1272,7 +1296,6 @@ function App(){
             }
           });
 
-          // Expense due dates
           const seenExp=new Set();
           monthPeriods.forEach(p=>{
             getPGastos(p.id).forEach(g=>{
@@ -1321,7 +1344,6 @@ function App(){
                 })}
               </div>
 
-              {/* This Month list — lighter style */}
               {Object.keys(monthEvents).length>0&&(<>
                 <div style={{height:1,background:T.border,margin:"14px 0 10px"}}/>
                 <div style={{fontSize:9,color:T.muted,fontWeight:700,letterSpacing:1,marginBottom:8}}>THIS MONTH</div>
@@ -1341,7 +1363,6 @@ function App(){
               </>)}
             </div>
 
-            {/* Legend — minimal */}
             <div style={{display:"flex",flexWrap:"wrap",gap:10,padding:"10px 4px 0"}}>
               {[{c:"#3fb950",l:"Payday"},{c:"#ec4899",l:"Card due"},{c:"#f97316",l:"Loan"},{c:"#8b949e",l:"Cutoff"},{c:"#58a6ff",l:"Expense"}].map(({c,l})=>(
                 <div key={l} style={{display:"flex",alignItems:"center",gap:4}}>
@@ -1353,13 +1374,11 @@ function App(){
           </div>);
         })()}
 
-        {/* Fix 6: History tab — snapshots clickable, no Cash field, detail modal */}
         {tab==="history"&&(<div className="anim">
           <div style={{background:"rgba(88,166,255,0.05)",border:"1px solid rgba(88,166,255,0.15)",borderRadius:11,padding:"11px 14px",marginBottom:12,fontSize:11,color:T.muted,lineHeight:1.6}}>
             💡 <strong style={{color:T.accent}}>Monthly Snapshot</strong> — save at end of each month.<br/>
             <strong style={{color:T.accent}}>Reset Cycle</strong> — use in each Check tab when a new paycheck arrives.
           </div>
-          {/* Fix 5 & 8: reminder in history tab too */}
           {snapReminder&&(<div style={{background:snapReminder.type==="warn"?"rgba(210,153,34,0.08)":"rgba(88,166,255,0.05)",border:`1px solid ${snapReminder.type==="warn"?"rgba(210,153,34,0.25)":"rgba(88,166,255,0.15)"}`,borderRadius:10,padding:"9px 13px",marginBottom:12,display:"flex",alignItems:"center",gap:8}}>
             <span style={{fontSize:13}}>{snapReminder.type==="warn"?"⚠️":"💡"}</span>
             <span style={{fontSize:11,color:snapReminder.type==="warn"?"#d29922":T.muted}}>{snapReminder.msg}</span>
@@ -1417,7 +1436,6 @@ function App(){
           </div>
           <div style={{...CARD,padding:"14px 16px",marginBottom:14}}>
             <div style={{fontSize:11,color:T.accent,letterSpacing:1.5,fontWeight:700,marginBottom:4}}>💾 DATA BACKUP</div>
-            {/* Fix 8: Backup reminder in settings */}
             {snapReminder&&(<div style={{background:snapReminder.type==="warn"?"rgba(210,153,34,0.07)":"rgba(88,166,255,0.05)",border:`1px solid ${snapReminder.type==="warn"?"rgba(210,153,34,0.2)":"rgba(88,166,255,0.12)"}`,borderRadius:9,padding:"8px 11px",marginBottom:10,marginTop:8,fontSize:10,color:snapReminder.type==="warn"?"#d29922":T.muted,display:"flex",gap:6,alignItems:"center"}}>
               <span>{snapReminder.type==="warn"?"⚠️":"💡"}</span>
               <span>{snapReminder.msg}</span>
