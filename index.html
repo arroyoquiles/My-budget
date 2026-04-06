@@ -38,12 +38,10 @@
 <script type="text/babel">
 const { useState, useEffect, useRef, useCallback, memo, useMemo } = React;
 const SK = "mybudget_v17";
-
 const THEMES = {
   dark:  { bg:"#0d1117", surface:"#161b22", surface2:"#21262d", border:"#30363d", text:"#e6edf3", muted:"#8b949e", accent:"#58a6ff", inp:{background:"#0d1117",color:"#e6edf3",border:"1.5px solid #30363d"} },
   light: { bg:"#f6f8fa", surface:"#ffffff", surface2:"#f0f3f6", border:"#d0d7de", text:"#1c2128", muted:"#656d76", accent:"#0969da", inp:{background:"#ffffff",color:"#1c2128",border:"1.5px solid #d0d7de"} },
 };
-
 const DEST = {
   savings_acct: {label:"Savings Acct.", icon:"🏦",color:"#3fb950",bg:"rgba(63,185,80,0.1)",   border:"rgba(63,185,80,0.3)"},
   credit_card:  {label:"Credit Card",   icon:"💳",color:"#ec4899",bg:"rgba(236,72,153,0.12)", border:"rgba(236,72,153,0.3)"},
@@ -62,22 +60,17 @@ const DEST = {
   medical:      {label:"Medical/Health",icon:"🏥",color:"#34d399",bg:"rgba(52,211,153,0.1)",  border:"rgba(52,211,153,0.3)"},
   other:        {label:"Other",         icon:"📌",color:"#8b949e",bg:"transparent",            border:"#21262d"},
 };
-
-// Stable ordered array for category picker — never reorders
 const DEST_ORDER = ["savings_acct","credit_card","rent","utilities","auto","insurance","groceries","subscription","gas","emergency","investment","temp","dining","entertainment","medical","other"];
-
 const POTS = {
   savings_acct:{label:"Savings",   icon:"🏦",color:"#3fb950",bg:"rgba(63,185,80,0.1)"},
   emergency:   {label:"Emergency", icon:"🆘",color:"#06b6d4",bg:"rgba(6,182,212,0.1)"},
   investment:  {label:"Investment",icon:"📈",color:"#10b981",bg:"rgba(16,185,129,0.1)"},
 };
-
 const CC = {
   "BJ's Card":  {color:"#f85149",bg:"rgba(248,81,73,0.12)",  border:"rgba(248,81,73,0.35)",  dot:"🔴"},
   "Quicksilver":{color:"#a78bfa",bg:"rgba(167,139,250,0.12)",border:"rgba(167,139,250,0.35)",dot:"🟣"},
   "Prime Card": {color:"#58a6ff",bg:"rgba(88,166,255,0.12)", border:"rgba(88,166,255,0.35)", dot:"🔵"},
 };
-
 const CICONS={
   auto:"🚗",rent:"🏠",subscription:"📱",gas:"⛽",credit_card:"💳",
   groceries:"🛒",other:"📌",insurance:"🛡️",utilities:"⚡",savings_acct:"🏦",
@@ -90,8 +83,6 @@ const CATCOLORS={
   utilities:"#f59e0b",savings_acct:"#3fb950",emergency:"#06b6d4",investment:"#10b981",
   loan:"#f97316",temp:"#d29922",dining:"#f472b6",entertainment:"#a78bfa",medical:"#34d399",
 };
-
-// Loan icon mapping — used everywhere loans appear
 const LOAN_ICONS={
   "auto loan":"🚗","auto":"🚗","car loan":"🚗","car":"🚗",
   "personal loan":"🏦","personal":"🏦",
@@ -105,18 +96,14 @@ const getLoanIcon=(nombre)=>{
   for(const[k,v] of Object.entries(LOAN_ICONS)){if(lower.includes(k))return v;}
   return"🏦";
 };
-
 const DORDER=["savings_acct","emergency","investment","rent","auto","insurance","utilities","gas","credit_card","groceries","subscription","dining","entertainment","medical","temp","other"];
-
 const DUE_DAY_CATS=new Set(["credit_card","rent","utilities","insurance","subscription","auto","medical"]);
-
 const gds=(d,r)=>{if(d==="credit_card"&&r&&CC[r])return{...DEST.credit_card,...CC[r],label:r};return DEST[d]||DEST.other;};
 const fmt=v=>new Intl.NumberFormat("en-US",{style:"currency",currency:"USD",maximumFractionDigits:0}).format(v||0);
 const fmtD=v=>new Intl.NumberFormat("en-US",{style:"currency",currency:"USD",minimumFractionDigits:2,maximumFractionDigits:2}).format(v||0);
 const n=v=>parseFloat(v)||0;
 const fmd=d=>{const m=["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];return`${m[d.getMonth()]} ${d.getDate()}`;};
 const dateStr=d=>{const y=d.getFullYear(),mo=String(d.getMonth()+1).padStart(2,"0"),dy=String(d.getDate()).padStart(2,"0");return`${y}-${mo}-${dy}`;};
-
 const getDU=dia=>{
   if(!dia)return null;
   const h=new Date();h.setHours(0,0,0,0);
@@ -131,7 +118,6 @@ const gdf=dia=>{
   if(c<h)c.setMonth(c.getMonth()+1);
   return c;
 };
-
 const calcLoan=(balance,apr,pmt)=>{
   const b=n(balance),r=n(apr)/100/12,p=n(pmt);
   if(b<=0||p<=0)return{interest:0,principal:0,newBalance:0};
@@ -139,12 +125,10 @@ const calcLoan=(balance,apr,pmt)=>{
   const principal=Math.min(p-interest,b);
   return{interest:Math.max(0,interest),principal:Math.max(0,principal),newBalance:Math.max(0,b-principal)};
 };
-
 const parseAnchor=anchor=>{
   const[y,m,d]=anchor.split("-").map(Number);
   const dt=new Date(y,m-1,d);dt.setHours(0,0,0,0);return dt;
 };
-
 const getPaydaysInMonth=(anchor,freq,yr,mth)=>{
   if(freq==="semimonthly")return[new Date(yr,mth,1),new Date(yr,mth,15)];
   if(freq==="monthly"){
@@ -166,7 +150,6 @@ const getPaydaysInMonth=(anchor,freq,yr,mth)=>{
   }
   return days;
 };
-
 const getCurrentPeriodStart=(anchor,freq)=>{
   const today=new Date();today.setHours(0,0,0,0);
   if(freq==="semimonthly"){
@@ -186,7 +169,6 @@ const getCurrentPeriodStart=(anchor,freq)=>{
   const periodsDone=today>=base?Math.floor(diffDays/step):0;
   return new Date(base.getTime()+periodsDone*step*86400000);
 };
-
 const getNextPayday=(anchor,freq)=>{
   const today=new Date();today.setHours(0,0,0,0);
   if(freq==="semimonthly"){
@@ -208,7 +190,6 @@ const getNextPayday=(anchor,freq)=>{
   const curStart=new Date(base.getTime()+periodsDone*step*86400000);
   return new Date(curStart.getTime()+step*86400000);
 };
-
 const getUpcomingPaydays=(anchor,count=8,freq="biweekly")=>{
   const today=new Date();today.setHours(0,0,0,0);
   const days=[];
@@ -239,7 +220,6 @@ const getUpcomingPaydays=(anchor,count=8,freq="biweekly")=>{
   while(days.length<count){days.push(new Date(cur));cur=new Date(cur.getTime()+step*86400000);}
   return days.slice(0,count);
 };
-
 const buildMonthPeriods=(anchor,freq)=>{
   const today=new Date();today.setHours(0,0,0,0);
   const yr=today.getFullYear(),mth=today.getMonth();
@@ -258,17 +238,14 @@ const buildMonthPeriods=(anchor,freq)=>{
     statusLabel:"period_"+dateStr(pd)===curKey?"Current":(curIdx>=0&&i===curIdx+1?"Upcoming":null),
   }));
 };
-
 const migrate=raw=>{
   if(!raw)return null;
   const dm={savings:"savings_acct",directo:"rent",temporal:"temp",ninguno:"other",tarjeta:"credit_card",savings_acct:"savings_acct",credit_card:"credit_card",rent:"rent",utilities:"utilities",auto:"auto",insurance:"insurance",groceries:"groceries",subscription:"subscription",gas:"gas",emergency:"emergency",investment:"investment",temp:"temp",dining:"dining",entertainment:"entertainment",medical:"medical",other:"other"};
   const cm={carro:"auto",vivienda:"rent",servicios:"subscription",gas:"gas",tarjeta:"credit_card",comida:"groceries",otro:"other",auto:"auto",rent:"rent",subscription:"subscription",credit_card:"credit_card",groceries:"groceries",other:"other",insurance:"insurance",utilities:"utilities",dining:"dining",entertainment:"entertainment",medical:"medical"};
   const mg=g=>({...g,cat:cm[g.cat]||cm[g.categoria]||"other",destino:dm[g.destino]||"other",diaPago:g.diaPago||null,tarjetaRef:g.tarjetaRef||"",state:g.state||(g.pagado?"paid":"pending"),_quick:g._quick||false});
-
   const anchor=raw.proximoCobro||"2026-04-03";
   const freq=raw.payFreq||"biweekly";
   let periods=raw.periods||{};
-
   if(!raw.periods){
     const curStart=getCurrentPeriodStart(anchor,freq);
     const curKey="period_"+dateStr(curStart);
@@ -301,7 +278,6 @@ const migrate=raw=>{
       if(periods[k].gastos)periods[k]={...periods[k],gastos:periods[k].gastos.map(mg)};
     });
   }
-
   return{
     proximoCobro:anchor,
     payFreq:freq,
@@ -317,7 +293,6 @@ const migrate=raw=>{
     _sa:raw._sa||"",
   };
 };
-
 const DD={
   proximoCobro:"2026-04-03",payFreq:"biweekly",theme:"dark",
   checkAmount:1520,periods:{},
@@ -330,7 +305,6 @@ const DD={
   pots:{savings_acct:0,emergency:0,investment:0},
   potMovements:[],snapshots:[],ahorro:null,_sa:"",
 };
-
 const loadData=()=>{
   try{
     const s=localStorage.getItem(SK);
@@ -339,11 +313,9 @@ const loadData=()=>{
     return migrate(DD);
   }catch{return migrate(DD);}
 };
-
 const mkINP=T=>({display:"block",width:"100%",...T.inp,borderRadius:10,fontFamily:"inherit",fontSize:"16px",padding:"11px 14px",outline:"none",WebkitAppearance:"none",boxSizing:"border-box"});
 const mkBTN=()=>({cursor:"pointer",border:"none",borderRadius:10,fontFamily:"inherit",fontWeight:600,WebkitTapHighlightColor:"transparent"});
 const mkCARD=T=>({background:T.surface,border:`1px solid ${T.border}`,borderRadius:14});
-
 const LimitBar=memo(({balance,limite,T})=>{
   const pct=limite>0?Math.min(100,Math.round((n(balance)/n(limite))*100)):0;
   const color=pct>=90?"#f85149":pct>=70?"#d29922":"#3fb950";
@@ -357,7 +329,6 @@ const LimitBar=memo(({balance,limite,T})=>{
     </div>
   </div>);
 });
-
 const DragList=memo(({items,onReorder,renderItem})=>{
   const [drag,setDrag]=useState(null),[over,setOver]=useState(null);
   const refs=useRef([]),ti=useRef(null),moved=useRef(false);
@@ -367,90 +338,40 @@ const DragList=memo(({items,onReorder,renderItem})=>{
   const onTE=()=>{if(moved.current)commit(ti.current,over);ti.current=null;moved.current=false;setDrag(null);setOver(null);};
   return(<div>{items.map((item,i)=>(<div key={item.id} ref={el=>refs.current[i]=el} style={{opacity:drag===i?0.35:1,transition:"opacity 0.1s"}}>{renderItem(item,i,{onTouchStart:e=>onTS(e,i),onTouchMove:e=>onTM(e,i),onTouchEnd:onTE})}</div>))}</div>);
 });
-
 const getCatIcon=(cat)=>CICONS[cat]||"📌";
-
 const GastoItem=memo(({item,pid,editId,setEditId,tarjetas,onCycle,onLongPress,onUpdate,onBatchUpdate,onRemove,touch,T})=>{
   const dest=gds(item.destino,item.tarjetaRef);
   const INP=mkINP(T),BTN=mkBTN(),CARD=mkCARD(T);
   const pressTimer=useRef(null);
   const longPressed=useRef(false);
-
-  const hTS=()=>{
-    longPressed.current=false;
-    pressTimer.current=setTimeout(()=>{longPressed.current=true;onLongPress(item.id);},500);
-  };
+  const hTS=()=>{longPressed.current=false;pressTimer.current=setTimeout(()=>{longPressed.current=true;onLongPress(item.id);},500);};
   const hTE=()=>clearTimeout(pressTimer.current);
-
   const getCardDueDay=(cardName)=>{
     if(!cardName)return null;
     const card=tarjetas.find(t=>t.nombre===cardName);
     return card&&card.fechaPago?parseInt(card.fechaPago)||null:null;
   };
-
   const showDueDay=DUE_DAY_CATS.has(item.destino)||DUE_DAY_CATS.has(item.cat);
-
   if(editId===item.id)return(
     <div style={{marginBottom:8,...CARD,padding:"14px",border:`1px solid ${T.accent}`}}>
       <div style={{marginBottom:10}}><div style={{fontSize:10,color:T.muted,marginBottom:5}}>NAME</div><input style={INP} value={item.nombre} onChange={e=>onUpdate(item.id,"nombre",e.target.value)} placeholder="Expense name" autoFocus/></div>
       <div style={{marginBottom:10}}><div style={{fontSize:10,color:T.muted,marginBottom:5}}>AMOUNT ($)</div><input style={INP} type="number" inputMode="decimal" value={item.monto||""} onChange={e=>onUpdate(item.id,"monto",e.target.value)} placeholder="0"/></div>
       <div style={{marginBottom:10}}>
         <div style={{fontSize:10,color:T.muted,marginBottom:5}}>DESTINATION</div>
-        {/*
-          Category picker uses a fixed stable grid layout.
-          DEST_ORDER is a fixed array — never sorted, never regrouped.
-          Only the selected visual state (background/color/border) changes on selection.
-          onBatchUpdate batches destino+cat into a single state update to prevent double re-render jump.
-        */}
         <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:5}}>
           {DEST_ORDER.map(k=>{
-            const d=DEST[k];
-            const isSelected=item.destino===k;
-            return(
-              <button
-                key={k}
-                style={{
-                  cursor:"pointer",
-                  border:"none",
-                  borderRadius:10,
-                  fontFamily:"inherit",
-                  fontWeight:600,
-                  WebkitTapHighlightColor:"transparent",
-                  padding:"7px 9px",
-                  fontSize:11,
-                  textAlign:"left",
-                  background:isSelected?d.bg:"#21262d",
-                  color:isSelected?d.color:T.muted,
-                  border:`1px solid ${isSelected?d.border:T.border}`,
-                  transition:"background 0.1s, color 0.1s, border-color 0.1s",
-                  whiteSpace:"nowrap",
-                  overflow:"hidden",
-                  textOverflow:"ellipsis",
-                }}
-                onMouseDown={e=>{
-                  e.preventDefault();
-                  // Batch both field updates into a single state change to prevent layout jump
-                  const updates={destino:k,cat:k};
-                  if(k!=="credit_card")updates.tarjetaRef="";
-                  onBatchUpdate(item.id,updates);
-                }}
-              >
-                {d.icon} {d.label}
-              </button>
-            );
+            const d=DEST[k];const isSelected=item.destino===k;
+            return(<button key={k} style={{cursor:"pointer",border:"none",borderRadius:10,fontFamily:"inherit",fontWeight:600,WebkitTapHighlightColor:"transparent",padding:"7px 9px",fontSize:11,textAlign:"left",background:isSelected?d.bg:"#21262d",color:isSelected?d.color:T.muted,border:`1px solid ${isSelected?d.border:T.border}`,transition:"background 0.1s, color 0.1s, border-color 0.1s",whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}
+              onMouseDown={e=>{e.preventDefault();const updates={destino:k,cat:k};if(k!=="credit_card")updates.tarjetaRef="";onBatchUpdate(item.id,updates);}}>
+              {d.icon} {d.label}
+            </button>);
           })}
         </div>
       </div>
       {item.destino==="credit_card"&&(
         <div style={{marginBottom:10}}>
           <div style={{fontSize:10,color:T.muted,marginBottom:5}}>WHICH CARD?</div>
-          <select style={INP} value={item.tarjetaRef} onChange={e=>{
-            const cardName=e.target.value;
-            const dueDay=getCardDueDay(cardName);
-            const updates={tarjetaRef:cardName};
-            if(dueDay)updates.diaPago=dueDay;
-            onBatchUpdate(item.id,updates);
-          }}>
+          <select style={INP} value={item.tarjetaRef} onChange={e=>{const cardName=e.target.value;const dueDay=getCardDueDay(cardName);const updates={tarjetaRef:cardName};if(dueDay)updates.diaPago=dueDay;onBatchUpdate(item.id,updates);}}>
             <option value="">Select...</option>
             {tarjetas.map(t=><option key={t.id} value={t.nombre}>{t.nombre}{t.fechaPago?` (due ${t.fechaPago})`:""}</option>)}
           </select>
@@ -458,12 +379,7 @@ const GastoItem=memo(({item,pid,editId,setEditId,tarjetas,onCycle,onLongPress,on
       )}
       {showDueDay&&(
         <div style={{marginBottom:12}}>
-          <div style={{fontSize:10,color:T.muted,marginBottom:5}}>
-            DUE DAY (optional)
-            {item.destino==="credit_card"&&item.tarjetaRef&&getCardDueDay(item.tarjetaRef)&&(
-              <span style={{marginLeft:6,color:"#58a6ff",fontSize:9}}>← auto-filled from card</span>
-            )}
-          </div>
+          <div style={{fontSize:10,color:T.muted,marginBottom:5}}>DUE DAY (optional){item.destino==="credit_card"&&item.tarjetaRef&&getCardDueDay(item.tarjetaRef)&&(<span style={{marginLeft:6,color:"#58a6ff",fontSize:9}}>← auto-filled from card</span>)}</div>
           <input style={INP} type="number" inputMode="numeric" placeholder="e.g. 7" value={item.diaPago||""} onChange={e=>onUpdate(item.id,"diaPago",e.target.value?parseInt(e.target.value):null)}/>
         </div>
       )}
@@ -473,30 +389,21 @@ const GastoItem=memo(({item,pid,editId,setEditId,tarjetas,onCycle,onLongPress,on
       </div>
     </div>
   );
-
   const stBg={pending:"transparent",reserved:"rgba(210,153,34,0.07)",paid:"rgba(63,185,80,0.07)"}[item.state||"pending"];
   const stBorder={pending:T.border,reserved:"rgba(210,153,34,0.3)",paid:"#2ea043"}[item.state||"pending"];
   const catIcon=getCatIcon(item.cat)||getCatIcon(item.destino)||"📌";
   const catColor=CATCOLORS[item.cat]||CATCOLORS[item.destino]||"#94a3b8";
-
   return(
     <div className="expense-row" style={{marginBottom:7}}>
       <div style={{display:"flex",alignItems:"center",gap:8,padding:"10px 11px",borderRadius:11,background:stBg,border:`1px solid ${stBorder}`,transition:"background 0.15s,border 0.15s"}}>
-        <div onTouchStart={touch.onTouchStart} onTouchMove={touch.onTouchMove} onTouchEnd={touch.onTouchEnd}
-          style={{display:"flex",flexDirection:"column",gap:3,padding:"6px 5px",flexShrink:0,touchAction:"none",cursor:"grab"}}>
+        <div onTouchStart={touch.onTouchStart} onTouchMove={touch.onTouchMove} onTouchEnd={touch.onTouchEnd} style={{display:"flex",flexDirection:"column",gap:3,padding:"6px 5px",flexShrink:0,touchAction:"none",cursor:"grab"}}>
           {[0,1,2].map(l=><div key={l} style={{width:14,height:2,background:T.muted,borderRadius:2}}/>)}
         </div>
         <div onClick={()=>{if(!longPressed.current)onCycle(item.id);longPressed.current=false;}} onTouchStart={hTS} onTouchEnd={hTE}
-          style={{width:24,height:24,borderRadius:"50%",flexShrink:0,
-            background:item.state==="paid"?"#2ea043":item.state==="reserved"?"rgba(210,153,34,0.25)":"transparent",
-            border:`2px solid ${item.state==="paid"?"#2ea043":item.state==="reserved"?"#d29922":T.border}`,
-            display:"flex",alignItems:"center",justifyContent:"center",fontSize:11,cursor:"pointer",
-            color:item.state==="paid"?"#fff":item.state==="reserved"?"#d29922":T.muted,fontWeight:700}}>
+          style={{width:24,height:24,borderRadius:"50%",flexShrink:0,background:item.state==="paid"?"#2ea043":item.state==="reserved"?"rgba(210,153,34,0.25)":"transparent",border:`2px solid ${item.state==="paid"?"#2ea043":item.state==="reserved"?"#d29922":T.border}`,display:"flex",alignItems:"center",justifyContent:"center",fontSize:11,cursor:"pointer",color:item.state==="paid"?"#fff":item.state==="reserved"?"#d29922":T.muted,fontWeight:700}}>
           {item.state==="paid"?"✓":item.state==="reserved"?"◑":""}
         </div>
-        <div style={{width:26,height:26,borderRadius:7,background:catColor+"22",display:"flex",alignItems:"center",justifyContent:"center",fontSize:13,flexShrink:0}}>
-          {catIcon}
-        </div>
+        <div style={{width:26,height:26,borderRadius:7,background:catColor+"22",display:"flex",alignItems:"center",justifyContent:"center",fontSize:13,flexShrink:0}}>{catIcon}</div>
         <div onClick={()=>{if(!longPressed.current)onCycle(item.id);longPressed.current=false;}} style={{flex:1,minWidth:0,cursor:"pointer"}}>
           <div style={{display:"flex",alignItems:"center",gap:5,flexWrap:"wrap"}}>
             <span style={{fontSize:13,fontWeight:600,color:item.state==="paid"?"#3fb950":item.state==="reserved"?"#d29922":T.text,textDecoration:item.state==="paid"?"line-through":"none",opacity:item.state==="paid"?0.75:1}}>{item.nombre||"Untitled"}</span>
@@ -512,9 +419,7 @@ const GastoItem=memo(({item,pid,editId,setEditId,tarjetas,onCycle,onLongPress,on
       </div>
     </div>
   );
-});
-
-const DebtCard=memo(({debt,idx,isFirst,tipo,accion,setAccion,montoAccion,setMontoAccion,onApply,onUpdate,onRemove,isAdding,setAddingDebt,T})=>{
+});const DebtCard=memo(({debt,idx,isFirst,tipo,accion,setAccion,montoAccion,setMontoAccion,onApply,onUpdate,onRemove,isAdding,setAddingDebt,T})=>{
   const [editing,setEditing]=useState(false);
   const INP=mkINP(T),BTN=mkBTN(),CARD=mkCARD(T);
   const dp=getDU(debt.fechaPago),fpd=gdf(debt.fechaPago),fcd=debt.fechaCorte?gdf(debt.fechaCorte):null;
@@ -528,36 +433,27 @@ const DebtCard=memo(({debt,idx,isFirst,tipo,accion,setAccion,montoAccion,setMont
   const dueBg=dp<=0?"rgba(88,166,255,0.1)":dp<=5?"rgba(248,81,73,0.1)":"rgba(63,185,80,0.07)";
   const dueBorder=dp<=0?"rgba(88,166,255,0.3)":dp<=5?"rgba(248,81,73,0.3)":"rgba(63,185,80,0.2)";
   const dueColor=dp<=0?"#58a6ff":dp<=5?"#f85149":"#3fb950";
-  // Fix 2: getLoanIcon applied consistently for all loan display states
   const debtIcon=tipo==="card"?(CC[debt.nombre]?.dot||"💳"):getLoanIcon(debt.nombre);
-
   return(
     <div style={{...CARD,padding:"15px 17px",marginBottom:12,borderColor:isFirst?"#d29922":showEdit?"rgba(88,166,255,0.5)":T.border,transition:"border-color 0.2s"}}>
       <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:8}}>
         {isFirst?<div style={{padding:"2px 9px",borderRadius:20,fontSize:10,fontWeight:700,background:"rgba(210,153,34,0.15)",color:"#d29922"}}>🎯 ATTACK FIRST</div>:<div style={{padding:"2px 9px",borderRadius:20,fontSize:10,fontWeight:700,background:T.surface2,color:T.muted}}>#{idx+1}</div>}
         <div style={{display:"flex",gap:6,alignItems:"center"}}>
-          {/* Fix 2: icon shown in header for both editing and display states */}
           <span style={{fontSize:15}}>{debtIcon}</span>
           {!isAdding&&(<button style={{...BTN,background:editing?"rgba(88,166,255,0.15)":"transparent",color:editing?T.accent:T.muted,padding:"3px 8px",fontSize:12,border:`1px solid ${editing?T.accent:"transparent"}`,borderRadius:8}} onClick={()=>setEditing(e=>!e)}>{editing?"✓ Done":"✏️ Edit"}</button>)}
           <button style={{...BTN,background:"transparent",color:T.muted,padding:"3px 7px",fontSize:14}} onClick={()=>onRemove(debt.id)}>🗑</button>
         </div>
       </div>
-
-      {showEdit
-        ?(<div style={{display:"flex",alignItems:"center",gap:8,marginBottom:12}}>
-            {/* Fix 2: icon shown dynamically during name editing, updates as user types */}
-            <span style={{fontSize:18,flexShrink:0}}>{debtIcon}</span>
-            <input style={{...INP,fontWeight:700,fontSize:15,background:"transparent",border:"none",borderBottom:`1.5px solid ${T.accent}`,borderRadius:0,padding:"3px 0",flex:1}} value={debt.nombre} onChange={e=>onUpdate(debt.id,"nombre",e.target.value)} autoFocus={editing&&!isAdding}/>
-          </div>)
-        :<div style={{fontWeight:700,fontSize:15,marginBottom:12,paddingBottom:6,borderBottom:`1px solid ${T.border}`,color:T.text}}>{debt.nombre}</div>
-      }
-
+      {showEdit?(<div style={{display:"flex",alignItems:"center",gap:8,marginBottom:12}}>
+          <span style={{fontSize:18,flexShrink:0}}>{debtIcon}</span>
+          <input style={{...INP,fontWeight:700,fontSize:15,background:"transparent",border:"none",borderBottom:`1.5px solid ${T.accent}`,borderRadius:0,padding:"3px 0",flex:1}} value={debt.nombre} onChange={e=>onUpdate(debt.id,"nombre",e.target.value)} autoFocus={editing&&!isAdding}/>
+        </div>)
+        :<div style={{fontWeight:700,fontSize:15,marginBottom:12,paddingBottom:6,borderBottom:`1px solid ${T.border}`,color:T.text}}>{debt.nombre}</div>}
       {tipo==="card"&&<LimitBar balance={n(debt.balance)} limite={n(debt.limite)} T={T}/>}
       {tipo==="loan"&&n(debt.original)>0&&(<div style={{marginBottom:12}}>
         <div style={{display:"flex",justifyContent:"space-between",fontSize:11,marginBottom:5}}><span style={{color:T.muted}}>Paid {fmt(n(debt.original)-n(debt.balance))} of {fmt(debt.original)}</span><span style={{color:"#3fb950",fontWeight:700}}>{pct}% done</span></div>
         <div style={{height:9,background:T.surface2,borderRadius:8,overflow:"hidden"}}><div style={{height:"100%",width:`${pct}%`,background:"linear-gradient(90deg,#3fb950,#58a6ff)",borderRadius:8}}/></div>
       </div>)}
-
       {tipo==="loan"&&lc&&n(lc.interest)>0&&(<div style={{background:"rgba(210,153,34,0.07)",border:"1px solid rgba(210,153,34,0.2)",borderRadius:10,padding:"10px 12px",marginBottom:12}}>
         <div style={{fontSize:10,color:"#d29922",fontWeight:700,marginBottom:8}}>📊 NEXT PAYMENT BREAKDOWN</div>
         <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:6}}>
@@ -567,7 +463,6 @@ const DebtCard=memo(({debt,idx,isFirst,tipo,accion,setAccion,montoAccion,setMont
           </div>))}
         </div>
       </div>)}
-
       {showEdit&&(<>
         <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:7,marginBottom:10}}>
           {(isAdding?newFields:fields).map(([l,f])=>(<div key={f}><div style={{fontSize:9,color:T.muted,marginBottom:4}}>{l}</div><input style={{...INP,fontSize:14,padding:"8px 11px"}} type="number" inputMode="decimal" value={debt[f]||""} onChange={e=>onUpdate(debt.id,f,e.target.value)}/></div>))}
@@ -578,7 +473,6 @@ const DebtCard=memo(({debt,idx,isFirst,tipo,accion,setAccion,montoAccion,setMont
         </div>
         {isAdding&&<button style={{...BTN,width:"100%",padding:"11px",background:"#238636",color:"#fff",fontSize:14,marginBottom:4}} onClick={()=>setAddingDebt(null)}>✓ Done Adding</button>}
       </>)}
-
       {!showEdit&&(<>
         <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:7,marginBottom:10}}>
           {(tipo==="card"
@@ -598,12 +492,10 @@ const DebtCard=memo(({debt,idx,isFirst,tipo,accion,setAccion,montoAccion,setMont
           <div style={{fontSize:12,color:T.muted,fontWeight:600}}>{getDU(debt.fechaCorte)}d left</div>
         </div>)}
       </>)}
-
       {!isAdding&&(<div style={{fontSize:11,color:T.muted,marginBottom:10,display:"flex",justifyContent:"space-between",paddingTop:2}}>
         <span>Min/check: <strong style={{color:T.text}}>{fmt(n(debt.minimo)/2)}</strong></span>
         <span style={{color:"#d29922"}}>~{fmt((n(debt.interes)/100/12)*n(debt.balance))}/mo interest</span>
       </div>)}
-
       {!isAdding&&!editing&&(
         isActive?(<div style={{background:T.bg,borderRadius:10,padding:"12px",border:`1px solid ${accion.tipo==="pago"?"#3fb950":"#f85149"}`}}>
           <div style={{fontSize:12,fontWeight:700,color:accion.tipo==="pago"?"#3fb950":"#f85149",marginBottom:8}}>{accion.tipo==="pago"?"💳 How much did you pay?":"🛒 How much did you charge?"}</div>
@@ -622,7 +514,6 @@ const DebtCard=memo(({debt,idx,isFirst,tipo,accion,setAccion,montoAccion,setMont
     </div>
   );
 });
-
 const DestinoSummary=memo(({gastos,T})=>{
   const bd={};
   gastos.forEach(g=>{const k=g.destino==="credit_card"?(g.tarjetaRef||"Credit Card"):g.destino;if(!bd[k])bd[k]={total:0,d:g.destino,r:g.tarjetaRef};bd[k].total+=n(g.monto);});
@@ -639,44 +530,21 @@ const DestinoSummary=memo(({gastos,T})=>{
     </div>
   </div>);
 });
-
-// ── Snapshot reminder helper ─────────────────────────────────────────────────
 const getSnapshotReminder=(today,snapshots)=>{
   const d=today.getDate();
   const dim=new Date(today.getFullYear(),today.getMonth()+1,0).getDate();
   const mo=["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
   const prevMonthName=mo[today.getMonth()===0?11:today.getMonth()-1];
-
-  // Check if current month snapshot exists
-  const thisMonthStr=today.toLocaleDateString("en-US",{month:"short",year:"numeric"});
   const hasThisMonth=(snapshots||[]).some(s=>s.fecha&&s.fecha.includes(mo[today.getMonth()])&&s.fecha.includes(String(today.getFullYear())));
-
-  // Check if previous month snapshot exists
   const hasPrevMonth=(snapshots||[]).some(s=>{
     if(!s.fecha)return false;
     const prevY=today.getMonth()===0?today.getFullYear()-1:today.getFullYear();
     return s.fecha.includes(prevMonthName)&&s.fecha.includes(String(prevY));
   });
-
-  // Last 3 days of month
-  if(d>=dim-2){
-    if(!hasThisMonth){
-      return{type:"warn",msg:"Save Monthly Snapshot before exporting backup"};
-    }else{
-      return{type:"info",msg:"Snapshot saved ✓ — Backup recommended"};
-    }
-  }
-  // First 3 days of month
-  if(d<=3){
-    if(!hasPrevMonth){
-      return{type:"warn",msg:`Last month (${prevMonthName}) snapshot missing`};
-    }else{
-      return{type:"info",msg:"Export monthly backup recommended"};
-    }
-  }
+  if(d>=dim-2){if(!hasThisMonth)return{type:"warn",msg:"Save Monthly Snapshot before exporting backup"};else return{type:"info",msg:"Snapshot saved ✓ — Backup recommended"};}
+  if(d<=3){if(!hasPrevMonth)return{type:"warn",msg:`Last month (${prevMonthName}) snapshot missing`};else return{type:"info",msg:"Export monthly backup recommended"};}
   return null;
 };
-
 function App(){
   const [data,setData]=useState(loadData);
   const [tab,setTab]=useState("overview");
@@ -700,63 +568,48 @@ function App(){
   const swipeFromContent=useRef(false);
   const mainRef=useRef(null);
   const tabBarRef=useRef(null);
+  // FIX: stores the group key of the item being edited so renderGrouped keeps it in place during editing
+  const editGroupKeyRef=useRef(null);
 
   const theme=data.theme||"dark";
   const T=THEMES[theme];
   useEffect(()=>{document.body.className=theme;},[theme]);
   useEffect(()=>{localStorage.setItem(SK,JSON.stringify(data));},[data]);
-
   const toast_=(msg,type="ok")=>{setToast({msg,type});clearTimeout(toastRef.current);toastRef.current=setTimeout(()=>setToast(null),2800);};
   const INP=mkINP(T),BTN=mkBTN(),CARD=mkCARD(T);
-
   const freq=data.payFreq||"biweekly";
   const anchor=data.proximoCobro||"2026-04-03";
   const globalCheckAmount=n(data.checkAmount||1520);
   const today=useMemo(()=>{const d=new Date();d.setHours(0,0,0,0);return d;},[]);
-
   const monthPeriods=useMemo(()=>buildMonthPeriods(anchor,freq),[anchor,freq,today]);
   const currentPeriod=monthPeriods.find(p=>p.isCurrent)||monthPeriods[0];
   const currentPid=currentPeriod?.id||"";
-
   const upcomingPaydays=useMemo(()=>getUpcomingPaydays(anchor,8,freq),[anchor,freq,today]);
   const nextPayday=useMemo(()=>getNextPayday(anchor,freq),[anchor,freq,today]);
   const diasProx=nextPayday?Math.ceil((nextPayday-today)/86400000):null;
-
   const getPGastos=pid=>(data.periods[pid]||{}).gastos||[];
-
   const getPeriodAmount=useCallback(pid=>{
     const stored=(data.periods[pid]||{}).amount;
     if(stored!=null&&stored!==undefined&&n(stored)>0)return n(stored);
     return globalCheckAmount;
   },[data.periods,globalCheckAmount]);
-
   const setPeriodAmount=useCallback((pid,val)=>{
     setData(p=>({...p,periods:{...p.periods,[pid]:{...(p.periods[pid]||{}),amount:parseFloat(val)||0}}}));
   },[]);
-
   const totalMonthlyIncome=monthPeriods.reduce((s,p)=>s+getPeriodAmount(p.id),0);
   const totalMonthlyExp=monthPeriods.reduce((s,p)=>s+getPGastos(p.id).reduce((ss,g)=>ss+n(g.monto),0),0);
-
   const allDebts=[...data.tarjetas.map(t=>({...t,tipo:"card"})),...(data.loans||[]).map(l=>({...l,tipo:"loan"}))].sort((a,b)=>n(b.interes)-n(a.interes));
   const totalDebt=allDebts.reduce((s,d)=>s+n(d.balance),0);
   const interesTotal=allDebts.reduce((s,d)=>s+(n(d.interes)/100/12)*n(d.balance),0);
   const urgentDebts=allDebts.filter(d=>getDU(d.fechaPago)!==null&&getDU(d.fechaPago)<=3);
   const pots=data.pots||{};
-
   useEffect(()=>{if(!quickPid&&currentPid)setQuickPid(currentPid);},[currentPid]);
-
   const TABS_ORDER=useMemo(()=>["overview",...monthPeriods.map(p=>p.id),"debts","calendar","history","settings"],[monthPeriods]);
-
   const handleSwipeTouchStart=useCallback(e=>{
     const t=e.touches[0];
-    if(tabBarRef.current){
-      const rect=tabBarRef.current.getBoundingClientRect();
-      if(t.clientY>=rect.top&&t.clientY<=rect.bottom){swipeFromContent.current=false;swipeStart.current=null;return;}
-    }
-    swipeFromContent.current=true;
-    swipeStart.current={x:t.clientX,y:t.clientY};
+    if(tabBarRef.current){const rect=tabBarRef.current.getBoundingClientRect();if(t.clientY>=rect.top&&t.clientY<=rect.bottom){swipeFromContent.current=false;swipeStart.current=null;return;}}
+    swipeFromContent.current=true;swipeStart.current={x:t.clientX,y:t.clientY};
   },[]);
-
   const handleSwipeTouchEnd=useCallback(e=>{
     if(!swipeStart.current||!swipeFromContent.current)return;
     const t=e.changedTouches[0];
@@ -767,29 +620,35 @@ function App(){
     if(dx<0&&idx<TABS_ORDER.length-1)setTab(TABS_ORDER[idx+1]);
     if(dx>0&&idx>0)setTab(TABS_ORDER[idx-1]);
   },[tab,TABS_ORDER]);
-
   const updPeriodGastos=(pid,fn)=>setData(p=>{
     const cur=(p.periods[pid]||{}).gastos||[];
     return{...p,periods:{...p.periods,[pid]:{...(p.periods[pid]||{}),gastos:fn(cur)}}};
   });
-
   const cycleState=useCallback((pid,id)=>updPeriodGastos(pid,g=>g.map(x=>x.id!==id?x:{...x,state:x.state==="paid"?"pending":"paid",pagado:x.state!=="paid"})),[]);
   const setReserved=useCallback((pid,id)=>updPeriodGastos(pid,g=>g.map(x=>x.id!==id?x:{...x,state:x.state==="reserved"?"pending":"reserved",pagado:false})),[]);
   const updateGasto=useCallback((pid,id,f,v)=>updPeriodGastos(pid,g=>g.map(x=>x.id===id?{...x,[f]:v}:x)),[]);
-  // Batch update: apply multiple field changes in a single state update to prevent double re-render
   const batchUpdateGasto=useCallback((pid,id,fields)=>updPeriodGastos(pid,g=>g.map(x=>x.id===id?{...x,...fields}:x)),[]);
   const removeGasto=useCallback((pid,id)=>updPeriodGastos(pid,g=>g.filter(x=>x.id!==id)),[]);
   const reorder=useCallback((pid,list)=>updPeriodGastos(pid,()=>list),[]);
   const addGasto=useCallback(pid=>{
     const nid=Date.now();
     updPeriodGastos(pid,g=>[...g,{id:nid,nombre:"",monto:0,cat:"other",state:"pending",pagado:false,destino:"other",tarjetaRef:"",diaPago:null,_quick:false}]);
+    editGroupKeyRef.current="other"; // new items start in "other" group
     setTimeout(()=>setEditId(nid),30);
   },[]);
   const resetCheck=useCallback((pid,label)=>{
     updPeriodGastos(pid,g=>g.filter(x=>x.destino!=="temp"&&!x._quick).map(x=>({...x,state:"pending",pagado:false})));
     toast_(`🔄 ${label} reset`);
   },[]);
-
+  // FIX: wrap setEditId to capture or clear editGroupKeyRef
+  const openEditId=useCallback((id,gastos)=>{
+    if(id===null){editGroupKeyRef.current=null;setEditId(null);}
+    else{
+      const item=(gastos||[]).find(g=>g.id===id);
+      if(item)editGroupKeyRef.current=item.destino==="credit_card"?(item.tarjetaRef||"Credit Card"):item.destino;
+      setEditId(id);
+    }
+  },[]);
   const updateTarjeta=useCallback((id,f,v)=>setData(p=>({...p,tarjetas:p.tarjetas.map(t=>t.id===id?{...t,[f]:v}:t)})),[]);
   const updateLoan=useCallback((id,f,v)=>setData(p=>({...p,loans:(p.loans||[]).map(l=>l.id===id?{...l,[f]:v}:l)})),[]);
   const removeTarjeta=useCallback(id=>{setData(p=>({...p,tarjetas:p.tarjetas.filter(t=>t.id!==id)}));toast_("🗑 Removed");},[]);
@@ -803,50 +662,42 @@ function App(){
   },[montoAccion,accion]);
   const addCard=useCallback(()=>{const id=Date.now();setData(p=>({...p,tarjetas:[...p.tarjetas,{id,nombre:"New Card",balance:0,limite:0,minimo:0,interes:0,fechaCorte:"",fechaPago:"",historial:[],tipo:"card"}]}));setAddingDebt({id,tipo:"card"});},[]);
   const addLoan=useCallback(()=>{const id=Date.now();setData(p=>({...p,loans:[...(p.loans||[]),{id,nombre:"New Loan",balance:0,original:0,minimo:0,interes:0,fechaPago:"",historial:[],tipo:"loan"}]}));setAddingDebt({id,tipo:"loan"});},[]);
-
   const addQuickExpense=()=>{
     const m=parseFloat(quickAmt);if(!m||m<=0||!quickNote.trim())return toast_("Add name and amount","err");
-    const pid=quickPid||currentPid;
-    const nid=Date.now();
+    const pid=quickPid||currentPid;const nid=Date.now();
     updPeriodGastos(pid,g=>[...g,{id:nid,nombre:quickNote.trim(),monto:m,cat:"other",state:"paid",pagado:true,destino:"temp",tarjetaRef:"",diaPago:null,_quick:true}]);
-    setQuickNote("");setQuickAmt("");setQuickOpen(false);
-    toast_(`✅ "${quickNote.trim()}" ${fmt(m)} added & paid`);
+    setQuickNote("");setQuickAmt("");setQuickOpen(false);toast_(`✅ "${quickNote.trim()}" ${fmt(m)} added & paid`);
   };
-
   const doMoveMoney=()=>{
     const m=parseFloat(moveAmt);if(!m||m<=0)return toast_("Invalid amount","err");
     const mvId=Date.now();const pot=POTS[moveTo];
     setData(p=>({...p,pots:{...p.pots,[moveTo]:n((p.pots||{})[moveTo])+m},potMovements:[...(p.potMovements||[]),{id:mvId,potKey:moveTo,amount:m,date:new Date().toLocaleDateString("en-US",{month:"short",day:"numeric"}),note:moveNote||pot?.label||moveTo}]}));
-    setMoveAmt("");setMoveNote("");setMoveOpen(false);
-    toast_(`💸 ${fmt(m)} moved to ${pot?.label||moveTo}`);
+    setMoveAmt("");setMoveNote("");setMoveOpen(false);toast_(`💸 ${fmt(m)} moved to ${pot?.label||moveTo}`);
   };
-
   const exportData=useCallback(()=>{
     const b=new Blob([JSON.stringify(data,null,2)],{type:"application/json"});
-    const u=URL.createObjectURL(b);
-    const a=document.createElement("a");a.href=u;a.download="mybudget_backup.json";a.click();
-    toast_("📥 Backup exported");
+    const u=URL.createObjectURL(b);const a=document.createElement("a");a.href=u;a.download="mybudget_backup.json";a.click();toast_("📥 Backup exported");
   },[data]);
-
   const importData=useCallback(e=>{
     const f=e.target.files[0];if(!f)return;
     const r=new FileReader();
-    r.onload=ev=>{
-      try{
-        const parsed=JSON.parse(ev.target.result);
-        const restored=migrate(parsed);
-        setData(restored);
-        localStorage.setItem(SK,JSON.stringify(restored));
-        toast_("✅ Backup restored");
-      }catch{toast_("❌ Invalid backup file","err");}
-    };
-    r.readAsText(f);
-    e.target.value="";
+    r.onload=ev=>{try{const parsed=JSON.parse(ev.target.result);const restored=migrate(parsed);setData(restored);localStorage.setItem(SK,JSON.stringify(restored));toast_("✅ Backup restored");}catch{toast_("❌ Invalid backup file","err");}};
+    r.readAsText(f);e.target.value="";
   },[]);
-
   const renderGrouped=(pid,gastos)=>{
     const groups={};
-    gastos.forEach(g=>{const k=g.destino==="credit_card"?(g.tarjetaRef||"Credit Card"):g.destino;if(!groups[k])groups[k]={d:g.destino,r:g.tarjetaRef,items:[]};groups[k].items.push(g);});
+    gastos.forEach(g=>{
+      // FIX: while this item is open for editing, keep it in its original group so it doesn't jump.
+      // Only after Done (editId===null / openEditId(null)) does regrouping happen.
+      let k;
+      if(editId===g.id&&editGroupKeyRef.current!==null){
+        k=editGroupKeyRef.current;
+      } else {
+        k=g.destino==="credit_card"?(g.tarjetaRef||"Credit Card"):g.destino;
+      }
+      if(!groups[k])groups[k]={d:g.destino,r:g.tarjetaRef,items:[]};
+      groups[k].items.push(g);
+    });
     return Object.keys(groups).sort((a,b)=>(DORDER.indexOf(groups[a].d)+1||99)-(DORDER.indexOf(groups[b].d)+1||99)).map(k=>{
       const{d,r,items}=groups[k];const dst=gds(d,r);const sub=items.reduce((s,g)=>s+n(g.monto),0);
       return(<div key={k} style={{marginBottom:14}}>
@@ -855,7 +706,7 @@ function App(){
           <span style={{fontFamily:"monospace",fontSize:13,fontWeight:800,color:dst.color}}>{fmt(sub)}</span>
         </div>
         <DragList items={items} onReorder={newItems=>{const rest=gastos.filter(g=>!items.find(i=>i.id===g.id));reorder(pid,[...newItems,...rest]);}}
-          renderItem={(item,_,touch)=>(<GastoItem key={item.id} item={item} pid={pid} editId={editId} setEditId={setEditId} tarjetas={data.tarjetas}
+          renderItem={(item,_,touch)=>(<GastoItem key={item.id} item={item} pid={pid} editId={editId} setEditId={(id)=>openEditId(id,gastos)} tarjetas={data.tarjetas}
             onCycle={id=>cycleState(pid,id)} onLongPress={id=>setReserved(pid,id)}
             onUpdate={(id,f,v)=>updateGasto(pid,id,f,v)}
             onBatchUpdate={(id,fields)=>batchUpdateGasto(pid,id,fields)}
@@ -863,7 +714,6 @@ function App(){
       </div>);
     });
   };
-
   const renderCheckTab=(period)=>{
     const{id:pid,label,isCurrent,payday}=period;
     const gastos=getPGastos(pid);
@@ -922,7 +772,6 @@ function App(){
       <button style={{...BTN,width:"100%",padding:"11px",background:"rgba(248,81,73,0.08)",color:"#f85149",fontSize:13,border:"1px solid rgba(248,81,73,0.25)"}} onClick={()=>resetCheck(pid,label)}>🔄 New Cycle — Reset {label}</button>
     </div>);
   };
-
   const TABS=[
     {id:"overview",icon:"📊",label:"Overview"},
     ...monthPeriods.map(p=>({id:p.id,icon:p.isCurrent?"💰":"📋",label:p.label,statusLabel:p.statusLabel,isCurrent:p.isCurrent})),
@@ -931,9 +780,7 @@ function App(){
     {id:"history", icon:"📆",label:"History"},
     {id:"settings",icon:"⚙️",label:"Settings"},
   ];
-
   const snapReminder=useMemo(()=>getSnapshotReminder(today,data.snapshots),[today,data.snapshots]);
-
   return(
     <div ref={mainRef} onTouchStart={handleSwipeTouchStart} onTouchEnd={handleSwipeTouchEnd}
       style={{minHeight:"100vh",background:T.bg,color:T.text,fontFamily:"-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif"}}>
@@ -948,9 +795,7 @@ function App(){
         .tabs{display:flex;gap:4px;overflow-x:auto;padding-bottom:2px;-webkit-overflow-scrolling:touch;scrollbar-width:none;margin-bottom:14px;}
         .tabs::-webkit-scrollbar{display:none;}
       `}</style>
-
       {toast&&<div style={{position:"fixed",top:16,right:16,zIndex:9999,background:toast.type==="err"?"#da3633":"#238636",color:"#fff",padding:"10px 16px",borderRadius:11,fontWeight:600,fontSize:13,boxShadow:"0 8px 24px rgba(0,0,0,0.4)"}}>{toast.msg}</div>}
-
       {urgentDebts.length>0&&!alertDim&&(
         <div style={{background:"linear-gradient(135deg,#f85149,#da3633)",padding:"12px 16px",position:"sticky",top:0,zIndex:100}}>
           <div style={{maxWidth:760,margin:"0 auto",display:"flex",justifyContent:"space-between",alignItems:"flex-start"}}>
@@ -962,9 +807,7 @@ function App(){
           </div>
         </div>
       )}
-
       <button style={{...BTN,position:"fixed",bottom:22,right:18,zIndex:200,width:52,height:52,borderRadius:"50%",background:"#238636",color:"#fff",fontSize:26,boxShadow:"0 4px 20px rgba(35,134,54,0.5)",display:"flex",alignItems:"center",justifyContent:"center"}} onClick={()=>setQuickOpen(true)}>+</button>
-
       {quickOpen&&(<div style={{position:"fixed",inset:0,zIndex:300,background:"rgba(0,0,0,0.72)",display:"flex",alignItems:"flex-end"}} onClick={e=>{if(e.target===e.currentTarget)setQuickOpen(false);}}>
         <div style={{width:"100%",maxWidth:500,margin:"0 auto",background:T.surface,borderRadius:"20px 20px 0 0",padding:"20px 18px 34px",border:`1px solid ${T.border}`}}>
           <div style={{fontSize:14,fontWeight:700,marginBottom:14}}>⚡ Quick Expense</div>
@@ -982,7 +825,6 @@ function App(){
           </div>
         </div>
       </div>)}
-
       {moveOpen&&(<div style={{position:"fixed",inset:0,zIndex:300,background:"rgba(0,0,0,0.72)",display:"flex",alignItems:"flex-end"}} onClick={e=>{if(e.target===e.currentTarget)setMoveOpen(false);}}>
         <div style={{width:"100%",maxWidth:500,margin:"0 auto",background:T.surface,borderRadius:"20px 20px 0 0",padding:"20px 18px 34px",border:`1px solid ${T.border}`}}>
           <div style={{fontSize:14,fontWeight:700,marginBottom:14}}>💸 Move Money</div>
@@ -1000,7 +842,6 @@ function App(){
           </div>
         </div>
       </div>)}
-
       {snapDetail&&(<div style={{position:"fixed",inset:0,zIndex:300,background:"rgba(0,0,0,0.72)",display:"flex",alignItems:"center",justifyContent:"center",padding:16}} onClick={e=>{if(e.target===e.currentTarget)setSnapDetail(null);}}>
         <div style={{width:"100%",maxWidth:420,background:T.surface,borderRadius:16,padding:"20px 18px",border:`1px solid ${T.border}`}}>
           <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:16}}>
@@ -1008,12 +849,7 @@ function App(){
             <button style={{...BTN,background:"transparent",color:T.muted,padding:"4px 8px",fontSize:13}} onClick={()=>setSnapDetail(null)}>✕</button>
           </div>
           <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:9}}>
-            {[
-              {l:"Surplus",v:fmt(snapDetail.sobrante),c:n(snapDetail.sobrante)>=0?"#3fb950":"#f85149"},
-              {l:"Total Debt",v:fmt(snapDetail.deuda),c:"#d29922"},
-              ...(snapDetail.totalCards!=null?[{l:"Cards",v:fmt(snapDetail.totalCards),c:"#ec4899"}]:[]),
-              ...(snapDetail.totalLoans!=null?[{l:"Loans",v:fmt(snapDetail.totalLoans),c:"#f97316"}]:[]),
-            ].map(s=>(<div key={s.l} style={{background:T.bg,borderRadius:10,padding:"10px 12px"}}>
+            {[{l:"Surplus",v:fmt(snapDetail.sobrante),c:n(snapDetail.sobrante)>=0?"#3fb950":"#f85149"},{l:"Total Debt",v:fmt(snapDetail.deuda),c:"#d29922"},...(snapDetail.totalCards!=null?[{l:"Cards",v:fmt(snapDetail.totalCards),c:"#ec4899"}]:[]),...(snapDetail.totalLoans!=null?[{l:"Loans",v:fmt(snapDetail.totalLoans),c:"#f97316"}]:[])].map(s=>(<div key={s.l} style={{background:T.bg,borderRadius:10,padding:"10px 12px"}}>
               <div style={{fontSize:9,color:T.muted,marginBottom:4}}>{s.l}</div>
               <div style={{fontFamily:"monospace",fontWeight:700,color:s.c,fontSize:15}}>{s.v}</div>
             </div>))}
@@ -1021,7 +857,6 @@ function App(){
           <div style={{marginTop:14,fontSize:10,color:T.muted,textAlign:"center"}}>Stored values only · read-only</div>
         </div>
       </div>)}
-
       <div className="c">
         <div style={{marginBottom:12,display:"flex",justifyContent:"space-between",alignItems:"center"}}>
           <div>
@@ -1034,7 +869,6 @@ function App(){
             <div style={{fontSize:9,color:T.muted}}>{nextPayday?fmd(nextPayday):""}</div>
           </div>)}
         </div>
-
         <div ref={tabBarRef} className="tabs">
           {TABS.map(t=>(<button key={t.id} style={{...BTN,padding:"7px 11px",fontSize:10,whiteSpace:"nowrap",flexShrink:0,background:tab===t.id?T.accent:T.surface2,color:tab===t.id?(theme==="dark"?"#0d1117":"#fff"):T.muted,border:`1px solid ${tab===t.id?T.accent:t.urgent?"#f85149":t.isCurrent?"#3fb950":T.border}`,position:"relative"}} onClick={()=>setTab(t.id)}>
             <div style={{display:"flex",flexDirection:"column",alignItems:"center",gap:1}}>
@@ -1044,27 +878,19 @@ function App(){
             {t.urgent&&tab!==t.id&&<span style={{position:"absolute",top:-3,right:-3,width:8,height:8,borderRadius:"50%",background:"#f85149",border:"2px solid "+T.bg}}/>}
           </button>))}
         </div>
-
         {tab==="overview"&&(<div className="anim">
           <div className="g2" style={{marginBottom:12}}>
-            {[
-              {label:"MONTHLY INCOME",val:totalMonthlyIncome,color:"#3fb950",sub:`${monthPeriods.length} checks · ${monthPeriods.map(p=>fmt(getPeriodAmount(p.id))).join(" + ")}`},
-              {label:"MONTHLY EXPENSES",val:totalMonthlyExp,color:"#f85149",sub:"all checks"},
-              {label:"NET SURPLUS",val:totalMonthlyIncome-totalMonthlyExp,color:(totalMonthlyIncome-totalMonthlyExp)>=0?"#3fb950":"#f85149",sub:"income − expenses"},
-              {label:"TOTAL DEBT",val:totalDebt,color:"#d29922",sub:`~${fmt(interesTotal)}/mo interest`},
-            ].map(s=>(<div key={s.label} style={{...CARD,padding:"12px 14px"}}>
+            {[{label:"MONTHLY INCOME",val:totalMonthlyIncome,color:"#3fb950",sub:`${monthPeriods.length} checks · ${monthPeriods.map(p=>fmt(getPeriodAmount(p.id))).join(" + ")}`},{label:"MONTHLY EXPENSES",val:totalMonthlyExp,color:"#f85149",sub:"all checks"},{label:"NET SURPLUS",val:totalMonthlyIncome-totalMonthlyExp,color:(totalMonthlyIncome-totalMonthlyExp)>=0?"#3fb950":"#f85149",sub:"income − expenses"},{label:"TOTAL DEBT",val:totalDebt,color:"#d29922",sub:`~${fmt(interesTotal)}/mo interest`}].map(s=>(<div key={s.label} style={{...CARD,padding:"12px 14px"}}>
               <div style={{fontSize:9,color:T.muted,marginBottom:5,letterSpacing:1}}>{s.label}</div>
               <div style={{fontFamily:"monospace",fontSize:17,fontWeight:700,color:s.color}}>{fmt(s.val)}</div>
               <div style={{fontSize:9,color:T.muted,marginTop:2}}>{s.sub}</div>
             </div>))}
           </div>
-
           {snapReminder&&(<div style={{background:snapReminder.type==="warn"?"rgba(210,153,34,0.08)":"rgba(88,166,255,0.05)",border:`1px solid ${snapReminder.type==="warn"?"rgba(210,153,34,0.25)":"rgba(88,166,255,0.15)"}`,borderRadius:11,padding:"9px 13px",marginBottom:12,display:"flex",alignItems:"center",gap:8}}>
             <span style={{fontSize:14}}>{snapReminder.type==="warn"?"⚠️":"💡"}</span>
             <span style={{fontSize:11,color:snapReminder.type==="warn"?"#d29922":T.muted,flex:1}}>{snapReminder.msg}</span>
             <button style={{...BTN,padding:"3px 9px",background:T.surface2,color:T.muted,fontSize:10,border:`1px solid ${T.border}`,flexShrink:0}} onClick={()=>setTab("settings")}>Settings</button>
           </div>)}
-
           {upcomingPaydays.length>0&&(<div style={{...CARD,padding:"13px 16px",marginBottom:12}}>
             <div style={{fontSize:10,color:T.muted,letterSpacing:1.5,fontWeight:700,marginBottom:10}}>💵 UPCOMING PAYDAYS</div>
             {upcomingPaydays.slice(0,4).map((pd,i)=>{
@@ -1081,7 +907,6 @@ function App(){
               </div>);
             })}
           </div>)}
-
           <div style={{...CARD,padding:"13px 16px",marginBottom:12}}>
             <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:10}}>
               <div style={{fontSize:10,color:T.muted,letterSpacing:1.5,fontWeight:700}}>💳 DEBT OVERVIEW</div>
@@ -1090,7 +915,6 @@ function App(){
             {allDebts.map((d,i)=>{
               const dp=getDU(d.fechaPago),isUrgent=dp!==null&&dp<=3;
               const tc=CC[d.nombre]||null;
-              // Fix 2: use getLoanIcon for loans in overview debt list
               const debtDot=d.tipo==="card"?(tc?.dot||"💳"):getLoanIcon(d.nombre);
               const pct2=d.tipo==="card"&&n(d.limite)>0?Math.min(100,Math.round((n(d.balance)/n(d.limite))*100)):d.tipo==="loan"&&n(d.original)>0?Math.round(((n(d.original)-n(d.balance))/n(d.original))*100):0;
               const barColor=d.tipo==="card"?(pct2>=90?"#f85149":pct2>=70?"#d29922":"#3fb950"):"#58a6ff";
@@ -1115,7 +939,6 @@ function App(){
               <span style={{fontFamily:"monospace",fontWeight:800,color:"#f85149",fontSize:14}}>{fmt(totalDebt)}</span>
             </div>
           </div>
-
           <div style={{...CARD,padding:"13px 16px",marginBottom:12,borderColor:data.ahorro?.activo?"#3fb950":T.border}}>
             <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:data.ahorro?.activo?10:0}}>
               <div style={{fontSize:10,color:T.muted,letterSpacing:1.5,fontWeight:700}}>🏦 SAVINGS GOAL</div>
@@ -1144,7 +967,6 @@ function App(){
               </div>
             </>)}
           </div>
-
           {monthPeriods.map(p=>{
             const gastos=getPGastos(p.id);
             const periodAmt=getPeriodAmount(p.id);
@@ -1180,18 +1002,14 @@ function App(){
               <button style={{...BTN,width:"100%",marginTop:9,padding:"7px",background:T.surface2,color:T.muted,fontSize:11,border:`1px solid ${T.border}`}} onClick={()=>setTab(p.id)}>Go to {p.label} →</button>
             </div>);
           })}
-
           <button style={{...BTN,width:"100%",padding:"12px",background:"#238636",color:"#fff",fontSize:13,border:"1px solid #2ea043"}} onClick={()=>{
             const totalCards=data.tarjetas.reduce((s,t)=>s+n(t.balance),0);
             const totalLoans=(data.loans||[]).reduce((s,l)=>s+n(l.balance),0);
             const s={id:Date.now(),fecha:new Date().toLocaleDateString("en-US",{month:"short",day:"numeric",year:"numeric"}),sobrante:totalMonthlyIncome-totalMonthlyExp,deuda:totalDebt,totalCards,totalLoans};
-            setData(p=>({...p,snapshots:[s,...p.snapshots].slice(0,24)}));
-            toast_("✅ Snapshot saved");
+            setData(p=>({...p,snapshots:[s,...p.snapshots].slice(0,24)}));toast_("✅ Snapshot saved");
           }}>💾 Save Monthly Snapshot</button>
         </div>)}
-
         {monthPeriods.map(p=>tab===p.id&&<div key={p.id}>{renderCheckTab(p)}</div>)}
-
         {tab==="debts"&&(()=>{
           const cards=allDebts.filter(d=>d.tipo==="card");
           const loans=allDebts.filter(d=>d.tipo==="loan");
@@ -1202,7 +1020,6 @@ function App(){
             <div style={{background:"rgba(210,153,34,0.07)",border:"1px solid rgba(210,153,34,0.2)",borderRadius:11,padding:"10px 13px",marginBottom:16,fontSize:11,color:T.muted}}>
               🎯 Avalanche: pay minimums on all · all extra to <strong style={{color:"#d29922"}}>{avalancheTarget?.nombre}</strong> ({avalancheTarget?.interes}% APR)
             </div>
-
             {cards.length>0&&(<>
               <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:12,marginTop:4}}>
                 <div style={{flex:1,height:1,background:`linear-gradient(90deg,transparent,${T.border})`}}/>
@@ -1213,143 +1030,78 @@ function App(){
                 </div>
                 <div style={{flex:1,height:1,background:`linear-gradient(90deg,${T.border},transparent)`}}/>
               </div>
-              {cards.map((d)=>{
-                const globalIdx=allDebts.findIndex(x=>x.id===d.id&&x.tipo===d.tipo);
-                return(<DebtCard key={d.id} debt={d} idx={globalIdx} isFirst={globalIdx===0} tipo="card" accion={accion} setAccion={setAccion} montoAccion={montoAccion} setMontoAccion={setMontoAccion} onApply={applyAccion} onUpdate={updateTarjeta} onRemove={removeTarjeta} isAdding={addingDebt?.id===d.id} setAddingDebt={setAddingDebt} T={T}/>);
-              })}
+              {cards.map((d)=>{const globalIdx=allDebts.findIndex(x=>x.id===d.id&&x.tipo===d.tipo);return(<DebtCard key={d.id} debt={d} idx={globalIdx} isFirst={globalIdx===0} tipo="card" accion={accion} setAccion={setAccion} montoAccion={montoAccion} setMontoAccion={setMontoAccion} onApply={applyAccion} onUpdate={updateTarjeta} onRemove={removeTarjeta} isAdding={addingDebt?.id===d.id} setAddingDebt={setAddingDebt} T={T}/>);})}
               <button style={{...BTN,width:"100%",marginBottom:24,padding:"10px",background:"transparent",color:"#ec4899",fontSize:12,border:`1.5px dashed rgba(236,72,153,0.3)`}} onClick={addCard}>+ Add Card</button>
             </>)}
-
             {loans.length>0&&(<>
               <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:12}}>
                 <div style={{flex:1,height:1,background:`linear-gradient(90deg,transparent,${T.border})`}}/>
                 <div style={{display:"flex",alignItems:"center",gap:7,padding:"5px 14px",borderRadius:20,background:"rgba(249,115,22,0.08)",border:"1px solid rgba(249,115,22,0.22)"}}>
-                  {/* Fix 2: section header icon uses first loan's type when only one loan */}
                   <span style={{fontSize:14}}>{loans.length===1?getLoanIcon(loans[0].nombre):"🏦"}</span>
                   <span style={{fontSize:11,fontWeight:700,color:"#f97316",letterSpacing:0.8}}>LOANS</span>
                   <span style={{fontSize:10,color:"#f97316",fontFamily:"monospace",fontWeight:800,marginLeft:2}}>{fmt(totalLoans)}</span>
                 </div>
                 <div style={{flex:1,height:1,background:`linear-gradient(90deg,${T.border},transparent)`}}/>
               </div>
-              {loans.map((d)=>{
-                const globalIdx=allDebts.findIndex(x=>x.id===d.id&&x.tipo===d.tipo);
-                return(<DebtCard key={d.id} debt={d} idx={globalIdx} isFirst={globalIdx===0} tipo="loan" accion={accion} setAccion={setAccion} montoAccion={montoAccion} setMontoAccion={setMontoAccion} onApply={applyAccion} onUpdate={updateLoan} onRemove={removeLoan} isAdding={addingDebt?.id===d.id} setAddingDebt={setAddingDebt} T={T}/>);
-              })}
+              {loans.map((d)=>{const globalIdx=allDebts.findIndex(x=>x.id===d.id&&x.tipo===d.tipo);return(<DebtCard key={d.id} debt={d} idx={globalIdx} isFirst={globalIdx===0} tipo="loan" accion={accion} setAccion={setAccion} montoAccion={montoAccion} setMontoAccion={setMontoAccion} onApply={applyAccion} onUpdate={updateLoan} onRemove={removeLoan} isAdding={addingDebt?.id===d.id} setAddingDebt={setAddingDebt} T={T}/>);})}
               <button style={{...BTN,width:"100%",marginBottom:24,padding:"10px",background:"transparent",color:"#f97316",fontSize:12,border:`1.5px dashed rgba(249,115,22,0.3)`}} onClick={addLoan}>+ Add Loan</button>
             </>)}
-
             {cards.length===0&&(<button style={{...BTN,width:"100%",marginBottom:12,padding:"11px",background:"transparent",color:T.accent,fontSize:12,border:`1.5px dashed ${T.border}`}} onClick={addCard}>+ Add Card</button>)}
             {loans.length===0&&(<button style={{...BTN,width:"100%",marginBottom:12,padding:"11px",background:"transparent",color:"#f97316",fontSize:12,border:`1.5px dashed ${T.border}`}} onClick={addLoan}>+ Add Loan</button>)}
-
             <div style={{...CARD,padding:"14px 17px",background:"rgba(248,81,73,0.04)",borderColor:"rgba(218,54,51,0.4)"}}>
               <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:10,paddingBottom:10,borderBottom:`1px solid ${T.border}`}}>
                 <span style={{fontSize:12,color:T.muted,fontWeight:600}}>Total debt</span>
                 <span style={{fontFamily:"monospace",fontWeight:800,fontSize:20,color:"#f85149"}}>{fmt(totalDebt)}</span>
               </div>
-              <div style={{display:"flex",justifyContent:"space-between",marginBottom:6}}>
-                <span style={{fontSize:11,color:T.muted}}>💳 Cards</span>
-                <span style={{fontFamily:"monospace",fontWeight:700,color:"#ec4899",fontSize:12}}>{fmt(totalCards)}</span>
-              </div>
-              <div style={{display:"flex",justifyContent:"space-between",marginBottom:6}}>
-                <span style={{fontSize:11,color:T.muted}}>🏦 Loans</span>
-                <span style={{fontFamily:"monospace",fontWeight:700,color:"#f97316",fontSize:12}}>{fmt(totalLoans)}</span>
-              </div>
-              <div style={{display:"flex",justifyContent:"space-between"}}>
-                <span style={{fontSize:11,color:T.muted}}>Monthly interest</span>
-                <span style={{fontFamily:"monospace",fontWeight:700,color:"#d29922",fontSize:12}}>{fmt(interesTotal)}/mo</span>
-              </div>
+              <div style={{display:"flex",justifyContent:"space-between",marginBottom:6}}><span style={{fontSize:11,color:T.muted}}>💳 Cards</span><span style={{fontFamily:"monospace",fontWeight:700,color:"#ec4899",fontSize:12}}>{fmt(totalCards)}</span></div>
+              <div style={{display:"flex",justifyContent:"space-between",marginBottom:6}}><span style={{fontSize:11,color:T.muted}}>🏦 Loans</span><span style={{fontFamily:"monospace",fontWeight:700,color:"#f97316",fontSize:12}}>{fmt(totalLoans)}</span></div>
+              <div style={{display:"flex",justifyContent:"space-between"}}><span style={{fontSize:11,color:T.muted}}>Monthly interest</span><span style={{fontFamily:"monospace",fontWeight:700,color:"#d29922",fontSize:12}}>{fmt(interesTotal)}/mo</span></div>
             </div>
           </div>);
         })()}
-
         {tab==="calendar"&&(()=>{
           const hoy=new Date();hoy.setHours(0,0,0,0);
           const mo=["January","February","March","April","May","June","July","August","September","October","November","December"];
-          const moShort=["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
           const yr=hoy.getFullYear(),mth=hoy.getMonth();
           const fd=new Date(yr,mth,1).getDay();
           const dim=new Date(yr,mth+1,0).getDate();
-
           const monthEvents={};
           const addEv=(day,label,dotColor)=>{
-            const d=parseInt(day);
-            if(d<1||d>dim)return;
+            const d=parseInt(day);if(d<1||d>dim)return;
             if(!monthEvents[d])monthEvents[d]=[];
-            if(!monthEvents[d].some(e=>e.label===label))
-              monthEvents[d].push({label,dotColor});
+            if(!monthEvents[d].some(e=>e.label===label))monthEvents[d].push({label,dotColor});
           };
-
-          monthPeriods.forEach(p=>{
-            if(p.payday.getMonth()===mth&&p.payday.getFullYear()===yr)
-              addEv(p.payday.getDate(),"Payday","#3fb950");
-          });
-
+          monthPeriods.forEach(p=>{if(p.payday.getMonth()===mth&&p.payday.getFullYear()===yr)addEv(p.payday.getDate(),"Payday","#3fb950");});
           data.tarjetas.forEach(t=>{
-            if(t.fechaPago){
-              const sn=t.nombre.replace(/\s*(card|Card)\s*/i,"").trim();
-              addEv(t.fechaPago,`${sn} due`,"#ec4899");
-            }
-            if(t.fechaCorte){
-              const sn=t.nombre.replace(/\s*(card|Card)\s*/i,"").trim();
-              addEv(t.fechaCorte,`${sn} cutoff`,"#8b949e");
-            }
+            if(t.fechaPago){const sn=t.nombre.replace(/\s*(card|Card)\s*/i,"").trim();addEv(t.fechaPago,`${sn} due`,"#ec4899");}
+            if(t.fechaCorte){const sn=t.nombre.replace(/\s*(card|Card)\s*/i,"").trim();addEv(t.fechaCorte,`${sn} cutoff`,"#8b949e");}
           });
-
-          (data.loans||[]).forEach(l=>{
-            if(l.fechaPago){
-              const sn=l.nombre.replace(/(loan|Loan)/i,"").replace(/\s+/g," ").trim();
-              addEv(l.fechaPago,sn||"Loan","#f97316");
-            }
-          });
-
+          (data.loans||[]).forEach(l=>{if(l.fechaPago){const sn=l.nombre.replace(/(loan|Loan)/i,"").replace(/\s+/g," ").trim();addEv(l.fechaPago,sn||"Loan","#f97316");}});
           const seenExp=new Set();
-          monthPeriods.forEach(p=>{
-            getPGastos(p.id).forEach(g=>{
-              if(!g.diaPago||g.destino==="temp"||g.destino==="other"||g._quick)return;
-              const key=g.nombre+g.diaPago;
-              if(seenExp.has(key))return;
-              seenExp.add(key);
-              const shortLabel=g.nombre.length>10?g.nombre.slice(0,9)+"…":g.nombre;
-              const d=gds(g.destino,g.tarjetaRef);
-              addEv(g.diaPago,shortLabel,"#58a6ff");
-            });
-          });
-
+          monthPeriods.forEach(p=>{getPGastos(p.id).forEach(g=>{
+            if(!g.diaPago||g.destino==="temp"||g.destino==="other"||g._quick)return;
+            const key=g.nombre+g.diaPago;if(seenExp.has(key))return;seenExp.add(key);
+            const shortLabel=g.nombre.length>10?g.nombre.slice(0,9)+"…":g.nombre;
+            addEv(g.diaPago,shortLabel,"#58a6ff");
+          });});
           return(<div className="anim">
             <div style={{...CARD,padding:"14px 14px 16px"}}>
               <div style={{textAlign:"center",fontWeight:700,fontSize:15,marginBottom:2,color:T.text}}>{mo[mth]} {yr}</div>
               <div style={{textAlign:"center",fontSize:9,color:T.muted,marginBottom:14,letterSpacing:0.5}}>READ ONLY · FINANCIAL OVERVIEW</div>
-
               <div style={{display:"grid",gridTemplateColumns:"repeat(7,1fr)",gap:1,marginBottom:3}}>
-                {["S","M","T","W","T","F","S"].map((d,i)=>(
-                  <div key={i} style={{textAlign:"center",fontSize:9,color:T.muted,fontWeight:600,padding:"2px 0"}}>{d}</div>
-                ))}
+                {["S","M","T","W","T","F","S"].map((d,i)=>(<div key={i} style={{textAlign:"center",fontSize:9,color:T.muted,fontWeight:600,padding:"2px 0"}}>{d}</div>))}
               </div>
-
               <div style={{display:"grid",gridTemplateColumns:"repeat(7,1fr)",gap:1}}>
                 {[...Array(fd).fill(null),...Array.from({length:dim},(_,i)=>i+1)].map((d,i)=>{
                   if(!d)return<div key={i} style={{aspectRatio:"1"}}/>;
-                  const isToday=d===hoy.getDate();
-                  const evts=monthEvents[d]||[];
+                  const isToday=d===hoy.getDate();const evts=monthEvents[d]||[];
                   const dotColors=[...new Set(evts.map(e=>e.dotColor))].slice(0,3);
-                  return(
-                    <div key={i} style={{
-                      aspectRatio:"1",display:"flex",flexDirection:"column",alignItems:"center",
-                      justifyContent:"flex-start",borderRadius:7,padding:"3px 1px 2px",
-                      background:isToday?"rgba(88,166,255,0.18)":evts.length?"rgba(255,255,255,0.02)":"transparent",
-                      border:isToday?"1px solid rgba(88,166,255,0.45)":"1px solid transparent",
-                    }}>
-                      <span style={{fontSize:10,fontWeight:isToday?800:evts.length?600:400,color:isToday?"#58a6ff":evts.length?T.text:T.muted,lineHeight:1.3}}>{d}</span>
-                      {dotColors.length>0&&(
-                        <div style={{display:"flex",gap:1.5,marginTop:1.5,justifyContent:"center",flexWrap:"wrap"}}>
-                          {dotColors.map((c,ci)=><div key={ci} style={{width:3.5,height:3.5,borderRadius:"50%",background:c}}/>)}
-                        </div>
-                      )}
-                    </div>
-                  );
+                  return(<div key={i} style={{aspectRatio:"1",display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"flex-start",borderRadius:7,padding:"3px 1px 2px",background:isToday?"rgba(88,166,255,0.18)":evts.length?"rgba(255,255,255,0.02)":"transparent",border:isToday?"1px solid rgba(88,166,255,0.45)":"1px solid transparent"}}>
+                    <span style={{fontSize:10,fontWeight:isToday?800:evts.length?600:400,color:isToday?"#58a6ff":evts.length?T.text:T.muted,lineHeight:1.3}}>{d}</span>
+                    {dotColors.length>0&&(<div style={{display:"flex",gap:1.5,marginTop:1.5,justifyContent:"center",flexWrap:"wrap"}}>{dotColors.map((c,ci)=><div key={ci} style={{width:3.5,height:3.5,borderRadius:"50%",background:c}}/>)}</div>)}
+                  </div>);
                 })}
               </div>
-
               {Object.keys(monthEvents).length>0&&(<>
                 <div style={{height:1,background:T.border,margin:"14px 0 10px"}}/>
                 <div style={{fontSize:9,color:T.muted,fontWeight:700,letterSpacing:1,marginBottom:8}}>THIS MONTH</div>
@@ -1357,29 +1109,17 @@ function App(){
                   <div key={day} style={{display:"flex",alignItems:"flex-start",gap:8,marginBottom:6}}>
                     <div style={{minWidth:22,fontSize:10,fontWeight:700,color:+day===hoy.getDate()?"#58a6ff":T.muted,flexShrink:0,paddingTop:1}}>{day}</div>
                     <div style={{flex:1,display:"flex",flexDirection:"column",gap:2}}>
-                      {evts.map((ev,i)=>(
-                        <div key={i} style={{display:"flex",alignItems:"center",gap:5}}>
-                          <div style={{width:4,height:4,borderRadius:"50%",background:ev.dotColor,flexShrink:0}}/>
-                          <span style={{fontSize:10,color:T.muted,fontWeight:400}}>{ev.label}</span>
-                        </div>
-                      ))}
+                      {evts.map((ev,i)=>(<div key={i} style={{display:"flex",alignItems:"center",gap:5}}><div style={{width:4,height:4,borderRadius:"50%",background:ev.dotColor,flexShrink:0}}/><span style={{fontSize:10,color:T.muted,fontWeight:400}}>{ev.label}</span></div>))}
                     </div>
                   </div>
                 ))}
               </>)}
             </div>
-
             <div style={{display:"flex",flexWrap:"wrap",gap:10,padding:"10px 4px 0"}}>
-              {[{c:"#3fb950",l:"Payday"},{c:"#ec4899",l:"Card due"},{c:"#f97316",l:"Loan"},{c:"#8b949e",l:"Cutoff"},{c:"#58a6ff",l:"Expense"}].map(({c,l})=>(
-                <div key={l} style={{display:"flex",alignItems:"center",gap:4}}>
-                  <div style={{width:6,height:6,borderRadius:"50%",background:c}}/>
-                  <span style={{fontSize:9,color:T.muted}}>{l}</span>
-                </div>
-              ))}
+              {[{c:"#3fb950",l:"Payday"},{c:"#ec4899",l:"Card due"},{c:"#f97316",l:"Loan"},{c:"#8b949e",l:"Cutoff"},{c:"#58a6ff",l:"Expense"}].map(({c,l})=>(<div key={l} style={{display:"flex",alignItems:"center",gap:4}}><div style={{width:6,height:6,borderRadius:"50%",background:c}}/><span style={{fontSize:9,color:T.muted}}>{l}</span></div>))}
             </div>
           </div>);
         })()}
-
         {tab==="history"&&(<div className="anim">
           <div style={{background:"rgba(88,166,255,0.05)",border:"1px solid rgba(88,166,255,0.15)",borderRadius:11,padding:"11px 14px",marginBottom:12,fontSize:11,color:T.muted,lineHeight:1.6}}>
             💡 <strong style={{color:T.accent}}>Monthly Snapshot</strong> — save at end of each month.<br/>
@@ -1398,17 +1138,13 @@ function App(){
               <span style={{fontSize:10,color:T.accent,fontWeight:600}}>View →</span>
             </div>
             <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:7}}>
-              {[
-                {l:"Surplus",v:fmt(h.sobrante),c:n(h.sobrante)>=0?"#3fb950":"#f85149"},
-                {l:"Total Debt",v:fmt(h.deuda),c:"#d29922"},
-              ].map(s=>(<div key={s.l} style={{background:T.bg,borderRadius:8,padding:"8px 10px"}}>
+              {[{l:"Surplus",v:fmt(h.sobrante),c:n(h.sobrante)>=0?"#3fb950":"#f85149"},{l:"Total Debt",v:fmt(h.deuda),c:"#d29922"}].map(s=>(<div key={s.l} style={{background:T.bg,borderRadius:8,padding:"8px 10px"}}>
                 <div style={{fontSize:9,color:T.muted,marginBottom:3}}>{s.l}</div>
                 <div style={{fontFamily:"monospace",fontWeight:700,color:s.c,fontSize:13}}>{s.v}</div>
               </div>))}
             </div>
           </div>))}
         </div>)}
-
         {tab==="settings"&&(<div className="anim">
           <div style={{...CARD,padding:"14px 16px",marginBottom:14}}>
             <div style={{fontSize:11,color:T.accent,letterSpacing:1.5,fontWeight:700,marginBottom:12}}>🎨 APPEARANCE</div>
@@ -1443,8 +1179,7 @@ function App(){
           <div style={{...CARD,padding:"14px 16px",marginBottom:14}}>
             <div style={{fontSize:11,color:T.accent,letterSpacing:1.5,fontWeight:700,marginBottom:4}}>💾 DATA BACKUP</div>
             {snapReminder&&(<div style={{background:snapReminder.type==="warn"?"rgba(210,153,34,0.07)":"rgba(88,166,255,0.05)",border:`1px solid ${snapReminder.type==="warn"?"rgba(210,153,34,0.2)":"rgba(88,166,255,0.12)"}`,borderRadius:9,padding:"8px 11px",marginBottom:10,marginTop:8,fontSize:10,color:snapReminder.type==="warn"?"#d29922":T.muted,display:"flex",gap:6,alignItems:"center"}}>
-              <span>{snapReminder.type==="warn"?"⚠️":"💡"}</span>
-              <span>{snapReminder.msg}</span>
+              <span>{snapReminder.type==="warn"?"⚠️":"💡"}</span><span>{snapReminder.msg}</span>
             </div>)}
             <div style={{fontSize:10,color:T.muted,marginBottom:10,marginTop:snapReminder?0:8}}>
               Backup includes all periods, expenses, debts, pots, settings, and snapshots.<br/>
@@ -1465,7 +1200,6 @@ function App(){
     </div>
   );
 }
-
 ReactDOM.createRoot(document.getElementById("root")).render(<App/>);
 </script>
 </body>
