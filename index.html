@@ -45,6 +45,19 @@
       overflow-y:auto;
       -webkit-overflow-scrolling:touch;
     }
+    /* Shared dynamic content area: fixed height, no layout shift */
+    .quick-dynamic-area{
+      height:160px;
+      position:relative;
+      overflow:hidden;
+    }
+    .quick-dynamic-inner{
+      position:absolute;
+      top:0;left:0;right:0;
+      overflow-y:auto;
+      -webkit-overflow-scrolling:touch;
+      max-height:160px;
+    }
   </style>
 </head>
 <body class="dark">
@@ -602,7 +615,6 @@ function App(){
   const mainRef=useRef(null);
   const tabBarRef=useRef(null);
   const editGroupKeyRef=useRef(null);
-  // FIX: track locked modal height to prevent iOS keyboard reflow jump
   const modalHeightRef=useRef(null);
   const modalSheetRef=useRef(null);
 
@@ -747,27 +759,18 @@ function App(){
     return{newBalance,pct,limite:card.limite};
   },[quickApplyTo,quickAmtNum,quickCardId,data.tarjetas]);
 
-  const cardSectionHeight=useMemo(()=>{
-    const cardCount=data.tarjetas.length||1;
-    return 24 + cardCount*42 + Math.max(0,cardCount-1)*5 + 12;
-  },[data.tarjetas.length]);
-  const checkDescHeight=80;
-  const dynamicSectionMinHeight=Math.max(cardSectionHeight,checkDescHeight);
-
   // FIX: blur active input, lock modal height, then switch mode after keyboard dismisses
   const switchQuickApplyTo=useCallback((mode)=>{
     const ae=document.activeElement;
     const isInputFocused=ae&&(ae.tagName==="INPUT"||ae.tagName==="TEXTAREA");
 
     if(isInputFocused){
-      // Snapshot current modal height before blur causes reflow
       if(modalSheetRef.current){
         const h=modalSheetRef.current.getBoundingClientRect().height;
         modalSheetRef.current.style.height=h+"px";
         modalHeightRef.current=h;
       }
       ae.blur();
-      // Wait for keyboard to fully dismiss, then switch mode and release height lock
       setTimeout(()=>{
         setQuickApplyTo(mode);
         setTimeout(()=>{
@@ -907,6 +910,19 @@ function App(){
     {id:"settings",icon:"⚙️",label:"Settings"},
   ];
   const snapReminder=useMemo(()=>getSnapshotReminder(today,data.snapshots),[today,data.snapshots]);
+
+  // Compute a stable shared height for the dynamic section in the quick modal.
+  // Use the larger of: check content (description input ~58px) vs card list height.
+  // Card list: label 20px + cards*(42px+5px gap) - last gap + bottom margin.
+  const DYNAMIC_AREA_HEIGHT = useMemo(()=>{
+    const checkHeight = 58; // description input row (label + input)
+    const cardRows = data.tarjetas.length;
+    const cardHeight = cardRows === 0
+      ? 36  // "No cards found" message
+      : 20 + cardRows * 42 + Math.max(0, cardRows - 1) * 5;
+    return Math.max(checkHeight, cardHeight);
+  }, [data.tarjetas.length]);
+
   return(
     <div ref={mainRef} onTouchStart={handleSwipeTouchStart} onTouchEnd={handleSwipeTouchEnd}
       style={{minHeight:"100vh",background:T.bg,color:T.text,fontFamily:"-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif"}}>
@@ -953,19 +969,35 @@ function App(){
             </div>
           </div>
 
-          <div style={{minHeight:dynamicSectionMinHeight}}>
-            {/* Check mode: description field */}
-            <div style={{visibility:quickApplyTo==="check"?"visible":"hidden",height:quickApplyTo==="check"?"auto":0,overflow:"hidden"}}>
-              <div style={{marginBottom:10}}>
-                <div style={{fontSize:10,color:T.muted,marginBottom:5}}>WHAT WAS IT?</div>
-                <input style={INP} value={quickNote} onChange={e=>setQuickNote(e.target.value)} placeholder="e.g. Walmart, gas stop..." autoFocus={quickApplyTo==="check"}/>
-              </div>
+          {/* Shared fixed-height dynamic area — prevents modal height shift when switching modes */}
+          <div style={{height:DYNAMIC_AREA_HEIGHT,position:"relative",overflow:"hidden",marginBottom:10}}>
+            {/* Check mode: description input */}
+            <div style={{
+              position:"absolute",top:0,left:0,right:0,
+              opacity:quickApplyTo==="check"?1:0,
+              pointerEvents:quickApplyTo==="check"?"auto":"none",
+              transition:"opacity 0.15s"
+            }}>
+              <div style={{fontSize:10,color:T.muted,marginBottom:5}}>WHAT WAS IT?</div>
+              <input
+                style={INP}
+                value={quickNote}
+                onChange={e=>setQuickNote(e.target.value)}
+                placeholder="e.g. Walmart, gas stop..."
+                tabIndex={quickApplyTo==="check"?0:-1}
+              />
             </div>
 
-            {/* Card mode: card selector */}
-            <div style={{visibility:quickApplyTo==="card"?"visible":"hidden",height:quickApplyTo==="card"?"auto":0,overflow:"hidden"}}>
-              <div style={{marginBottom:12}}>
-                <div style={{fontSize:10,color:T.muted,marginBottom:5}}>WHICH CARD?</div>
+            {/* Card mode: card selector (scrollable inner) */}
+            <div style={{
+              position:"absolute",top:0,left:0,right:0,bottom:0,
+              opacity:quickApplyTo==="card"?1:0,
+              pointerEvents:quickApplyTo==="card"?"auto":"none",
+              transition:"opacity 0.15s",
+              display:"flex",flexDirection:"column"
+            }}>
+              <div style={{fontSize:10,color:T.muted,marginBottom:5}}>WHICH CARD?</div>
+              <div style={{overflowY:"auto",WebkitOverflowScrolling:"touch",flex:1}}>
                 {data.tarjetas.length===0
                   ?<div style={{fontSize:11,color:T.muted,padding:"8px 0"}}>No cards found. Add one in Debts.</div>
                   :<div style={{display:"flex",flexDirection:"column",gap:5}}>
@@ -985,9 +1017,9 @@ function App(){
             </div>
           </div>
 
-          <div style={{marginBottom:10}}><div style={{fontSize:10,color:T.muted,marginBottom:5}}>AMOUNT ($)</div><input style={INP} type="number" inputMode="decimal" value={quickAmt} onChange={e=>setQuickAmt(e.target.value)} placeholder="0" autoFocus={quickApplyTo==="card"}/></div>
+          <div style={{marginBottom:10}}><div style={{fontSize:10,color:T.muted,marginBottom:5}}>AMOUNT ($)</div><input style={INP} type="number" inputMode="decimal" value={quickAmt} onChange={e=>setQuickAmt(e.target.value)} placeholder="0"/></div>
 
-          {/* Check selector (existing behavior) */}
+          {/* Check selector */}
           {quickApplyTo==="check"&&(<div style={{marginBottom:12}}>
             <div style={{fontSize:10,color:T.muted,marginBottom:5}}>DEDUCT FROM</div>
             <div style={{display:"flex",gap:7,flexWrap:"wrap"}}>
