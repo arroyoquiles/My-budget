@@ -31,6 +31,20 @@
     input[type=text],input[type=number],input[type=email],input[type=date],select,textarea{font-size:16px!important;-webkit-text-size-adjust:100%!important;}
     .expense-row{user-select:none;-webkit-user-select:none;-webkit-touch-callout:none;}
     .dest-picker{display:grid;grid-template-columns:repeat(2,1fr);gap:5px;}
+    /* FIX: prevent modal from being pushed up/down by iOS keyboard reflow */
+    .quick-modal-sheet{
+      position:fixed;
+      bottom:0;
+      left:0;
+      right:0;
+      z-index:301;
+      transform:translateZ(0);
+      -webkit-transform:translateZ(0);
+      will-change:transform;
+      max-height:92vh;
+      overflow-y:auto;
+      -webkit-overflow-scrolling:touch;
+    }
   </style>
 </head>
 <body class="dark">
@@ -588,6 +602,9 @@ function App(){
   const mainRef=useRef(null);
   const tabBarRef=useRef(null);
   const editGroupKeyRef=useRef(null);
+  // FIX: track locked modal height to prevent iOS keyboard reflow jump
+  const modalHeightRef=useRef(null);
+  const modalSheetRef=useRef(null);
 
   const theme=data.theme||"dark";
   const T=THEMES[theme];
@@ -737,12 +754,29 @@ function App(){
   const checkDescHeight=80;
   const dynamicSectionMinHeight=Math.max(cardSectionHeight,checkDescHeight);
 
-  // ── Helper: blur active input then switch Quick Expense mode after keyboard settles ──
+  // FIX: blur active input, lock modal height, then switch mode after keyboard dismisses
   const switchQuickApplyTo=useCallback((mode)=>{
     const ae=document.activeElement;
-    if(ae&&(ae.tagName==="INPUT"||ae.tagName==="TEXTAREA")){
+    const isInputFocused=ae&&(ae.tagName==="INPUT"||ae.tagName==="TEXTAREA");
+
+    if(isInputFocused){
+      // Snapshot current modal height before blur causes reflow
+      if(modalSheetRef.current){
+        const h=modalSheetRef.current.getBoundingClientRect().height;
+        modalSheetRef.current.style.height=h+"px";
+        modalHeightRef.current=h;
+      }
       ae.blur();
-      setTimeout(()=>setQuickApplyTo(mode),100);
+      // Wait for keyboard to fully dismiss, then switch mode and release height lock
+      setTimeout(()=>{
+        setQuickApplyTo(mode);
+        setTimeout(()=>{
+          if(modalSheetRef.current){
+            modalSheetRef.current.style.height="";
+            modalHeightRef.current=null;
+          }
+        },150);
+      },320);
     } else {
       setQuickApplyTo(mode);
     }
@@ -903,7 +937,11 @@ function App(){
 
       {/* ── Quick Expense Modal ── */}
       {quickOpen&&(<div style={{position:"fixed",inset:0,zIndex:300,background:"rgba(0,0,0,0.72)",display:"flex",alignItems:"flex-end"}} onClick={e=>{if(e.target===e.currentTarget)setQuickOpen(false);}}>
-        <div style={{width:"100%",maxWidth:500,margin:"0 auto",background:T.surface,borderRadius:"20px 20px 0 0",padding:"20px 18px 34px",border:`1px solid ${T.border}`}}>
+        <div
+          ref={modalSheetRef}
+          className="quick-modal-sheet"
+          style={{background:T.surface,borderRadius:"20px 20px 0 0",padding:"20px 18px 34px",border:`1px solid ${T.border}`}}
+        >
           <div style={{fontSize:14,fontWeight:700,marginBottom:14}}>⚡ Quick Expense</div>
 
           {/* Apply To toggle */}
