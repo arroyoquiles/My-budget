@@ -730,18 +730,23 @@ function App(){
     return{newBalance,pct,limite:card.limite};
   },[quickApplyTo,quickAmtNum,quickCardId,data.tarjetas]);
 
-  // Compute min-height for the dynamic section so the modal doesn't jump.
-  // The card selector height depends on number of cards: label row (≈24px) + cards (each ≈42px) + gaps.
-  // The check description field height is: label row (≈24px) + input (≈46px) = ≈70px.
-  // We use the taller of the two as the fixed reserved height.
   const cardSectionHeight=useMemo(()=>{
     const cardCount=data.tarjetas.length||1;
-    // label: 24px, each card button ~42px, gaps ~5px each, bottom margin 12px
     return 24 + cardCount*42 + Math.max(0,cardCount-1)*5 + 12;
   },[data.tarjetas.length]);
-  // check description section: label 24px + input 46px + bottom margin 10px = 80px
   const checkDescHeight=80;
   const dynamicSectionMinHeight=Math.max(cardSectionHeight,checkDescHeight);
+
+  // ── Helper: blur active input then switch Quick Expense mode after keyboard settles ──
+  const switchQuickApplyTo=useCallback((mode)=>{
+    const ae=document.activeElement;
+    if(ae&&(ae.tagName==="INPUT"||ae.tagName==="TEXTAREA")){
+      ae.blur();
+      setTimeout(()=>setQuickApplyTo(mode),100);
+    } else {
+      setQuickApplyTo(mode);
+    }
+  },[]);
 
   const doMoveMoney=()=>{
     const m=parseFloat(moveAmt);if(!m||m<=0)return toast_("Invalid amount","err");
@@ -905,16 +910,11 @@ function App(){
           <div style={{marginBottom:12}}>
             <div style={{fontSize:10,color:T.muted,marginBottom:6}}>APPLY TO</div>
             <div style={{display:"flex",gap:7}}>
-              <button style={{...BTN,flex:1,padding:"9px",fontSize:12,background:quickApplyTo==="check"?"rgba(88,166,255,0.15)":T.surface2,color:quickApplyTo==="check"?T.accent:T.muted,border:`1px solid ${quickApplyTo==="check"?T.accent:T.border}`}} onClick={()=>setQuickApplyTo("check")}>💰 Check</button>
-              <button style={{...BTN,flex:1,padding:"9px",fontSize:12,background:quickApplyTo==="card"?"rgba(236,72,153,0.15)":T.surface2,color:quickApplyTo==="card"?"#ec4899":T.muted,border:`1px solid ${quickApplyTo==="card"?"rgba(236,72,153,0.5)":T.border}`}} onClick={()=>setQuickApplyTo("card")}>💳 Credit Card</button>
+              <button style={{...BTN,flex:1,padding:"9px",fontSize:12,background:quickApplyTo==="check"?"rgba(88,166,255,0.15)":T.surface2,color:quickApplyTo==="check"?T.accent:T.muted,border:`1px solid ${quickApplyTo==="check"?T.accent:T.border}`}} onClick={()=>switchQuickApplyTo("check")}>💰 Check</button>
+              <button style={{...BTN,flex:1,padding:"9px",fontSize:12,background:quickApplyTo==="card"?"rgba(236,72,153,0.15)":T.surface2,color:quickApplyTo==="card"?"#ec4899":T.muted,border:`1px solid ${quickApplyTo==="card"?"rgba(236,72,153,0.5)":T.border}`}} onClick={()=>switchQuickApplyTo("card")}>💳 Credit Card</button>
             </div>
           </div>
 
-          {/*
-            Dynamic section: both check-description and card-selector are always in the DOM.
-            Visibility is toggled via `visibility` + `height/overflow` so the reserved
-            min-height keeps the modal stable when the keyboard is open.
-          */}
           <div style={{minHeight:dynamicSectionMinHeight}}>
             {/* Check mode: description field */}
             <div style={{visibility:quickApplyTo==="check"?"visible":"hidden",height:quickApplyTo==="check"?"auto":0,overflow:"hidden"}}>
