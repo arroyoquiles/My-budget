@@ -335,6 +335,7 @@ const migrate=raw=>{
     tarjetas:(raw.tarjetas||[]).map(t=>({...t,fechaPago:t.fechaPago||"",fechaCorte:t.fechaCorte||"",historial:t.historial||[],tipo:"card"})),
     loans:(raw.loans||DD.loans).map(l=>({...l,tipo:"loan"})),
     pots:raw.pots||{savings_acct:0,emergency:0,investment:0},
+    potTargets:raw.potTargets||{},
     potMovements:raw.potMovements||[],
     snapshots:raw.snapshots||[],
     ahorro:raw.ahorro||null,
@@ -351,6 +352,7 @@ const DD={
   ],
   loans:[{id:101,nombre:"Auto Loan (Exeter)",balance:26568,original:27728,minimo:687,interes:22.61,fechaPago:"20",historial:[],tipo:"loan"}],
   pots:{savings_acct:0,emergency:0,investment:0},
+  potTargets:{},
   potMovements:[],snapshots:[],ahorro:null,_sa:"",
 };
 const loadData=()=>{
@@ -833,8 +835,15 @@ function App(){
     return{newBalance,pct,limite:card.limite};
   },[quickApplyTo,quickAmtNum,quickCardId,data.tarjetas]);
 
+  const quickAmtInputRef=useRef(null);
   const switchQuickApplyTo=useCallback((mode)=>{
     setQuickApplyTo(mode);
+    // Restore focus to amount input after mode switch to keep keyboard open
+    setTimeout(()=>{
+      if(quickAmtInputRef.current){
+        quickAmtInputRef.current.focus({preventScroll:true});
+      }
+    },30);
   },[]);
 
   const doMoveMoney=()=>{
@@ -1078,7 +1087,7 @@ function App(){
 
               <div style={{marginBottom:16}}>
                 <div style={{fontSize:10,color:T.muted,letterSpacing:1.2,fontWeight:700,marginBottom:8}}>AMOUNT ($)</div>
-                <input style={{...INP,fontFamily:"monospace",fontWeight:700,fontSize:20}} type="number" inputMode="decimal" value={quickAmt} onChange={e=>setQuickAmt(e.target.value)} placeholder="0.00"/>
+                <input ref={quickAmtInputRef} style={{...INP,fontFamily:"monospace",fontWeight:700,fontSize:20}} type="number" inputMode="decimal" value={quickAmt} onChange={e=>setQuickAmt(e.target.value)} placeholder="0.00"/>
               </div>
 
               <div style={{marginBottom:16}}>
@@ -1107,7 +1116,7 @@ function App(){
             {quickApplyTo==="card"&&(<>
               <div style={{marginBottom:16}}>
                 <div style={{fontSize:10,color:T.muted,letterSpacing:1.2,fontWeight:700,marginBottom:8}}>AMOUNT ($)</div>
-                <input style={{...INP,fontFamily:"monospace",fontWeight:700,fontSize:20}} type="number" inputMode="decimal" value={quickAmt} onChange={e=>setQuickAmt(e.target.value)} placeholder="0.00"/>
+                <input ref={quickAmtInputRef} style={{...INP,fontFamily:"monospace",fontWeight:700,fontSize:20}} type="number" inputMode="decimal" value={quickAmt} onChange={e=>setQuickAmt(e.target.value)} placeholder="0.00"/>
               </div>
 
               {quickAmtNum>0&&quickPreviewCard&&(
@@ -1180,9 +1189,39 @@ function App(){
           <div style={{marginBottom:10}}>
             <div style={{fontSize:10,color:T.muted,marginBottom:5}}>MOVE TO</div>
             <div style={{display:"flex",flexWrap:"wrap",gap:7}}>
-              {Object.entries(POTS).map(([k,p])=>(<button key={k} style={{...BTN,flex:1,minWidth:90,padding:"9px",fontSize:12,background:moveTo===k?p.bg||"rgba(63,185,80,0.1)":T.surface2,color:moveTo===k?p.color:T.muted,border:`1px solid ${moveTo===k?p.color:T.border}`}} onClick={()=>setMoveTo(k)}>{p.icon} {p.label}</button>))}
+              {Object.entries(POTS).map(([k,p])=>{
+                const bal=n(pots[k])||0;
+                const tgt=n((data.potTargets||{})[k])||0;
+                const pct=tgt>0?Math.min(100,Math.round((bal/tgt)*100)):0;
+                return(<button key={k} style={{...BTN,flex:1,minWidth:90,padding:"9px 9px 7px",fontSize:12,background:moveTo===k?p.bg||"rgba(63,185,80,0.1)":T.surface2,color:moveTo===k?p.color:T.muted,border:`1px solid ${moveTo===k?p.color:T.border}`,display:"flex",flexDirection:"column",alignItems:"center",gap:2}} onClick={()=>setMoveTo(k)}>
+                  <span>{p.icon} {p.label}</span>
+                  <span style={{fontFamily:"monospace",fontSize:10,fontWeight:700,color:moveTo===k?p.color:T.muted}}>{fmt(bal)}</span>
+                  {tgt>0&&<div style={{width:"100%",height:2,background:T.border,borderRadius:2,overflow:"hidden",marginTop:1}}><div style={{height:"100%",width:`${pct}%`,background:p.color,opacity:0.7}}/></div>}
+                </button>);
+              })}
             </div>
           </div>
+          {(()=>{
+            const selPot=POTS[moveTo];
+            const selBal=n(pots[moveTo])||0;
+            const selTgt=n((data.potTargets||{})[moveTo])||0;
+            const selPct=selTgt>0?Math.min(100,Math.round((selBal/selTgt)*100)):0;
+            return(<div style={{marginBottom:10,padding:"9px 11px",borderRadius:9,background:selPot?.bg||"transparent",border:`1px solid ${selPot?.color?selPot.color+"44":T.border}`}}>
+              <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:selTgt>0?5:0}}>
+                <span style={{fontSize:11,color:selPot?.color||T.muted,fontWeight:600}}>{selPot?.icon} {selPot?.label} balance: <span style={{fontFamily:"monospace"}}>{fmt(selBal)}</span></span>
+                <div style={{display:"flex",alignItems:"center",gap:5}}>
+                  <span style={{fontSize:10,color:T.muted}}>target:</span>
+                  <input style={{...INP,width:80,padding:"3px 7px",fontSize:12,fontFamily:"monospace"}} type="number" inputMode="decimal" placeholder="none" value={(data.potTargets||{})[moveTo]||""} onChange={e=>{const v=parseFloat(e.target.value)||0;setData(p=>({...p,potTargets:{...(p.potTargets||{}),[moveTo]:v||undefined}}));}}/>
+                </div>
+              </div>
+              {selTgt>0&&(<>
+                <div style={{height:3,background:T.surface2,borderRadius:3,overflow:"hidden",marginBottom:2}}>
+                  <div style={{height:"100%",width:`${selPct}%`,background:selPot?.color||"#3fb950",opacity:0.7,transition:"width 0.4s"}}/>
+                </div>
+                <div style={{fontSize:9,color:T.muted,textAlign:"right"}}>{selPct}% of {fmt(selTgt)}</div>
+              </>)}
+            </div>);
+          })()}
           <div style={{marginBottom:10}}><div style={{fontSize:10,color:T.muted,marginBottom:5}}>AMOUNT ($)</div><input style={INP} type="number" inputMode="decimal" value={moveAmt} onChange={e=>setMoveAmt(e.target.value)} placeholder="0" autoFocus/></div>
           <div style={{marginBottom:14}}><div style={{fontSize:10,color:T.muted,marginBottom:5}}>NOTE (optional)</div><input style={INP} value={moveNote} onChange={e=>setMoveNote(e.target.value)} placeholder="e.g. April savings"/></div>
           <div style={{display:"flex",gap:8}}>
@@ -1235,6 +1274,25 @@ function App(){
               <div style={{fontSize:9,color:T.muted,marginTop:2}}>{s.sub}</div>
             </div>))}
           </div>
+          {(()=>{
+            const totalDebtPayments=allDebts.reduce((s,d)=>s+n(d.minimo),0);
+            const remaining=totalMonthlyIncome-totalMonthlyExp-totalDebtPayments;
+            const rows=[
+              {label:"Income planned",val:totalMonthlyIncome,color:"#3fb950"},
+              {label:"Expenses assigned",val:totalMonthlyExp,color:"#f85149"},
+              {label:"Debt payments",val:totalDebtPayments,color:"#d29922"},
+              {label:"Remaining planned",val:remaining,color:remaining>=0?"#3fb950":"#f85149"},
+            ];
+            return(<div style={{...CARD,padding:"13px 16px",marginBottom:12}}>
+              <div style={{fontSize:10,color:T.muted,letterSpacing:1.5,fontWeight:700,marginBottom:10}}>📋 MONTH SUMMARY</div>
+              {rows.map((r,i)=>(
+                <div key={r.label} style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"6px 0",borderBottom:i<rows.length-1?`1px solid ${T.border}`:"none"}}>
+                  <span style={{fontSize:11,color:i===rows.length-1?T.text:T.muted,fontWeight:i===rows.length-1?700:400}}>{r.label}</span>
+                  <span style={{fontFamily:"monospace",fontWeight:700,fontSize:12,color:r.color}}>{fmt(r.val)}</span>
+                </div>
+              ))}
+            </div>);
+          })()}
           {snapReminder&&(<div style={{background:snapReminder.type==="warn"?"rgba(210,153,34,0.08)":"rgba(88,166,255,0.05)",border:`1px solid ${snapReminder.type==="warn"?"rgba(210,153,34,0.25)":"rgba(88,166,255,0.15)"}`,borderRadius:11,padding:"9px 13px",marginBottom:12,display:"flex",alignItems:"center",gap:8}}>
             <span style={{fontSize:14}}>{snapReminder.type==="warn"?"⚠️":"💡"}</span>
             <span style={{fontSize:11,color:snapReminder.type==="warn"?"#d29922":T.muted,flex:1}}>{snapReminder.msg}</span>
@@ -1316,6 +1374,42 @@ function App(){
               </div>
             </>)}
           </div>
+          {(()=>{
+            const potEntries=Object.entries(POTS);
+            const hasPotBalance=potEntries.some(([k])=>n(pots[k])>0);
+            if(!hasPotBalance&&!Object.values(data.potTargets||{}).some(v=>n(v)>0))return null;
+            return(<div style={{...CARD,padding:"13px 16px",marginBottom:12}}>
+              <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:10}}>
+                <div style={{fontSize:10,color:T.muted,letterSpacing:1.5,fontWeight:700}}>🪣 SAVINGS POTS</div>
+                <button style={{...BTN,padding:"3px 9px",background:T.surface2,color:T.muted,fontSize:10,border:`1px solid ${T.border}`}} onClick={()=>setMoveOpen(true)}>+ Move Money</button>
+              </div>
+              {potEntries.map(([k,p],i)=>{
+                const bal=n(pots[k])||0;
+                const target=n((data.potTargets||{})[k])||0;
+                const hasTgt=target>0;
+                const pct=hasTgt?Math.min(100,Math.round((bal/target)*100)):0;
+                return(<div key={k} style={{paddingBottom:i<potEntries.length-1?10:0,marginBottom:i<potEntries.length-1?10:0,borderBottom:i<potEntries.length-1?`1px solid ${T.border}`:"none"}}>
+                  <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:hasTgt?4:0}}>
+                    <div style={{display:"flex",alignItems:"center",gap:6}}>
+                      <span style={{fontSize:13}}>{p.icon}</span>
+                      <span style={{fontSize:12,fontWeight:600,color:T.text}}>{p.label}</span>
+                    </div>
+                    <div style={{textAlign:"right"}}>
+                      <span style={{fontFamily:"monospace",fontWeight:700,fontSize:13,color:p.color}}>{fmt(bal)}</span>
+                      {hasTgt&&<span style={{fontSize:10,color:T.muted,marginLeft:4}}>of {fmt(target)}</span>}
+                    </div>
+                  </div>
+                  {hasTgt&&(<>
+                    <div style={{height:4,background:T.surface2,borderRadius:4,overflow:"hidden",marginBottom:3}}>
+                      <div style={{height:"100%",width:`${pct}%`,background:p.color,borderRadius:4,opacity:0.7,transition:"width 0.5s"}}/>
+                    </div>
+                    <div style={{fontSize:9,color:T.muted,textAlign:"right"}}>{pct}%</div>
+                  </>)}
+                  {!hasTgt&&bal===0&&<div style={{fontSize:10,color:T.muted,marginTop:1}}>No balance yet</div>}
+                </div>);
+              })}
+            </div>);
+          })()}
           {monthPeriods.map(p=>{
             const gastos=getPGastos(p.id);
             const periodAmt=getPeriodAmount(p.id);
