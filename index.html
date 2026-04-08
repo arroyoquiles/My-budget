@@ -561,7 +561,7 @@ const GastoItem=memo(({item,pid,editId,setEditId,tarjetas,onCycle,onLongPress,on
         {/* Stats + due date row */}
         <div style={{display:"flex",gap:5,alignItems:"center",flexWrap:"wrap",marginBottom:tipo==="loan"&&fpd&&dp!==null?5:4}}>
           {tipo==="card"
-            ?[["Min/mo",fmt(n(debt.minimo)),"#f85149"],["APR",n(debt.interes)+"%","#d29922"],["Min/chk",fmt(n(debt.minimo)/2),T.muted]].map(([l,v,c])=>(<div key={l} style={{background:T.surface2,borderRadius:6,padding:"4px 8px",display:"flex",gap:4,alignItems:"baseline"}}>
+            ?[["APR",n(debt.interes)+"%","#d29922"]].map(([l,v,c])=>(<div key={l} style={{background:T.surface2,borderRadius:6,padding:"4px 8px",display:"flex",gap:4,alignItems:"baseline"}}>
                 <span style={{fontSize:10,color:T.muted}}>{l}</span>
                 <span style={{fontFamily:"monospace",fontWeight:700,fontSize:12,color:c}}>{v}</span>
               </div>))
@@ -570,7 +570,7 @@ const GastoItem=memo(({item,pid,editId,setEditId,tarjetas,onCycle,onLongPress,on
                   <span style={{fontSize:10,color:T.muted}}>{l}</span>
                   <span style={{fontFamily:"monospace",fontWeight:700,fontSize:12,color:c}}>{v}</span>
                 </div>))
-              :[["Min/mo",fmt(n(debt.minimo)),"#ec4899"],["APR",n(debt.interes)+"%","#d29922"]].map(([l,v,c])=>(<div key={l} style={{background:T.surface2,borderRadius:6,padding:"4px 10px",display:"flex",gap:5,alignItems:"baseline"}}>
+              :[["APR",n(debt.interes)+"%","#d29922"]].map(([l,v,c])=>(<div key={l} style={{background:T.surface2,borderRadius:6,padding:"4px 10px",display:"flex",gap:5,alignItems:"baseline"}}>
                   <span style={{fontSize:10,color:T.muted}}>{l}</span>
                   <span style={{fontFamily:"monospace",fontWeight:700,fontSize:12,color:c}}>{v}</span>
                 </div>))
@@ -600,13 +600,10 @@ const GastoItem=memo(({item,pid,editId,setEditId,tarjetas,onCycle,onLongPress,on
           <span style={{marginLeft:"auto",fontSize:10,color:"#d29922"}}>~{fmt((n(debt.interes)/100/12)*n(debt.balance))}/mo</span>
         </div>)}
 
-        {/* Loan secondary row: APR · Min/mo */}
+        {/* Loan secondary row: APR */}
         {tipo==="loan"&&(<div style={{display:"flex",gap:5,alignItems:"center",flexWrap:"wrap",marginBottom:3}}>
           <span style={{fontSize:10,color:T.muted}}>APR</span>
           <span style={{fontSize:10,color:"#d29922",fontWeight:600}}>{n(debt.interes)}%</span>
-          <span style={{fontSize:10,color:T.muted}}>·</span>
-          <span style={{fontSize:10,color:T.muted}}>Min/mo</span>
-          <span style={{fontSize:10,color:"#ec4899",fontWeight:600,fontFamily:"monospace"}}>{fmt(n(debt.minimo))}</span>
         </div>)}
 
       </>)}
@@ -681,6 +678,8 @@ function App(){
   const [moveTo,setMoveTo]=useState("savings_acct");
   const [moveAmt,setMoveAmt]=useState("");
   const [moveNote,setMoveNote]=useState("");
+  const [moveMode,setMoveMode]=useState("add");
+  const moveAmtRef=useRef(null);
   const [snapDetail,setSnapDetail]=useState(null);
   const [debtsFilter,setDebtsFilter]=useState("all");
   const [cardsCollapsed,setCardsCollapsed]=useState(false);
@@ -718,7 +717,7 @@ function App(){
     setData(p=>({...p,periods:{...p.periods,[pid]:{...(p.periods[pid]||{}),amount:parseFloat(val)||0}}}));
   },[]);
   const totalMonthlyIncome=monthPeriods.reduce((s,p)=>s+getPeriodAmount(p.id),0);
-  const totalMonthlyExp=monthPeriods.reduce((s,p)=>s+getPGastos(p.id).reduce((ss,g)=>ss+n(g.monto),0),0);
+  const totalMonthlyExp=useMemo(()=>monthPeriods.reduce((s,p)=>{const gastos=(data.periods[p.id]||{}).gastos||[];return s+gastos.reduce((ss,g)=>ss+n(g.monto),0);},0),[data.periods,monthPeriods]);
   const allDebts=[...data.tarjetas.map(t=>({...t,tipo:"card"})),...(data.loans||[]).map(l=>({...l,tipo:"loan"}))].sort((a,b)=>n(b.interes)-n(a.interes));
   const totalDebt=allDebts.reduce((s,d)=>s+n(d.balance),0);
   const interesTotal=allDebts.reduce((s,d)=>s+(n(d.interes)/100/12)*n(d.balance),0);
@@ -848,9 +847,17 @@ function App(){
 
   const doMoveMoney=()=>{
     const m=parseFloat(moveAmt);if(!m||m<=0)return toast_("Invalid amount","err");
-    const mvId=Date.now();const pot=POTS[moveTo];
-    setData(p=>({...p,pots:{...p.pots,[moveTo]:n((p.pots||{})[moveTo])+m},potMovements:[...(p.potMovements||[]),{id:mvId,potKey:moveTo,amount:m,date:new Date().toLocaleDateString("en-US",{month:"short",day:"numeric"}),note:moveNote||pot?.label||moveTo}]}));
-    setMoveAmt("");setMoveNote("");setMoveOpen(false);toast_(`💸 ${fmt(m)} moved to ${pot?.label||moveTo}`);
+    const pot=POTS[moveTo];
+    const isUse=moveMode==="use";
+    const curBal=n((data.pots||{})[moveTo])||0;
+    const delta=isUse?-Math.min(m,curBal):m;
+    const newBal=Math.max(0,curBal+delta);
+    const mvId=Date.now();
+    const actualDelta=isUse?-(curBal-newBal):m;
+    setData(p=>({...p,pots:{...p.pots,[moveTo]:newBal},potMovements:[...(p.potMovements||[]),{id:mvId,potKey:moveTo,amount:actualDelta,date:new Date().toLocaleDateString("en-US",{month:"short",day:"numeric"}),note:moveNote||(isUse?"Used from ":"Added to ")+(pot?.label||moveTo)}]}));
+    setMoveAmt("");setMoveNote("");
+    toast_(isUse?`💳 ${fmt(m)} used from ${pot?.label||moveTo}`:`💸 ${fmt(m)} added to ${pot?.label||moveTo}`);
+    // Keep modal open — user can see updated balance
   };
   const exportData=useCallback(()=>{
     const b=new Blob([JSON.stringify(data,null,2)],{type:"application/json"});
@@ -1183,53 +1190,89 @@ function App(){
         </div>
       )}
 
-      {moveOpen&&(<div style={{position:"fixed",inset:0,zIndex:300,background:"rgba(0,0,0,0.72)",display:"flex",alignItems:"flex-end"}} onClick={e=>{if(e.target===e.currentTarget)setMoveOpen(false);}}>
-        <div style={{width:"100%",maxWidth:500,margin:"0 auto",background:T.surface,borderRadius:"20px 20px 0 0",padding:"20px 18px 34px",border:`1px solid ${T.border}`}}>
-          <div style={{fontSize:14,fontWeight:700,marginBottom:14}}>💸 Move Money</div>
-          <div style={{marginBottom:10}}>
-            <div style={{fontSize:10,color:T.muted,marginBottom:5}}>MOVE TO</div>
-            <div style={{display:"flex",flexWrap:"wrap",gap:7}}>
-              {Object.entries(POTS).map(([k,p])=>{
-                const bal=n(pots[k])||0;
-                const tgt=n((data.potTargets||{})[k])||0;
-                const pct=tgt>0?Math.min(100,Math.round((bal/tgt)*100)):0;
-                return(<button key={k} style={{...BTN,flex:1,minWidth:90,padding:"9px 9px 7px",fontSize:12,background:moveTo===k?p.bg||"rgba(63,185,80,0.1)":T.surface2,color:moveTo===k?p.color:T.muted,border:`1px solid ${moveTo===k?p.color:T.border}`,display:"flex",flexDirection:"column",alignItems:"center",gap:2}} onClick={()=>setMoveTo(k)}>
-                  <span>{p.icon} {p.label}</span>
-                  <span style={{fontFamily:"monospace",fontSize:10,fontWeight:700,color:moveTo===k?p.color:T.muted}}>{fmt(bal)}</span>
-                  {tgt>0&&<div style={{width:"100%",height:2,background:T.border,borderRadius:2,overflow:"hidden",marginTop:1}}><div style={{height:"100%",width:`${pct}%`,background:p.color,opacity:0.7}}/></div>}
-                </button>);
-              })}
+      {moveOpen&&(()=>{
+        const selPot=POTS[moveTo];
+        const selBal=n(pots[moveTo])||0;
+        const selTgt=n((data.potTargets||{})[moveTo])||0;
+        const selPctCalc=selTgt>0?Math.min(100,Math.round((selBal/selTgt)*100)):0;
+        return(
+        <div style={{position:"fixed",inset:0,zIndex:300,background:"rgba(0,0,0,0.72)",display:"flex",flexDirection:"column",justifyContent:"flex-end"}} onClick={e=>{if(e.target===e.currentTarget)setMoveOpen(false);}}>
+          <div style={{width:"100%",maxWidth:500,margin:"0 auto",background:T.surface,borderRadius:"20px 20px 0 0",border:`1px solid ${T.border}`,display:"flex",flexDirection:"column",maxHeight:"92dvh"}}>
+            {/* Fixed header */}
+            <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",padding:"16px 18px 12px",borderBottom:`1px solid ${T.border}`,flexShrink:0}}>
+              <div style={{fontSize:14,fontWeight:700}}>💰 Pot Transaction</div>
+              <button style={{...BTN,background:"transparent",color:T.muted,fontSize:18,padding:"2px 6px",lineHeight:1}} onClick={()=>setMoveOpen(false)}>✕</button>
             </div>
-          </div>
-          {(()=>{
-            const selPot=POTS[moveTo];
-            const selBal=n(pots[moveTo])||0;
-            const selTgt=n((data.potTargets||{})[moveTo])||0;
-            const selPct=selTgt>0?Math.min(100,Math.round((selBal/selTgt)*100)):0;
-            return(<div style={{marginBottom:10,padding:"9px 11px",borderRadius:9,background:selPot?.bg||"transparent",border:`1px solid ${selPot?.color?selPot.color+"44":T.border}`}}>
-              <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:selTgt>0?5:0}}>
-                <span style={{fontSize:11,color:selPot?.color||T.muted,fontWeight:600}}>{selPot?.icon} {selPot?.label} balance: <span style={{fontFamily:"monospace"}}>{fmt(selBal)}</span></span>
-                <div style={{display:"flex",alignItems:"center",gap:5}}>
-                  <span style={{fontSize:10,color:T.muted}}>target:</span>
-                  <input style={{...INP,width:80,padding:"3px 7px",fontSize:12,fontFamily:"monospace"}} type="number" inputMode="decimal" placeholder="none" value={(data.potTargets||{})[moveTo]||""} onChange={e=>{const v=parseFloat(e.target.value)||0;setData(p=>({...p,potTargets:{...(p.potTargets||{}),[moveTo]:v||undefined}}));}}/>
+            {/* Scrollable inner content */}
+            <div style={{flex:1,overflowY:"auto",WebkitOverflowScrolling:"touch",padding:"14px 18px",paddingBottom:"max(28px,env(safe-area-inset-bottom,28px))"}}>
+              {/* Mode selector */}
+              <div style={{marginBottom:12}}>
+                <div style={{fontSize:10,color:T.muted,letterSpacing:1.2,fontWeight:700,marginBottom:6}}>MODE</div>
+                <div style={{display:"flex",gap:6,background:T.surface2,borderRadius:11,padding:3}}>
+                  {[{id:"add",label:"+ Add funds",color:"#3fb950"},{id:"use",label:"− Use funds",color:"#f85149"}].map(m=>(
+                    <button key={m.id} style={{...BTN,flex:1,padding:"9px",fontSize:12,borderRadius:9,background:moveMode===m.id?T.bg:"transparent",color:moveMode===m.id?m.color:T.muted,border:moveMode===m.id?`1px solid ${m.color}`:"1px solid transparent",transition:"all 0.15s"}}
+                      onClick={()=>{setMoveMode(m.id);setTimeout(()=>{if(moveAmtRef.current)moveAmtRef.current.focus({preventScroll:true});},30);}}>
+                      {m.label}
+                    </button>
+                  ))}
                 </div>
               </div>
-              {selTgt>0&&(<>
-                <div style={{height:3,background:T.surface2,borderRadius:3,overflow:"hidden",marginBottom:2}}>
-                  <div style={{height:"100%",width:`${selPct}%`,background:selPot?.color||"#3fb950",opacity:0.7,transition:"width 0.4s"}}/>
+              {/* Pot selector */}
+              <div style={{marginBottom:10}}>
+                <div style={{fontSize:10,color:T.muted,marginBottom:6,letterSpacing:1.2,fontWeight:700}}>{moveMode==="add"?"MOVE TO":"USE FROM"}</div>
+                <div style={{display:"flex",flexWrap:"wrap",gap:7}}>
+                  {Object.entries(POTS).map(([k,p])=>{
+                    const bal=n(pots[k])||0;
+                    const tgt=n((data.potTargets||{})[k])||0;
+                    const pct=tgt>0?Math.min(100,Math.round((bal/tgt)*100)):0;
+                    return(<button key={k} style={{...BTN,flex:1,minWidth:90,padding:"9px 9px 7px",fontSize:12,background:moveTo===k?p.bg||"rgba(63,185,80,0.1)":T.surface2,color:moveTo===k?p.color:T.muted,border:`1px solid ${moveTo===k?p.color:T.border}`,display:"flex",flexDirection:"column",alignItems:"center",gap:2}}
+                      onClick={()=>{setMoveTo(k);setTimeout(()=>{if(moveAmtRef.current)moveAmtRef.current.focus({preventScroll:true});},30);}}>
+                      <span>{p.icon} {p.label}</span>
+                      <span style={{fontFamily:"monospace",fontSize:10,fontWeight:700,color:moveTo===k?p.color:T.muted}}>{fmt(bal)}</span>
+                      {tgt>0&&<div style={{width:"100%",height:2,background:T.border,borderRadius:2,overflow:"hidden",marginTop:1}}><div style={{height:"100%",width:`${pct}%`,background:p.color,opacity:0.7}}/></div>}
+                    </button>);
+                  })}
                 </div>
-                <div style={{fontSize:9,color:T.muted,textAlign:"right"}}>{selPct}% of {fmt(selTgt)}</div>
-              </>)}
-            </div>);
-          })()}
-          <div style={{marginBottom:10}}><div style={{fontSize:10,color:T.muted,marginBottom:5}}>AMOUNT ($)</div><input style={INP} type="number" inputMode="decimal" value={moveAmt} onChange={e=>setMoveAmt(e.target.value)} placeholder="0" autoFocus/></div>
-          <div style={{marginBottom:14}}><div style={{fontSize:10,color:T.muted,marginBottom:5}}>NOTE (optional)</div><input style={INP} value={moveNote} onChange={e=>setMoveNote(e.target.value)} placeholder="e.g. April savings"/></div>
-          <div style={{display:"flex",gap:8}}>
-            <button style={{...BTN,flex:1,padding:"12px",background:"#238636",color:"#fff",fontSize:14}} onClick={doMoveMoney}>💸 Move</button>
-            <button style={{...BTN,padding:"12px 16px",background:T.surface2,color:T.muted,fontSize:14}} onClick={()=>setMoveOpen(false)}>Cancel</button>
+              </div>
+              {/* Selected pot info */}
+              <div style={{marginBottom:10,padding:"9px 11px",borderRadius:9,background:selPot?.bg||"transparent",border:`1px solid ${selPot?.color?selPot.color+"44":T.border}`}}>
+                <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:selTgt>0?5:0}}>
+                  <span style={{fontSize:11,color:selPot?.color||T.muted,fontWeight:600}}>{selPot?.icon} {selPot?.label}: <span style={{fontFamily:"monospace"}}>{fmt(selBal)}</span></span>
+                  <div style={{display:"flex",alignItems:"center",gap:5}}>
+                    <span style={{fontSize:10,color:T.muted}}>target:</span>
+                    <input style={{...INP,width:80,padding:"3px 7px",fontSize:12,fontFamily:"monospace"}} type="number" inputMode="decimal" placeholder="none" value={(data.potTargets||{})[moveTo]||""} onChange={e=>{const v=parseFloat(e.target.value)||0;setData(p=>({...p,potTargets:{...(p.potTargets||{}),[moveTo]:v||undefined}}));}}/>
+                  </div>
+                </div>
+                {selTgt>0&&(<>
+                  <div style={{height:3,background:T.surface2,borderRadius:3,overflow:"hidden",marginBottom:2}}>
+                    <div style={{height:"100%",width:`${selPctCalc}%`,background:selPot?.color||"#3fb950",opacity:0.7,transition:"width 0.4s"}}/>
+                  </div>
+                  <div style={{fontSize:9,color:T.muted,textAlign:"right"}}>{selPctCalc}% of {fmt(selTgt)}</div>
+                </>)}
+              </div>
+              {/* Amount */}
+              <div style={{marginBottom:10}}>
+                <div style={{fontSize:10,color:T.muted,marginBottom:5,letterSpacing:1.2,fontWeight:700}}>AMOUNT ($)</div>
+                <input ref={moveAmtRef} style={{...INP,fontFamily:"monospace",fontWeight:700,fontSize:20}} type="number" inputMode="decimal" value={moveAmt} onChange={e=>setMoveAmt(e.target.value)} placeholder="0" autoFocus/>
+              </div>
+              {/* Preview */}
+              {(()=>{const m=parseFloat(moveAmt)||0;if(!m)return null;const newBal=moveMode==="add"?selBal+m:Math.max(0,selBal-m);const color=moveMode==="add"?"#3fb950":"#f85149";return(<div style={{marginBottom:10,padding:"8px 11px",borderRadius:9,background:moveMode==="add"?"rgba(63,185,80,0.06)":"rgba(248,81,73,0.06)",border:`1px solid ${moveMode==="add"?"rgba(63,185,80,0.25)":"rgba(248,81,73,0.25)"}`}}><div style={{display:"flex",justifyContent:"space-between",fontSize:11}}><span style={{color:T.muted}}>New {selPot?.label} balance</span><span style={{fontFamily:"monospace",fontWeight:700,color}}>{fmt(newBal)}</span></div></div>);})()}
+              {/* Note */}
+              <div style={{marginBottom:14}}>
+                <div style={{fontSize:10,color:T.muted,marginBottom:5,letterSpacing:1.2,fontWeight:700}}>NOTE (optional)</div>
+                <input style={INP} value={moveNote} onChange={e=>setMoveNote(e.target.value)} placeholder={moveMode==="add"?"e.g. April savings":"e.g. Used for emergency"}/>
+              </div>
+              {/* Action */}
+              <button style={{...BTN,width:"100%",padding:"13px",background:moveMode==="add"?"#238636":"rgba(248,81,73,0.85)",color:"#fff",fontSize:14,fontWeight:700}} onClick={doMoveMoney}>
+                {moveMode==="add"?`💸 Add to ${selPot?.label||moveTo}`:`💳 Use from ${selPot?.label||moveTo}`}
+              </button>
+              {/* Recent movements */}
+              {(data.potMovements||[]).filter(mv=>mv.potKey===moveTo).slice(0,3).map((mv,i)=>(<div key={mv.id||i} style={{display:"flex",justifyContent:"space-between",fontSize:10,color:T.muted,padding:"4px 0",borderTop:`1px solid ${T.border}`,marginTop:i===0?10:0}}><span>{mv.date} · {mv.note}</span><span style={{fontFamily:"monospace",color:(mv.amount||0)<0?"#f85149":"#3fb950",fontWeight:600}}>{(mv.amount||0)<0?"−":"+"}${Math.abs(mv.amount||0)}</span></div>))}
+            </div>
           </div>
         </div>
-      </div>)}
+        );
+      })()}
       {snapDetail&&(<div style={{position:"fixed",inset:0,zIndex:300,background:"rgba(0,0,0,0.72)",display:"flex",alignItems:"center",justifyContent:"center",padding:16}} onClick={e=>{if(e.target===e.currentTarget)setSnapDetail(null);}}>
         <div style={{width:"100%",maxWidth:420,background:T.surface,borderRadius:16,padding:"20px 18px",border:`1px solid ${T.border}`}}>
           <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:16}}>
@@ -1268,7 +1311,8 @@ function App(){
         </div>
         {tab==="overview"&&(<div className="anim">
           {(()=>{
-            const totalDebtPayments=allDebts.reduce((s,d)=>s+n(d.minimo),0);
+            const DEBT_DEST_CATS=new Set(["credit_card","auto","loan"]);
+            const totalDebtPayments=monthPeriods.reduce((s,p)=>{const gastos=(data.periods[p.id]||{}).gastos||[];return s+gastos.filter(g=>DEBT_DEST_CATS.has(g.destino)||DEBT_DEST_CATS.has(g.cat)).reduce((ss,g)=>ss+n(g.monto),0);},0);
             const remaining=totalMonthlyIncome-totalMonthlyExp;
             const remColor=remaining>=200?"#3fb950":remaining>=50?"#3fb950":remaining>=0?"#56d364":remaining>=-99?"#f97316":"#f85149";
             const remOpacity=remaining>=50?1:remaining>=0?0.8:1;
@@ -1354,11 +1398,12 @@ function App(){
             const reservePots=[
               {key:"savings_acct",p:POTS.savings_acct},
               {key:"emergency",  p:POTS.emergency},
+              ...(n(pots.investment)>0||(data.potTargets||{}).investment?[{key:"investment",p:POTS.investment}]:[]),
             ];
             return(<div style={{...CARD,padding:"13px 16px",marginBottom:12}}>
               <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:10}}>
                 <div style={{fontSize:10,color:T.muted,letterSpacing:1.5,fontWeight:700}}>🏦 RESERVES</div>
-                <button style={{...BTN,padding:"3px 9px",background:T.surface2,color:T.muted,fontSize:10,border:`1px solid ${T.border}`}} onClick={()=>setMoveOpen(true)}>+ Add Funds</button>
+                <button style={{...BTN,padding:"3px 9px",background:T.surface2,color:T.muted,fontSize:10,border:`1px solid ${T.border}`}} onClick={()=>{setMoveMode("add");setMoveOpen(true);}}>+ Add Funds</button>
               </div>
               {reservePots.map(({key,p},i)=>{
                 const bal=n(pots[key])||0;
@@ -1371,8 +1416,12 @@ function App(){
                       <span style={{fontSize:11}}>{p.icon}</span>
                       <span style={{fontSize:11,fontWeight:600,color:T.text}}>{p.label}</span>
                     </div>
-                    <div style={{fontSize:11,fontFamily:"monospace",fontWeight:700,color:bal>0?p.color:T.muted}}>
-                      {fmt(bal)}{hasTgt&&<span style={{fontSize:10,fontWeight:400,color:T.muted}}> saved of {fmt(target)}</span>}
+                    <div style={{display:"flex",alignItems:"center",gap:6}}>
+                      <div style={{fontSize:11,fontFamily:"monospace",fontWeight:700,color:bal>0?p.color:T.muted}}>
+                        {fmt(bal)}{hasTgt&&<span style={{fontSize:10,fontWeight:400,color:T.muted}}> / {fmt(target)}</span>}
+                      </div>
+                      <button style={{...BTN,fontSize:11,padding:"2px 7px",background:"rgba(63,185,80,0.1)",color:"#3fb950",border:"1px solid rgba(63,185,80,0.3)"}} onClick={()=>{setMoveTo(key);setMoveMode("add");setMoveOpen(true);}}>+</button>
+                      <button style={{...BTN,fontSize:11,padding:"2px 7px",background:"rgba(248,81,73,0.08)",color:"#f85149",border:"1px solid rgba(248,81,73,0.25)"}} onClick={()=>{setMoveTo(key);setMoveMode("use");setMoveOpen(true);}}>−</button>
                     </div>
                   </div>
                   {hasTgt&&(<div style={{height:3,background:T.surface2,borderRadius:3,overflow:"hidden",marginTop:4}}>
