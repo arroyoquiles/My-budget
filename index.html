@@ -102,6 +102,23 @@ const CC = {
   "Quicksilver":{color:"#a78bfa",bg:"rgba(167,139,250,0.12)",border:"rgba(167,139,250,0.35)",dot:"🟣"},
   "Prime Card": {color:"#58a6ff",bg:"rgba(88,166,255,0.12)", border:"rgba(88,166,255,0.35)", dot:"🔵"},
 };
+const CARD_PALETTE=[
+  {color:"#3b82f6",bg:"rgba(59,130,246,0.12)",border:"rgba(59,130,246,0.35)",dot:"🔵"},
+  {color:"#8b5cf6",bg:"rgba(139,92,246,0.12)", border:"rgba(139,92,246,0.35)", dot:"🟣"},
+  {color:"#10b981",bg:"rgba(16,185,129,0.12)", border:"rgba(16,185,129,0.35)", dot:"🟢"},
+  {color:"#f97316",bg:"rgba(249,115,22,0.12)", border:"rgba(249,115,22,0.35)", dot:"🟠"},
+  {color:"#06b6d4",bg:"rgba(6,182,212,0.12)",  border:"rgba(6,182,212,0.35)",  dot:"🔵"},
+  {color:"#eab308",bg:"rgba(234,179,8,0.12)",  border:"rgba(234,179,8,0.35)",  dot:"🟡"},
+  {color:"#ec4899",bg:"rgba(236,72,153,0.12)", border:"rgba(236,72,153,0.35)", dot:"🩷"},
+  {color:"#14b8a6",bg:"rgba(20,184,166,0.12)", border:"rgba(20,184,166,0.35)", dot:"🩵"},
+  {color:"#6366f1",bg:"rgba(99,102,241,0.12)", border:"rgba(99,102,241,0.35)", dot:"🟣"},
+  {color:"#84cc16",bg:"rgba(132,204,22,0.12)", border:"rgba(132,204,22,0.35)", dot:"🟢"},
+  {color:"#f59e0b",bg:"rgba(245,158,11,0.12)", border:"rgba(245,158,11,0.35)", dot:"🟡"},
+  {color:"#7c3aed",bg:"rgba(124,58,237,0.12)", border:"rgba(124,58,237,0.35)", dot:"🟣"},
+  {color:"#0ea5e9",bg:"rgba(14,165,233,0.12)", border:"rgba(14,165,233,0.35)", dot:"🔵"},
+  {color:"#f43f5e",bg:"rgba(244,63,94,0.12)",  border:"rgba(244,63,94,0.35)",  dot:"🔴"},
+  {color:"#34d399",bg:"rgba(52,211,153,0.12)", border:"rgba(52,211,153,0.35)", dot:"🟢"},
+];
 const CICONS={
   auto:"🚗",rent:"🏠",subscription:"📱",gas:"⛽",credit_card:"💳",
   groceries:"🛒",other:"📌",insurance:"🛡️",utilities:"⚡",savings_acct:"🏦",
@@ -129,7 +146,7 @@ const getLoanIcon=(nombre)=>{
 };
 const DORDER=["savings_acct","emergency","investment","rent","auto","insurance","utilities","gas","credit_card","groceries","subscription","dining","entertainment","medical","temp","other"];
 const DUE_DAY_CATS=new Set(["credit_card","rent","utilities","insurance","subscription","auto","medical"]);
-const gds=(d,r)=>{if(d==="credit_card"&&r&&CC[r])return{...DEST.credit_card,...CC[r],label:r};return DEST[d]||DEST.other;};
+const gds=(d,r,cardObj)=>{if(d==="credit_card"&&r&&CC[r])return{...DEST.credit_card,...CC[r],label:r};if(d==="credit_card"&&cardObj&&cardObj._vc)return{...DEST.credit_card,...cardObj._vc,label:r||cardObj.nombre||"Credit Card"};if(d==="credit_card"&&r)return{...DEST.credit_card,label:r};return DEST[d]||DEST.other;};
 const fmt=v=>new Intl.NumberFormat("en-US",{style:"currency",currency:"USD",maximumFractionDigits:0}).format(v||0);
 const fmtD=v=>new Intl.NumberFormat("en-US",{style:"currency",currency:"USD",minimumFractionDigits:2,maximumFractionDigits:2}).format(v||0);
 const n=v=>parseFloat(v)||0;
@@ -467,7 +484,7 @@ const GastoItem=memo(({item,pid,editId,setEditId,tarjetas,onCycle,onLongPress,on
       </div>
     </div>
   );
-});const DebtCard=memo(({debt,idx,isFirst,tipo,accion,setAccion,montoAccion,setMontoAccion,onApply,onUpdate,onRemove,isAdding,setAddingDebt,T})=>{
+});const DebtCard=memo(({debt,idx,isFirst,tipo,accion,setAccion,montoAccion,setMontoAccion,onApply,onUpdate,onRemove,isAdding,setAddingDebt,onTogglePriority,T})=>{
   const [editing,setEditing]=useState(false);
   const INP=mkINP(T),BTN=mkBTN(),CARD=mkCARD(T);
   const dp=getDU(debt.fechaPago),fpd=gdf(debt.fechaPago),fcd=debt.fechaCorte?gdf(debt.fechaCorte):null;
@@ -481,12 +498,14 @@ const GastoItem=memo(({item,pid,editId,setEditId,tarjetas,onCycle,onLongPress,on
   const dueBg=dp<=0?"rgba(88,166,255,0.1)":dp<=5?"rgba(248,81,73,0.1)":"rgba(63,185,80,0.07)";
   const dueBorder=dp<=0?"rgba(88,166,255,0.3)":dp<=5?"rgba(248,81,73,0.3)":"rgba(63,185,80,0.2)";
   const dueColor=dp<=0?"#58a6ff":dp<=5?"#f85149":"#3fb950";
-  const debtIcon=tipo==="card"?(CC[debt.nombre]?.dot||"💳"):getLoanIcon(debt.nombre);
+  const vcStyle=tipo==="card"&&debt._vc?debt._vc:null;
+  const debtIcon=tipo==="card"?(CC[debt.nombre]?.dot||vcStyle?.dot||"💳"):getLoanIcon(debt.nombre);
   return(
     <div style={{...CARD,padding:"15px 17px",marginBottom:12,borderColor:isFirst?"#d29922":showEdit?"rgba(88,166,255,0.5)":T.border,transition:"border-color 0.2s"}}>
       <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:8}}>
         {isFirst?<div style={{padding:"2px 9px",borderRadius:20,fontSize:10,fontWeight:700,background:"rgba(210,153,34,0.15)",color:"#d29922"}}>🎯 ATTACK FIRST</div>:<div style={{padding:"2px 9px",borderRadius:20,fontSize:10,fontWeight:700,background:T.surface2,color:T.muted}}>#{idx+1}</div>}
         <div style={{display:"flex",gap:6,alignItems:"center"}}>
+          <button style={{...BTN,background:"transparent",color:debt.priority?"#f59e0b":T.muted,padding:"3px 5px",fontSize:16,border:"none",opacity:debt.priority?1:0.45,transition:"opacity 0.15s,color 0.15s"}} onClick={()=>onTogglePriority(debt.id)} title={debt.priority?"Remove priority":"Mark as priority"}>⭐</button>
           <span style={{fontSize:15}}>{debtIcon}</span>
           {!isAdding&&(<button style={{...BTN,background:editing?"rgba(88,166,255,0.15)":"transparent",color:editing?T.accent:T.muted,padding:"3px 8px",fontSize:12,border:`1px solid ${editing?T.accent:"transparent"}`,borderRadius:8}} onClick={()=>setEditing(e=>!e)}>{editing?"✓ Done":"✏️ Edit"}</button>)}
           <button style={{...BTN,background:"transparent",color:T.muted,padding:"3px 7px",fontSize:14}} onClick={()=>onRemove(debt.id)}>🗑</button>
@@ -613,6 +632,7 @@ function App(){
   const [moveAmt,setMoveAmt]=useState("");
   const [moveNote,setMoveNote]=useState("");
   const [snapDetail,setSnapDetail]=useState(null);
+  const [debtsFilter,setDebtsFilter]=useState("all");
   const toastRef=useRef();
   const swipeStart=useRef(null);
   const swipeFromContent=useRef(false);
@@ -715,8 +735,10 @@ function App(){
     else setData(p=>({...p,loans:(p.loans||[]).map(l=>l.id!==id?l:{...l,balance:accion.tipo==="pago"?Math.max(0,n(l.balance)-m):n(l.balance)+m,historial:[entry,...(l.historial||[])].slice(0,10)})}));
     setAccion(null);setMontoAccion("");toast_(accion.tipo==="pago"?"✅ Payment recorded":"📝 Charge recorded");
   },[montoAccion,accion]);
-  const addCard=useCallback(()=>{const id=Date.now();setData(p=>({...p,tarjetas:[...p.tarjetas,{id,nombre:"New Card",balance:0,limite:0,minimo:0,interes:0,fechaCorte:"",fechaPago:"",historial:[],tipo:"card"}]}));setAddingDebt({id,tipo:"card"});},[]);
-  const addLoan=useCallback(()=>{const id=Date.now();setData(p=>({...p,loans:[...(p.loans||[]),{id,nombre:"New Loan",balance:0,original:0,minimo:0,interes:0,fechaPago:"",historial:[],tipo:"loan"}]}));setAddingDebt({id,tipo:"loan"});},[]);
+  const addCard=useCallback(()=>{const id=Date.now();const usedCount=data.tarjetas.filter(t=>!CC[t.nombre]).length;const vc=CARD_PALETTE[usedCount%CARD_PALETTE.length];setData(p=>({...p,tarjetas:[...p.tarjetas,{id,nombre:"New Card",balance:0,limite:0,minimo:0,interes:0,fechaCorte:"",fechaPago:"",historial:[],tipo:"card",priority:false,_vc:vc}]}));setAddingDebt({id,tipo:"card"});},[data.tarjetas]);
+  const addLoan=useCallback(()=>{const id=Date.now();setData(p=>({...p,loans:[...(p.loans||[]),{id,nombre:"New Loan",balance:0,original:0,minimo:0,interes:0,fechaPago:"",historial:[],tipo:"loan",priority:false}]}));setAddingDebt({id,tipo:"loan"});},[]);
+  const togglePriorityCard=useCallback(id=>setData(p=>({...p,tarjetas:p.tarjetas.map(t=>t.id===id?{...t,priority:!t.priority}:t)})),[]);
+  const togglePriorityLoan=useCallback(id=>setData(p=>({...p,loans:(p.loans||[]).map(l=>l.id===id?{...l,priority:!l.priority}:l)})),[]);
 
   const addQuickExpenseToCheck=()=>{
     const m=parseFloat(quickAmt);if(!m||m<=0||!quickNote.trim())return toast_("Add name and amount","err");
@@ -1034,20 +1056,38 @@ function App(){
             {/* Card mode fields */}
             {quickApplyTo==="card"&&(<>
               <div style={{marginBottom:16}}>
+                <div style={{fontSize:10,color:T.muted,letterSpacing:1.2,fontWeight:700,marginBottom:8}}>AMOUNT ($)</div>
+                <input style={{...INP,fontFamily:"monospace",fontWeight:700,fontSize:20}} type="number" inputMode="decimal" value={quickAmt} onChange={e=>setQuickAmt(e.target.value)} placeholder="0.00"/>
+              </div>
+
+              {quickAmtNum>0&&quickPreviewCard&&(
+                <div style={{marginBottom:16,padding:"12px 14px",borderRadius:11,background:"rgba(236,72,153,0.07)",border:"1px solid rgba(236,72,153,0.25)"}}>
+                  <div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+                    <span style={{fontSize:11,color:T.muted}}>New card balance</span>
+                    <span style={{fontFamily:"monospace",fontWeight:700,fontSize:15,color:"#ec4899"}}>
+                      {fmt(quickPreviewCard.newBalance)}
+                      {quickPreviewCard.pct!==null&&<span style={{fontSize:10,fontWeight:400,color:quickPreviewCard.pct>=90?"#f85149":quickPreviewCard.pct>=70?"#d29922":T.muted,marginLeft:6}}>{quickPreviewCard.pct}% used</span>}
+                    </span>
+                  </div>
+                </div>
+              )}
+
+              <div style={{marginBottom:16}}>
                 <div style={{fontSize:10,color:T.muted,letterSpacing:1.2,fontWeight:700,marginBottom:8}}>WHICH CARD?</div>
                 {data.tarjetas.length===0
                   ?<div style={{fontSize:12,color:T.muted,padding:"12px 14px",background:T.surface2,borderRadius:10}}>No cards found. Add one in Debts.</div>
-                  :<div style={{maxHeight:"38vh",overflowY:"auto",WebkitOverflowScrolling:"touch",display:"flex",flexDirection:"column",gap:7}}>
+                  :<div style={{maxHeight:"36vh",overflowY:"auto",WebkitOverflowScrolling:"touch",display:"flex",flexDirection:"column",gap:7}}>
                     {data.tarjetas.map(t=>{
                       const tc=CC[t.nombre]||null;
-                      const dot=tc?.dot||"💳";
-                      const cardColor=tc?.color||"#ec4899";
+                      const dot=tc?.dot||t._vc?.dot||"💳";
+                      const cardColor=tc?.color||t._vc?.color||"#ec4899";
+                      const cardBorder=tc?.border||t._vc?.border||"rgba(236,72,153,0.4)";
                       const isSelected=quickCardId===String(t.id);
                       return(<button key={t.id} style={{
                         ...BTN,padding:"12px 14px",fontSize:13,textAlign:"left",
                         background:isSelected?"rgba(236,72,153,0.1)":T.surface2,
                         color:isSelected?cardColor:T.text,
-                        border:`1px solid ${isSelected?(tc?.border||"rgba(236,72,153,0.4)"):T.border}`,
+                        border:`1px solid ${isSelected?cardBorder:T.border}`,
                         display:"flex",justifyContent:"space-between",alignItems:"center",
                         borderRadius:11,
                       }} onClick={()=>setQuickCardId(String(t.id))}>
@@ -1067,23 +1107,6 @@ function App(){
                   </div>
                 }
               </div>
-
-              <div style={{marginBottom:16}}>
-                <div style={{fontSize:10,color:T.muted,letterSpacing:1.2,fontWeight:700,marginBottom:8}}>AMOUNT ($)</div>
-                <input style={{...INP,fontFamily:"monospace",fontWeight:700,fontSize:20}} type="number" inputMode="decimal" value={quickAmt} onChange={e=>setQuickAmt(e.target.value)} placeholder="0.00"/>
-              </div>
-
-              {quickAmtNum>0&&quickPreviewCard&&(
-                <div style={{marginBottom:16,padding:"12px 14px",borderRadius:11,background:"rgba(236,72,153,0.07)",border:"1px solid rgba(236,72,153,0.25)"}}>
-                  <div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}>
-                    <span style={{fontSize:11,color:T.muted}}>New card balance</span>
-                    <span style={{fontFamily:"monospace",fontWeight:700,fontSize:15,color:"#ec4899"}}>
-                      {fmt(quickPreviewCard.newBalance)}
-                      {quickPreviewCard.pct!==null&&<span style={{fontSize:10,fontWeight:400,color:quickPreviewCard.pct>=90?"#f85149":quickPreviewCard.pct>=70?"#d29922":T.muted,marginLeft:6}}>{quickPreviewCard.pct}% used</span>}
-                    </span>
-                  </div>
-                </div>
-              )}
             </>)}
 
             {/* Action button */}
@@ -1191,7 +1214,7 @@ function App(){
             {allDebts.map((d,i)=>{
               const dp=getDU(d.fechaPago),isUrgent=dp!==null&&dp<=3;
               const tc=CC[d.nombre]||null;
-              const debtDot=d.tipo==="card"?(tc?.dot||"💳"):getLoanIcon(d.nombre);
+              const debtDot=d.tipo==="card"?(tc?.dot||d._vc?.dot||"💳"):getLoanIcon(d.nombre);
               const pct2=d.tipo==="card"&&n(d.limite)>0?Math.min(100,Math.round((n(d.balance)/n(d.limite))*100)):d.tipo==="loan"&&n(d.original)>0?Math.round(((n(d.original)-n(d.balance))/n(d.original))*100):0;
               const barColor=d.tipo==="card"?getUtilColor(pct2):"#58a6ff";
               return(<div key={d.id} style={{marginBottom:i<allDebts.length-1?10:0,paddingBottom:i<allDebts.length-1?10:0,borderBottom:i<allDebts.length-1?`1px solid ${T.border}`:"none"}}>
@@ -1289,50 +1312,76 @@ function App(){
         {tab==="debts"&&(()=>{
           const cards=allDebts.filter(d=>d.tipo==="card");
           const loans=allDebts.filter(d=>d.tipo==="loan");
+          const priorityDebts=allDebts.filter(d=>d.priority);
           const avalancheTarget=allDebts[0];
           const totalCards=data.tarjetas.reduce((s,t)=>s+n(t.balance),0);
           const totalLoans=(data.loans||[]).reduce((s,l)=>s+n(l.balance),0);
+          const totalPriority=priorityDebts.reduce((s,d)=>s+n(d.balance),0);
+          const visibleCards=debtsFilter==="all"||debtsFilter==="cards"?cards:debtsFilter==="priority"?cards.filter(d=>d.priority):[];
+          const visibleLoans=debtsFilter==="all"||debtsFilter==="loans"?loans:debtsFilter==="priority"?loans.filter(d=>d.priority):[];
+          const filterBtns=[{id:"all",label:"All"},{id:"cards",label:"💳 Cards"},{id:"loans",label:"🏦 Loans"},{id:"priority",label:"⭐ Priority"}];
           return(<div className="anim">
-            <div style={{background:"rgba(210,153,34,0.07)",border:"1px solid rgba(210,153,34,0.2)",borderRadius:11,padding:"10px 13px",marginBottom:16,fontSize:11,color:T.muted}}>
-              🎯 Avalanche: pay minimums on all · all extra to <strong style={{color:"#d29922"}}>{avalancheTarget?.nombre}</strong> ({avalancheTarget?.interes}% APR)
+            {/* Filter selector */}
+            <div style={{display:"flex",gap:5,marginBottom:12,background:T.surface2,borderRadius:11,padding:3}}>
+              {filterBtns.map(f=>(<button key={f.id} style={{...BTN,flex:1,padding:"7px 4px",fontSize:11,borderRadius:9,background:debtsFilter===f.id?T.bg:"transparent",color:debtsFilter===f.id?T.accent:T.muted,border:debtsFilter===f.id?`1px solid ${T.accent}`:"1px solid transparent",transition:"all 0.15s"}} onClick={()=>setDebtsFilter(f.id)}>{f.label}</button>))}
             </div>
-            {cards.length>0&&(<>
+            {/* Compact dynamic totals */}
+            <div style={{display:"flex",gap:6,marginBottom:14,flexWrap:"wrap"}}>
+              {(debtsFilter==="all"||debtsFilter==="cards")&&totalCards>0&&(<div style={{display:"flex",alignItems:"center",gap:5,padding:"5px 10px",borderRadius:9,background:"rgba(236,72,153,0.07)",border:"1px solid rgba(236,72,153,0.2)"}}>
+                <span style={{fontSize:10,color:T.muted}}>💳 Cards</span>
+                <span style={{fontFamily:"monospace",fontWeight:700,color:"#ec4899",fontSize:12}}>{fmt(totalCards)}</span>
+              </div>)}
+              {(debtsFilter==="all"||debtsFilter==="loans")&&totalLoans>0&&(<div style={{display:"flex",alignItems:"center",gap:5,padding:"5px 10px",borderRadius:9,background:"rgba(249,115,22,0.07)",border:"1px solid rgba(249,115,22,0.2)"}}>
+                <span style={{fontSize:10,color:T.muted}}>🏦 Loans</span>
+                <span style={{fontFamily:"monospace",fontWeight:700,color:"#f97316",fontSize:12}}>{fmt(totalLoans)}</span>
+              </div>)}
+              {debtsFilter==="all"&&(<div style={{display:"flex",alignItems:"center",gap:5,padding:"5px 10px",borderRadius:9,background:"rgba(248,81,73,0.07)",border:"1px solid rgba(248,81,73,0.2)"}}>
+                <span style={{fontSize:10,color:T.muted}}>Total</span>
+                <span style={{fontFamily:"monospace",fontWeight:700,color:"#f85149",fontSize:12}}>{fmt(totalDebt)}</span>
+              </div>)}
+              {debtsFilter==="priority"&&(<div style={{display:"flex",alignItems:"center",gap:5,padding:"5px 10px",borderRadius:9,background:"rgba(245,158,11,0.07)",border:"1px solid rgba(245,158,11,0.25)"}}>
+                <span style={{fontSize:10,color:T.muted}}>⭐ Priority</span>
+                <span style={{fontFamily:"monospace",fontWeight:700,color:"#f59e0b",fontSize:12}}>{fmt(totalPriority)}</span>
+              </div>)}
+              <div style={{display:"flex",alignItems:"center",gap:5,padding:"5px 10px",borderRadius:9,background:"rgba(210,153,34,0.07)",border:"1px solid rgba(210,153,34,0.2)"}}>
+                <span style={{fontSize:10,color:T.muted}}>~interest</span>
+                <span style={{fontFamily:"monospace",fontWeight:700,color:"#d29922",fontSize:12}}>{fmt(interesTotal)}/mo</span>
+              </div>
+            </div>
+            {debtsFilter==="all"&&(<div style={{background:"rgba(210,153,34,0.07)",border:"1px solid rgba(210,153,34,0.2)",borderRadius:11,padding:"10px 13px",marginBottom:16,fontSize:11,color:T.muted}}>
+              🎯 Avalanche: pay minimums on all · all extra to <strong style={{color:"#d29922"}}>{avalancheTarget?.nombre}</strong> ({avalancheTarget?.interes}% APR)
+            </div>)}
+            {debtsFilter==="priority"&&priorityDebts.length===0&&(<div style={{...mkCARD(T),padding:"28px 20px",textAlign:"center",marginBottom:12}}>
+              <div style={{fontSize:28,marginBottom:8}}>⭐</div>
+              <div style={{fontWeight:700,marginBottom:4,color:T.text}}>No priority debts</div>
+              <div style={{color:T.muted,fontSize:12}}>Tap the star on any debt card to mark it as priority</div>
+            </div>)}
+            {visibleCards.length>0&&(<>
               <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:12,marginTop:4}}>
                 <div style={{flex:1,height:1,background:`linear-gradient(90deg,transparent,${T.border})`}}/>
                 <div style={{display:"flex",alignItems:"center",gap:7,padding:"5px 14px",borderRadius:20,background:"rgba(236,72,153,0.08)",border:"1px solid rgba(236,72,153,0.22)"}}>
                   <span style={{fontSize:14}}>💳</span>
                   <span style={{fontSize:11,fontWeight:700,color:"#ec4899",letterSpacing:0.8}}>CREDIT CARDS</span>
-                  <span style={{fontSize:10,color:"#ec4899",fontFamily:"monospace",fontWeight:800,marginLeft:2}}>{fmt(totalCards)}</span>
                 </div>
                 <div style={{flex:1,height:1,background:`linear-gradient(90deg,${T.border},transparent)`}}/>
               </div>
-              {cards.map((d)=>{const globalIdx=allDebts.findIndex(x=>x.id===d.id&&x.tipo===d.tipo);return(<DebtCard key={d.id} debt={d} idx={globalIdx} isFirst={globalIdx===0} tipo="card" accion={accion} setAccion={setAccion} montoAccion={montoAccion} setMontoAccion={setMontoAccion} onApply={applyAccion} onUpdate={updateTarjeta} onRemove={removeTarjeta} isAdding={addingDebt?.id===d.id} setAddingDebt={setAddingDebt} T={T}/>);})}
-              <button style={{...BTN,width:"100%",marginBottom:24,padding:"10px",background:"transparent",color:"#ec4899",fontSize:12,border:`1.5px dashed rgba(236,72,153,0.3)`}} onClick={addCard}>+ Add Card</button>
+              {visibleCards.map((d)=>{const globalIdx=allDebts.findIndex(x=>x.id===d.id&&x.tipo===d.tipo);return(<DebtCard key={d.id} debt={d} idx={globalIdx} isFirst={globalIdx===0} tipo="card" accion={accion} setAccion={setAccion} montoAccion={montoAccion} setMontoAccion={setMontoAccion} onApply={applyAccion} onUpdate={updateTarjeta} onRemove={removeTarjeta} isAdding={addingDebt?.id===d.id} setAddingDebt={setAddingDebt} onTogglePriority={togglePriorityCard} T={T}/>);})}
+              {(debtsFilter==="all"||debtsFilter==="cards")&&(<button style={{...BTN,width:"100%",marginBottom:24,padding:"10px",background:"transparent",color:"#ec4899",fontSize:12,border:`1.5px dashed rgba(236,72,153,0.3)`}} onClick={addCard}>+ Add Card</button>)}
             </>)}
-            {loans.length>0&&(<>
+            {visibleLoans.length>0&&(<>
               <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:12}}>
                 <div style={{flex:1,height:1,background:`linear-gradient(90deg,transparent,${T.border})`}}/>
                 <div style={{display:"flex",alignItems:"center",gap:7,padding:"5px 14px",borderRadius:20,background:"rgba(249,115,22,0.08)",border:"1px solid rgba(249,115,22,0.22)"}}>
-                  <span style={{fontSize:14}}>{loans.length===1?getLoanIcon(loans[0].nombre):"🏦"}</span>
+                  <span style={{fontSize:14}}>{visibleLoans.length===1?getLoanIcon(visibleLoans[0].nombre):"🏦"}</span>
                   <span style={{fontSize:11,fontWeight:700,color:"#f97316",letterSpacing:0.8}}>LOANS</span>
-                  <span style={{fontSize:10,color:"#f97316",fontFamily:"monospace",fontWeight:800,marginLeft:2}}>{fmt(totalLoans)}</span>
                 </div>
                 <div style={{flex:1,height:1,background:`linear-gradient(90deg,${T.border},transparent)`}}/>
               </div>
-              {loans.map((d)=>{const globalIdx=allDebts.findIndex(x=>x.id===d.id&&x.tipo===d.tipo);return(<DebtCard key={d.id} debt={d} idx={globalIdx} isFirst={globalIdx===0} tipo="loan" accion={accion} setAccion={setAccion} montoAccion={montoAccion} setMontoAccion={setMontoAccion} onApply={applyAccion} onUpdate={updateLoan} onRemove={removeLoan} isAdding={addingDebt?.id===d.id} setAddingDebt={setAddingDebt} T={T}/>);})}
-              <button style={{...BTN,width:"100%",marginBottom:24,padding:"10px",background:"transparent",color:"#f97316",fontSize:12,border:`1.5px dashed rgba(249,115,22,0.3)`}} onClick={addLoan}>+ Add Loan</button>
+              {visibleLoans.map((d)=>{const globalIdx=allDebts.findIndex(x=>x.id===d.id&&x.tipo===d.tipo);return(<DebtCard key={d.id} debt={d} idx={globalIdx} isFirst={globalIdx===0} tipo="loan" accion={accion} setAccion={setAccion} montoAccion={montoAccion} setMontoAccion={setMontoAccion} onApply={applyAccion} onUpdate={updateLoan} onRemove={removeLoan} isAdding={addingDebt?.id===d.id} setAddingDebt={setAddingDebt} onTogglePriority={togglePriorityLoan} T={T}/>);})}
+              {(debtsFilter==="all"||debtsFilter==="loans")&&(<button style={{...BTN,width:"100%",marginBottom:24,padding:"10px",background:"transparent",color:"#f97316",fontSize:12,border:`1.5px dashed rgba(249,115,22,0.3)`}} onClick={addLoan}>+ Add Loan</button>)}
             </>)}
-            {cards.length===0&&(<button style={{...BTN,width:"100%",marginBottom:12,padding:"11px",background:"transparent",color:T.accent,fontSize:12,border:`1.5px dashed ${T.border}`}} onClick={addCard}>+ Add Card</button>)}
-            {loans.length===0&&(<button style={{...BTN,width:"100%",marginBottom:12,padding:"11px",background:"transparent",color:"#f97316",fontSize:12,border:`1.5px dashed ${T.border}`}} onClick={addLoan}>+ Add Loan</button>)}
-            <div style={{...CARD,padding:"14px 17px",background:"rgba(248,81,73,0.04)",borderColor:"rgba(218,54,51,0.4)"}}>
-              <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:10,paddingBottom:10,borderBottom:`1px solid ${T.border}`}}>
-                <span style={{fontSize:12,color:T.muted,fontWeight:600}}>Total debt</span>
-                <span style={{fontFamily:"monospace",fontWeight:800,fontSize:20,color:"#f85149"}}>{fmt(totalDebt)}</span>
-              </div>
-              <div style={{display:"flex",justifyContent:"space-between",marginBottom:6}}><span style={{fontSize:11,color:T.muted}}>💳 Cards</span><span style={{fontFamily:"monospace",fontWeight:700,color:"#ec4899",fontSize:12}}>{fmt(totalCards)}</span></div>
-              <div style={{display:"flex",justifyContent:"space-between",marginBottom:6}}><span style={{fontSize:11,color:T.muted}}>🏦 Loans</span><span style={{fontFamily:"monospace",fontWeight:700,color:"#f97316",fontSize:12}}>{fmt(totalLoans)}</span></div>
-              <div style={{display:"flex",justifyContent:"space-between"}}><span style={{fontSize:11,color:T.muted}}>Monthly interest</span><span style={{fontFamily:"monospace",fontWeight:700,color:"#d29922",fontSize:12}}>{fmt(interesTotal)}/mo</span></div>
-            </div>
+            {(debtsFilter==="all"||debtsFilter==="cards")&&cards.length===0&&(<button style={{...BTN,width:"100%",marginBottom:12,padding:"11px",background:"transparent",color:T.accent,fontSize:12,border:`1.5px dashed ${T.border}`}} onClick={addCard}>+ Add Card</button>)}
+            {(debtsFilter==="all"||debtsFilter==="loans")&&loans.length===0&&(<button style={{...BTN,width:"100%",marginBottom:12,padding:"11px",background:"transparent",color:"#f97316",fontSize:12,border:`1.5px dashed ${T.border}`}} onClick={addLoan}>+ Add Loan</button>)}
           </div>);
         })()}
         {tab==="calendar"&&(()=>{
