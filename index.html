@@ -515,7 +515,7 @@ const GastoItem=memo(({item,pid,editId,setEditId,tarjetas,onCycle,onLongPress,on
           :<span style={{flex:1,fontWeight:700,fontSize:14,color:T.text,minWidth:0,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{debt.nombre}</span>
         }
         {isFirst&&!showEdit&&<span style={{fontSize:9,fontWeight:700,color:"#d29922",background:"rgba(210,153,34,0.13)",border:"1px solid rgba(210,153,34,0.28)",borderRadius:5,padding:"1px 5px",flexShrink:0}}>🎯</span>}
-        <span style={{fontFamily:"monospace",fontWeight:800,fontSize:16,color:balanceColor,flexShrink:0,letterSpacing:-0.3}}>{fmt(n(debt.balance))}</span>
+        <span style={{fontFamily:"monospace",fontWeight:800,fontSize:tipo==="card"?18:16,color:balanceColor,flexShrink:0,letterSpacing:-0.3}}>{fmt(n(debt.balance))}</span>
         <button style={{...BTN,background:"transparent",color:debt.priority?"#f59e0b":T.muted,padding:"2px 3px",fontSize:14,border:"none",opacity:debt.priority?1:0.35,flexShrink:0,transition:"opacity 0.15s"}} onClick={()=>onTogglePriority(debt.id)}>⭐</button>
         {!isAdding&&<button style={{...BTN,background:editing?"rgba(88,166,255,0.13)":"transparent",color:editing?T.accent:T.muted,padding:"2px 7px",fontSize:11,border:`1px solid ${editing?T.accent:"transparent"}`,borderRadius:7,flexShrink:0}} onClick={()=>setEditing(e=>!e)}>{editing?"✓":"✏️"}</button>}
         <button style={{...BTN,background:"transparent",color:T.muted,padding:"2px 4px",fontSize:12,flexShrink:0}} onClick={()=>onRemove(debt.id)}>🗑</button>
@@ -557,21 +557,39 @@ const GastoItem=memo(({item,pid,editId,setEditId,tarjetas,onCycle,onLongPress,on
         </div>)}
 
         {/* Stats + due date row */}
-        <div style={{display:"flex",gap:5,alignItems:"center",flexWrap:"wrap",marginBottom:4}}>
-          {(tipo==="card"
-            ?[["Min/mo",fmt(n(debt.minimo)),"#f85149"],["APR",n(debt.interes)+"%","#d29922"],["Min/chk",fmt(n(debt.minimo)/2),T.muted]]
-            :[["Min/mo",fmt(n(debt.minimo)),"#ec4899"],["APR",n(debt.interes)+"%","#d29922"],["Min/chk",fmt(n(debt.minimo)/2),T.muted]]
-          ).map(([l,v,c])=>(<div key={l} style={{background:T.surface2,borderRadius:6,padding:"4px 8px",display:"flex",gap:4,alignItems:"baseline"}}>
-            <span style={{fontSize:10,color:T.muted}}>{l}</span>
-            <span style={{fontFamily:"monospace",fontWeight:700,fontSize:12,color:c}}>{v}</span>
-          </div>))}
-          {/* Due date pill — pushed right, more prominent */}
-          {fpd&&dp!==null&&(<div style={{background:dueBg,border:`1px solid ${dueBorder}`,borderRadius:7,padding:"4px 9px",display:"flex",gap:5,alignItems:"center",marginLeft:"auto"}}>
+        <div style={{display:"flex",gap:5,alignItems:"center",flexWrap:"wrap",marginBottom:tipo==="loan"&&fpd&&dp!==null?5:4}}>
+          {tipo==="card"
+            ?[["Min/mo",fmt(n(debt.minimo)),"#f85149"],["APR",n(debt.interes)+"%","#d29922"],["Min/chk",fmt(n(debt.minimo)/2),T.muted]].map(([l,v,c])=>(<div key={l} style={{background:T.surface2,borderRadius:6,padding:"4px 8px",display:"flex",gap:4,alignItems:"baseline"}}>
+                <span style={{fontSize:10,color:T.muted}}>{l}</span>
+                <span style={{fontFamily:"monospace",fontWeight:700,fontSize:12,color:c}}>{v}</span>
+              </div>))
+            :(lc&&n(lc.interest)>0
+              ?[["Interest",fmtD(lc.interest),"#f85149"],["Principal",fmtD(lc.principal),"#3fb950"],["Remaining",fmt(lc.newBalance),"#58a6ff"]].map(([l,v,c])=>(<div key={l} style={{background:T.surface2,borderRadius:6,padding:"4px 10px",display:"flex",gap:5,alignItems:"baseline"}}>
+                  <span style={{fontSize:10,color:T.muted}}>{l}</span>
+                  <span style={{fontFamily:"monospace",fontWeight:700,fontSize:12,color:c}}>{v}</span>
+                </div>))
+              :[["Min/mo",fmt(n(debt.minimo)),"#ec4899"],["APR",n(debt.interes)+"%","#d29922"]].map(([l,v,c])=>(<div key={l} style={{background:T.surface2,borderRadius:6,padding:"4px 10px",display:"flex",gap:5,alignItems:"baseline"}}>
+                  <span style={{fontSize:10,color:T.muted}}>{l}</span>
+                  <span style={{fontFamily:"monospace",fontWeight:700,fontSize:12,color:c}}>{v}</span>
+                </div>))
+            )
+          }
+          {/* Due date pill inline — credit cards only */}
+          {tipo==="card"&&fpd&&dp!==null&&(<div style={{background:dueBg,border:`1px solid ${dueBorder}`,borderRadius:7,padding:"4px 9px",display:"flex",gap:5,alignItems:"center",marginLeft:"auto"}}>
             <span style={{fontSize:10,color:dueColor,fontWeight:600}}>Due</span>
             <span style={{fontFamily:"monospace",fontWeight:800,fontSize:13,color:dueColor}}>{fmd(fpd)}</span>
             {dp<=7&&<span style={{fontSize:10,fontWeight:700,color:dueColor,background:dp<=3?"rgba(248,81,73,0.15)":"transparent",borderRadius:4,padding:"0 3px"}}>{dpLabel}</span>}
           </div>)}
         </div>
+
+        {/* Due date — loans only, own row, visually secondary to financial chips */}
+        {tipo==="loan"&&fpd&&dp!==null&&(<div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:4,padding:"4px 9px",borderRadius:7,background:"transparent",border:`1px solid ${dueBorder}`}}>
+          <span style={{fontSize:10,color:T.muted,fontWeight:500}}>Due</span>
+          <div style={{display:"flex",alignItems:"center",gap:6}}>
+            <span style={{fontFamily:"monospace",fontWeight:600,fontSize:12,color:dueColor,opacity:0.85}}>{fmd(fpd)}</span>
+            {dpLabel&&<span style={{fontSize:10,fontWeight:600,color:dueColor,opacity:0.85,background:dp<=3?"rgba(248,81,73,0.12)":dp<=7?"rgba(248,81,73,0.07)":"transparent",borderRadius:4,padding:"1px 5px"}}>{dpLabel}</span>}
+          </div>
+        </div>)}
 
         {/* Cutoff row (cards only) */}
         {tipo==="card"&&fcd&&(<div style={{display:"flex",alignItems:"center",gap:6,marginBottom:3}}>
@@ -580,15 +598,13 @@ const GastoItem=memo(({item,pid,editId,setEditId,tarjetas,onCycle,onLongPress,on
           <span style={{marginLeft:"auto",fontSize:10,color:"#d29922"}}>~{fmt((n(debt.interes)/100/12)*n(debt.balance))}/mo</span>
         </div>)}
 
-        {/* Loan secondary info row */}
+        {/* Loan secondary row: APR · Min/mo */}
         {tipo==="loan"&&(<div style={{display:"flex",gap:5,alignItems:"center",flexWrap:"wrap",marginBottom:3}}>
-          <span style={{fontSize:10,color:"#d29922"}}>~{fmt((n(debt.interes)/100/12)*n(debt.balance))}/mo</span>
-          {lc&&n(lc.interest)>0&&(<>
-            <span style={{fontSize:10,color:T.muted}}>·</span>
-            <span style={{fontSize:10,color:"#f85149"}}>Int {fmtD(lc.interest)}</span>
-            <span style={{fontSize:10,color:"#3fb950"}}>Prin {fmtD(lc.principal)}</span>
-            <span style={{fontSize:10,color:"#58a6ff"}}>→ {fmt(lc.newBalance)}</span>
-          </>)}
+          <span style={{fontSize:10,color:T.muted}}>APR</span>
+          <span style={{fontSize:10,color:"#d29922",fontWeight:600}}>{n(debt.interes)}%</span>
+          <span style={{fontSize:10,color:T.muted}}>·</span>
+          <span style={{fontSize:10,color:T.muted}}>Min/mo</span>
+          <span style={{fontSize:10,color:"#ec4899",fontWeight:600,fontFamily:"monospace"}}>{fmt(n(debt.minimo))}</span>
         </div>)}
 
       </>)}
@@ -1376,8 +1392,13 @@ function App(){
                 <span style={{fontFamily:"monospace",fontWeight:700,color:"#f59e0b",fontSize:12}}>{fmt(totalPriority)}</span>
               </div>)}
             </div>
-            {debtsFilter==="all"&&(<div style={{background:"rgba(210,153,34,0.07)",border:"1px solid rgba(210,153,34,0.2)",borderRadius:11,padding:"10px 13px",marginBottom:16,fontSize:11,color:T.muted}}>
-              🎯 Avalanche: pay minimums on all · all extra to <strong style={{color:"#d29922"}}>{avalancheTarget?.nombre}</strong> ({avalancheTarget?.interes}% APR)
+            {debtsFilter==="all"&&(<div style={{display:"flex",alignItems:"center",gap:10,marginBottom:14,padding:"8px 12px",borderRadius:9,background:T.surface2,border:`1px solid ${T.border}`}}>
+              <span style={{fontSize:12,flexShrink:0}}>🎯</span>
+              <div style={{minWidth:0}}>
+                <span style={{fontSize:10,color:T.muted}}>Avalanche target · </span>
+                <span style={{fontSize:11,fontWeight:700,color:"#d29922"}}>{avalancheTarget?.nombre}</span>
+                <span style={{fontSize:10,color:T.muted}}> · {avalancheTarget?.interes}% APR</span>
+              </div>
             </div>)}
             {debtsFilter==="priority"&&priorityDebts.length===0&&(<div style={{...mkCARD(T),padding:"28px 20px",textAlign:"center",marginBottom:12}}>
               <div style={{fontSize:28,marginBottom:8}}>⭐</div>
