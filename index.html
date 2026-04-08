@@ -1267,30 +1267,34 @@ function App(){
           </button>))}
         </div>
         {tab==="overview"&&(<div className="anim">
-          <div className="g2" style={{marginBottom:12}}>
-            {[{label:"MONTHLY INCOME",val:totalMonthlyIncome,color:"#3fb950",sub:`${monthPeriods.length} checks · ${monthPeriods.map(p=>fmt(getPeriodAmount(p.id))).join(" + ")}`},{label:"MONTHLY EXPENSES",val:totalMonthlyExp,color:"#f85149",sub:"all checks"},{label:"NET SURPLUS",val:totalMonthlyIncome-totalMonthlyExp,color:(totalMonthlyIncome-totalMonthlyExp)>=0?"#3fb950":"#f85149",sub:"income − expenses"},{label:"TOTAL DEBT",val:totalDebt,color:"#d29922",sub:`~${fmt(interesTotal)}/mo interest`}].map(s=>(<div key={s.label} style={{...CARD,padding:"12px 14px"}}>
-              <div style={{fontSize:9,color:T.muted,marginBottom:5,letterSpacing:1}}>{s.label}</div>
-              <div style={{fontFamily:"monospace",fontSize:17,fontWeight:700,color:s.color}}>{fmt(s.val)}</div>
-              <div style={{fontSize:9,color:T.muted,marginTop:2}}>{s.sub}</div>
-            </div>))}
-          </div>
           {(()=>{
             const totalDebtPayments=allDebts.reduce((s,d)=>s+n(d.minimo),0);
-            const remaining=totalMonthlyIncome-totalMonthlyExp-totalDebtPayments;
-            const rows=[
-              {label:"Income planned",val:totalMonthlyIncome,color:"#3fb950"},
-              {label:"Expenses assigned",val:totalMonthlyExp,color:"#f85149"},
-              {label:"Debt payments",val:totalDebtPayments,color:"#d29922"},
-              {label:"Remaining planned",val:remaining,color:remaining>=0?"#3fb950":"#f85149"},
-            ];
+            const remaining=totalMonthlyIncome-totalMonthlyExp;
+            const remColor=remaining>=200?"#3fb950":remaining>=50?"#3fb950":remaining>=0?"#56d364":remaining>=-99?"#f97316":"#f85149";
+            const remOpacity=remaining>=50?1:remaining>=0?0.8:1;
             return(<div style={{...CARD,padding:"13px 16px",marginBottom:12}}>
-              <div style={{fontSize:10,color:T.muted,letterSpacing:1.5,fontWeight:700,marginBottom:10}}>📋 MONTH SUMMARY</div>
-              {rows.map((r,i)=>(
-                <div key={r.label} style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"6px 0",borderBottom:i<rows.length-1?`1px solid ${T.border}`:"none"}}>
-                  <span style={{fontSize:11,color:i===rows.length-1?T.text:T.muted,fontWeight:i===rows.length-1?700:400}}>{r.label}</span>
-                  <span style={{fontFamily:"monospace",fontWeight:700,fontSize:12,color:r.color}}>{fmt(r.val)}</span>
-                </div>
-              ))}
+              <div style={{fontSize:10,color:T.muted,letterSpacing:1.5,fontWeight:700,marginBottom:10}}>📊 MONTHLY OVERVIEW</div>
+              <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"5px 0",borderBottom:`1px solid ${T.border}`}}>
+                <span style={{fontSize:11,color:T.muted}}>Income planned</span>
+                <span style={{fontFamily:"monospace",fontWeight:700,fontSize:12,color:"#3fb950"}}>{fmt(totalMonthlyIncome)}</span>
+              </div>
+              <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"5px 0",borderBottom:`1px solid ${T.border}`}}>
+                <span style={{fontSize:11,color:T.muted}}>Total assigned spending</span>
+                <span style={{fontFamily:"monospace",fontWeight:700,fontSize:12,color:"#f85149"}}>{fmt(totalMonthlyExp)}</span>
+              </div>
+              <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"5px 0 5px 12px",borderBottom:`1px solid ${T.border}`}}>
+                <span style={{fontSize:10,color:T.muted}}>↳ of which debt payments</span>
+                <span style={{fontFamily:"monospace",fontWeight:600,fontSize:11,color:"#d29922"}}>{fmt(totalDebtPayments)}</span>
+              </div>
+              <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"7px 0",borderBottom:`1px solid ${T.border}`}}>
+                <span style={{fontSize:11,fontWeight:700,color:T.text}}>Remaining planned</span>
+                <span style={{fontFamily:"monospace",fontWeight:800,fontSize:13,color:remColor,opacity:remOpacity}}>{fmt(remaining)}</span>
+              </div>
+              <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"5px 0"}}>
+                <span style={{fontSize:11,color:T.muted}}>Total debt</span>
+                <span style={{fontFamily:"monospace",fontWeight:700,fontSize:12,color:"#d29922"}}>{fmt(totalDebt)}</span>
+              </div>
+              <div style={{fontSize:9,color:T.muted,marginTop:4}}>{monthPeriods.length} check{monthPeriods.length!==1?"s":""} · {monthPeriods.map(p=>fmt(getPeriodAmount(p.id))).join(" + ")} · ~{fmt(interesTotal)}/mo interest</div>
             </div>);
           })()}
           {snapReminder&&(<div style={{background:snapReminder.type==="warn"?"rgba(210,153,34,0.08)":"rgba(88,166,255,0.05)",border:`1px solid ${snapReminder.type==="warn"?"rgba(210,153,34,0.25)":"rgba(88,166,255,0.15)"}`,borderRadius:11,padding:"9px 13px",marginBottom:12,display:"flex",alignItems:"center",gap:8}}>
@@ -1346,70 +1350,39 @@ function App(){
               <span style={{fontFamily:"monospace",fontWeight:800,color:"#f85149",fontSize:14}}>{fmt(totalDebt)}</span>
             </div>
           </div>
-          <div style={{...CARD,padding:"13px 16px",marginBottom:12,borderColor:data.ahorro?.activo?"#3fb950":T.border}}>
-            <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:data.ahorro?.activo?10:0}}>
-              <div style={{fontSize:10,color:T.muted,letterSpacing:1.5,fontWeight:700}}>🏦 SAVINGS GOAL</div>
-              <div style={{display:"flex",alignItems:"center",gap:8}}>
-                {!data.ahorro?.activo&&<span style={{fontSize:10,color:T.muted}}>Off</span>}
-                <div onClick={()=>setData(p=>({...p,ahorro:{...(p.ahorro||{}),activo:!p.ahorro?.activo}}))} style={{width:36,height:20,borderRadius:10,background:data.ahorro?.activo?"#238636":T.surface2,position:"relative",cursor:"pointer",transition:"background 0.2s"}}>
-                  <div style={{width:16,height:16,borderRadius:"50%",background:"#fff",position:"absolute",top:2,left:data.ahorro?.activo?18:2,transition:"left 0.2s"}}/>
-                </div>
-              </div>
-            </div>
-            {data.ahorro?.activo&&(<>
-              <div style={{background:"rgba(63,185,80,0.08)",border:"1px solid rgba(63,185,80,0.2)",borderRadius:10,padding:"10px 14px",marginBottom:10,display:"flex",justifyContent:"space-between",alignItems:"center"}}>
-                <div><div style={{fontSize:9,color:T.muted}}>IN SAVINGS POT</div><div style={{fontFamily:"monospace",fontSize:22,fontWeight:800,color:"#3fb950"}}>{fmt(n(pots.savings_acct)||0)}</div></div>
-                <button style={{...BTN,padding:"6px 11px",background:"rgba(248,81,73,0.1)",color:"#f85149",fontSize:11,border:"1px solid rgba(248,81,73,0.25)"}} onClick={()=>{if(window.confirm("Reset savings pot to $0? This will also revert all savings movements.")){setData(p=>({...p,pots:{...p.pots,savings_acct:0},potMovements:(p.potMovements||[]).filter(m=>m.potKey!=="savings_acct"),ahorro:{...(p.ahorro||{}),acumulado:0,historial:[]}}))};}}>Reset</button>
-              </div>
-              <div style={{display:"flex",justifyContent:"space-between",fontSize:10,color:T.muted,marginBottom:4}}><span>Goal: {fmt(n(data.ahorro?.meta)||500)}</span><span style={{color:"#3fb950",fontWeight:700}}>{(n(data.ahorro?.meta)||500)>0?Math.round((n(pots.savings_acct||0)/n(data.ahorro?.meta||500))*100):0}%</span></div>
-              <div style={{height:7,background:T.surface2,borderRadius:8,overflow:"hidden",marginBottom:10}}><div style={{height:"100%",width:`${(n(data.ahorro?.meta)||500)>0?Math.min(100,Math.round((n(pots.savings_acct||0)/n(data.ahorro?.meta||500))*100)):0}%`,background:"linear-gradient(90deg,#238636,#3fb950)",borderRadius:8}}/></div>
-              <div style={{display:"flex",gap:7}}>
-                <div style={{flex:1}}><div style={{fontSize:9,color:T.muted,marginBottom:4}}>GOAL ($)</div><input style={{...INP,fontSize:14}} type="number" inputMode="decimal" value={data.ahorro?.meta||500} onChange={e=>setData(p=>({...p,ahorro:{...(p.ahorro||{}),meta:e.target.value}}))}/></div>
-                <div style={{flex:1}}><div style={{fontSize:9,color:T.muted,marginBottom:4}}>ADD TO SAVINGS</div>
-                  <div style={{display:"flex",gap:5}}>
-                    <input style={{...INP,fontSize:14}} type="number" inputMode="decimal" placeholder="0" value={data._sa||""} onChange={e=>setData(p=>({...p,_sa:e.target.value}))}/>
-                    <button style={{...BTN,padding:"8px 10px",background:"#238636",color:"#fff",fontSize:14,flexShrink:0}} onMouseDown={e=>{e.preventDefault();const m=parseFloat(data._sa);if(m>0){const mvId=Date.now();setData(p=>({...p,pots:{...p.pots,savings_acct:n(p.pots?.savings_acct||0)+m},potMovements:[...(p.potMovements||[]),{id:mvId,potKey:"savings_acct",amount:m,date:new Date().toLocaleDateString("en-US",{month:"short",day:"numeric"}),note:"Savings deposit"}],_sa:""}));toast_(`💚 +${fmt(m)} saved`);}}}> + </button>
-                  </div>
-                </div>
-              </div>
-            </>)}
-          </div>
           {(()=>{
-            const potEntries=Object.entries(POTS);
-            const hasPotBalance=potEntries.some(([k])=>n(pots[k])>0);
-            if(!hasPotBalance&&!Object.values(data.potTargets||{}).some(v=>n(v)>0))return null;
+            const reservePots=[
+              {key:"savings_acct",p:POTS.savings_acct},
+              {key:"emergency",  p:POTS.emergency},
+            ];
             return(<div style={{...CARD,padding:"13px 16px",marginBottom:12}}>
               <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:10}}>
-                <div style={{fontSize:10,color:T.muted,letterSpacing:1.5,fontWeight:700}}>🪣 SAVINGS POTS</div>
-                <button style={{...BTN,padding:"3px 9px",background:T.surface2,color:T.muted,fontSize:10,border:`1px solid ${T.border}`}} onClick={()=>setMoveOpen(true)}>+ Move Money</button>
+                <div style={{fontSize:10,color:T.muted,letterSpacing:1.5,fontWeight:700}}>🏦 RESERVES</div>
+                <button style={{...BTN,padding:"3px 9px",background:T.surface2,color:T.muted,fontSize:10,border:`1px solid ${T.border}`}} onClick={()=>setMoveOpen(true)}>+ Add Funds</button>
               </div>
-              {potEntries.map(([k,p],i)=>{
-                const bal=n(pots[k])||0;
-                const target=n((data.potTargets||{})[k])||0;
+              {reservePots.map(({key,p},i)=>{
+                const bal=n(pots[key])||0;
+                const target=n((data.potTargets||{})[key])||0;
                 const hasTgt=target>0;
                 const pct=hasTgt?Math.min(100,Math.round((bal/target)*100)):0;
-                return(<div key={k} style={{paddingBottom:i<potEntries.length-1?10:0,marginBottom:i<potEntries.length-1?10:0,borderBottom:i<potEntries.length-1?`1px solid ${T.border}`:"none"}}>
-                  <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:hasTgt?4:0}}>
-                    <div style={{display:"flex",alignItems:"center",gap:6}}>
-                      <span style={{fontSize:13}}>{p.icon}</span>
-                      <span style={{fontSize:12,fontWeight:600,color:T.text}}>{p.label}</span>
+                return(<div key={key} style={{paddingBottom:i<reservePots.length-1?9:0,marginBottom:i<reservePots.length-1?9:0,borderBottom:i<reservePots.length-1?`1px solid ${T.border}`:"none"}}>
+                  <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:hasTgt?3:0}}>
+                    <div style={{display:"flex",alignItems:"center",gap:5}}>
+                      <span style={{fontSize:11}}>{p.icon}</span>
+                      <span style={{fontSize:11,fontWeight:600,color:T.text}}>{p.label}</span>
                     </div>
-                    <div style={{textAlign:"right"}}>
-                      <span style={{fontFamily:"monospace",fontWeight:700,fontSize:13,color:p.color}}>{fmt(bal)}</span>
-                      {hasTgt&&<span style={{fontSize:10,color:T.muted,marginLeft:4}}>of {fmt(target)}</span>}
+                    <div style={{fontSize:11,fontFamily:"monospace",fontWeight:700,color:bal>0?p.color:T.muted}}>
+                      {fmt(bal)}{hasTgt&&<span style={{fontSize:10,fontWeight:400,color:T.muted}}> saved of {fmt(target)}</span>}
                     </div>
                   </div>
-                  {hasTgt&&(<>
-                    <div style={{height:4,background:T.surface2,borderRadius:4,overflow:"hidden",marginBottom:3}}>
-                      <div style={{height:"100%",width:`${pct}%`,background:p.color,borderRadius:4,opacity:0.7,transition:"width 0.5s"}}/>
-                    </div>
-                    <div style={{fontSize:9,color:T.muted,textAlign:"right"}}>{pct}%</div>
-                  </>)}
-                  {!hasTgt&&bal===0&&<div style={{fontSize:10,color:T.muted,marginTop:1}}>No balance yet</div>}
+                  {hasTgt&&(<div style={{height:3,background:T.surface2,borderRadius:3,overflow:"hidden",marginTop:4}}>
+                    <div style={{height:"100%",width:`${pct}%`,background:p.color,borderRadius:3,opacity:0.7,transition:"width 0.5s"}}/>
+                  </div>)}
                 </div>);
               })}
             </div>);
           })()}
+
           {monthPeriods.map(p=>{
             const gastos=getPGastos(p.id);
             const periodAmt=getPeriodAmount(p.id);
@@ -1491,9 +1464,8 @@ function App(){
             {debtsFilter==="all"&&(<div style={{display:"flex",alignItems:"center",gap:10,marginBottom:14,padding:"8px 12px",borderRadius:9,background:T.surface2,border:`1px solid ${T.border}`}}>
               <span style={{fontSize:12,flexShrink:0}}>🎯</span>
               <div style={{minWidth:0}}>
-                <span style={{fontSize:10,color:T.muted}}>Avalanche target · </span>
-                <span style={{fontSize:11,fontWeight:700,color:"#d29922"}}>{avalancheTarget?.nombre}</span>
-                <span style={{fontSize:10,color:T.muted}}> · {avalancheTarget?.interes}% APR</span>
+                <div style={{fontSize:11,fontWeight:700,color:"#d29922"}}>Avalanche focus → {avalancheTarget?.nombre}</div>
+                <div style={{fontSize:10,color:T.muted,marginTop:1}}>Highest APR: {avalancheTarget?.interes}%</div>
               </div>
             </div>)}
             {debtsFilter==="priority"&&priorityDebts.length===0&&(<div style={{...mkCARD(T),padding:"28px 20px",textAlign:"center",marginBottom:12}}>
