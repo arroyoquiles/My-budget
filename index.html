@@ -681,6 +681,8 @@ function App(){
   const [moveNote,setMoveNote]=useState("");
   const [snapDetail,setSnapDetail]=useState(null);
   const [debtsFilter,setDebtsFilter]=useState("all");
+  const [cardsCollapsed,setCardsCollapsed]=useState(false);
+  const [loansCollapsed,setLoansCollapsed]=useState(false);
   const toastRef=useRef();
   const swipeStart=useRef(null);
   const swipeFromContent=useRef(false);
@@ -1406,28 +1408,34 @@ function App(){
               <div style={{color:T.muted,fontSize:12}}>Tap the star on any debt card to mark it as priority</div>
             </div>)}
             {visibleCards.length>0&&(<>
-              <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:12,marginTop:4}}>
+              <button style={{...BTN,width:"100%",display:"flex",alignItems:"center",gap:0,marginBottom:cardsCollapsed?8:10,marginTop:4,background:"transparent",border:"none",padding:0,borderRadius:0}} onClick={()=>setCardsCollapsed(c=>!c)}>
                 <div style={{flex:1,height:1,background:`linear-gradient(90deg,transparent,${T.border})`}}/>
-                <div style={{display:"flex",alignItems:"center",gap:7,padding:"5px 14px",borderRadius:20,background:"rgba(236,72,153,0.08)",border:"1px solid rgba(236,72,153,0.22)"}}>
-                  <span style={{fontSize:14}}>💳</span>
-                  <span style={{fontSize:11,fontWeight:700,color:"#ec4899",letterSpacing:0.8}}>CREDIT CARDS</span>
+                <div style={{display:"flex",alignItems:"center",gap:6,padding:"5px 12px",borderRadius:20,background:"rgba(236,72,153,0.08)",border:"1px solid rgba(236,72,153,0.22)"}}>
+                  <span style={{fontSize:13}}>{cardsCollapsed?"▶":"▼"}</span>
+                  <span style={{fontSize:11,fontWeight:700,color:"#ec4899",letterSpacing:0.5}}>💳 Credit Cards</span>
+                  <span style={{fontSize:10,color:"rgba(236,72,153,0.7)",fontWeight:500}}>{visibleCards.length} card{visibleCards.length!==1?"s":""} · {fmt(visibleCards.reduce((s,d)=>s+n(d.balance),0))}</span>
                 </div>
                 <div style={{flex:1,height:1,background:`linear-gradient(90deg,${T.border},transparent)`}}/>
-              </div>
-              {visibleCards.map((d)=>{const globalIdx=allDebts.findIndex(x=>x.id===d.id&&x.tipo===d.tipo);return(<DebtCard key={d.id} debt={d} idx={globalIdx} isFirst={globalIdx===0} tipo="card" accion={accion} setAccion={setAccion} montoAccion={montoAccion} setMontoAccion={setMontoAccion} onApply={applyAccion} onUpdate={updateTarjeta} onRemove={removeTarjeta} isAdding={addingDebt?.id===d.id} setAddingDebt={setAddingDebt} onTogglePriority={togglePriorityCard} T={T}/>);})}
-              {(debtsFilter==="all"||debtsFilter==="cards")&&(<button style={{...BTN,width:"100%",marginBottom:24,padding:"10px",background:"transparent",color:"#ec4899",fontSize:12,border:`1.5px dashed rgba(236,72,153,0.3)`}} onClick={addCard}>+ Add Card</button>)}
+              </button>
+              {!cardsCollapsed&&(<>
+                {visibleCards.map((d)=>{const globalIdx=allDebts.findIndex(x=>x.id===d.id&&x.tipo===d.tipo);return(<DebtCard key={d.id} debt={d} idx={globalIdx} isFirst={globalIdx===0} tipo="card" accion={accion} setAccion={setAccion} montoAccion={montoAccion} setMontoAccion={setMontoAccion} onApply={applyAccion} onUpdate={updateTarjeta} onRemove={removeTarjeta} isAdding={addingDebt?.id===d.id} setAddingDebt={setAddingDebt} onTogglePriority={togglePriorityCard} T={T}/>);})}
+                {(debtsFilter==="all"||debtsFilter==="cards")&&(<button style={{...BTN,width:"100%",marginBottom:24,padding:"10px",background:"transparent",color:"#ec4899",fontSize:12,border:`1.5px dashed rgba(236,72,153,0.3)`}} onClick={addCard}>+ Add Card</button>)}
+              </>)}
             </>)}
             {visibleLoans.length>0&&(<>
-              <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:12}}>
+              <button style={{...BTN,width:"100%",display:"flex",alignItems:"center",gap:0,marginBottom:loansCollapsed?8:10,background:"transparent",border:"none",padding:0,borderRadius:0}} onClick={()=>setLoansCollapsed(c=>!c)}>
                 <div style={{flex:1,height:1,background:`linear-gradient(90deg,transparent,${T.border})`}}/>
-                <div style={{display:"flex",alignItems:"center",gap:7,padding:"5px 14px",borderRadius:20,background:"rgba(249,115,22,0.08)",border:"1px solid rgba(249,115,22,0.22)"}}>
-                  <span style={{fontSize:14}}>{visibleLoans.length===1?getLoanIcon(visibleLoans[0].nombre):"🏦"}</span>
-                  <span style={{fontSize:11,fontWeight:700,color:"#f97316",letterSpacing:0.8}}>LOANS</span>
+                <div style={{display:"flex",alignItems:"center",gap:6,padding:"5px 12px",borderRadius:20,background:"rgba(249,115,22,0.08)",border:"1px solid rgba(249,115,22,0.22)"}}>
+                  <span style={{fontSize:13}}>{loansCollapsed?"▶":"▼"}</span>
+                  <span style={{fontSize:11,fontWeight:700,color:"#f97316",letterSpacing:0.5}}>{visibleLoans.length===1?getLoanIcon(visibleLoans[0].nombre):"🏦"} Loans</span>
+                  <span style={{fontSize:10,color:"rgba(249,115,22,0.7)",fontWeight:500}}>{visibleLoans.length} loan{visibleLoans.length!==1?"s":""} · {fmt(visibleLoans.reduce((s,d)=>s+n(d.balance),0))}</span>
                 </div>
                 <div style={{flex:1,height:1,background:`linear-gradient(90deg,${T.border},transparent)`}}/>
-              </div>
-              {visibleLoans.map((d)=>{const globalIdx=allDebts.findIndex(x=>x.id===d.id&&x.tipo===d.tipo);return(<DebtCard key={d.id} debt={d} idx={globalIdx} isFirst={globalIdx===0} tipo="loan" accion={accion} setAccion={setAccion} montoAccion={montoAccion} setMontoAccion={setMontoAccion} onApply={applyAccion} onUpdate={updateLoan} onRemove={removeLoan} isAdding={addingDebt?.id===d.id} setAddingDebt={setAddingDebt} onTogglePriority={togglePriorityLoan} T={T}/>);})}
-              {(debtsFilter==="all"||debtsFilter==="loans")&&(<button style={{...BTN,width:"100%",marginBottom:24,padding:"10px",background:"transparent",color:"#f97316",fontSize:12,border:`1.5px dashed rgba(249,115,22,0.3)`}} onClick={addLoan}>+ Add Loan</button>)}
+              </button>
+              {!loansCollapsed&&(<>
+                {visibleLoans.map((d)=>{const globalIdx=allDebts.findIndex(x=>x.id===d.id&&x.tipo===d.tipo);return(<DebtCard key={d.id} debt={d} idx={globalIdx} isFirst={globalIdx===0} tipo="loan" accion={accion} setAccion={setAccion} montoAccion={montoAccion} setMontoAccion={setMontoAccion} onApply={applyAccion} onUpdate={updateLoan} onRemove={removeLoan} isAdding={addingDebt?.id===d.id} setAddingDebt={setAddingDebt} onTogglePriority={togglePriorityLoan} T={T}/>);})}
+                {(debtsFilter==="all"||debtsFilter==="loans")&&(<button style={{...BTN,width:"100%",marginBottom:24,padding:"10px",background:"transparent",color:"#f97316",fontSize:12,border:`1.5px dashed rgba(249,115,22,0.3)`}} onClick={addLoan}>+ Add Loan</button>)}
+              </>)}
             </>)}
             {(debtsFilter==="all"||debtsFilter==="cards")&&cards.length===0&&(<button style={{...BTN,width:"100%",marginBottom:12,padding:"11px",background:"transparent",color:T.accent,fontSize:12,border:`1.5px dashed ${T.border}`}} onClick={addCard}>+ Add Card</button>)}
             {(debtsFilter==="all"||debtsFilter==="loans")&&loans.length===0&&(<button style={{...BTN,width:"100%",marginBottom:12,padding:"11px",background:"transparent",color:"#f97316",fontSize:12,border:`1.5px dashed ${T.border}`}} onClick={addLoan}>+ Add Loan</button>)}
