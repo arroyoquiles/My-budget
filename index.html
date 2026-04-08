@@ -40,6 +40,8 @@
       flex-direction:column;
       background:var(--qm-bg,#161b22);
       overflow:hidden;
+      height:100dvh;
+      max-height:100dvh;
     }
     .quick-modal-header{
       display:flex;
@@ -56,6 +58,9 @@
       -webkit-overflow-scrolling:touch;
       padding:18px 18px 32px;
       padding-bottom:max(32px, env(safe-area-inset-bottom, 32px));
+      min-height:0;
+      overscroll-behavior:contain;
+      padding-bottom:max(120px, env(safe-area-inset-bottom, 32px));
     }
   </style>
 </head>
@@ -1032,7 +1037,7 @@ function App(){
                 <div style={{fontSize:10,color:T.muted,letterSpacing:1.2,fontWeight:700,marginBottom:8}}>WHICH CARD?</div>
                 {data.tarjetas.length===0
                   ?<div style={{fontSize:12,color:T.muted,padding:"12px 14px",background:T.surface2,borderRadius:10}}>No cards found. Add one in Debts.</div>
-                  :<div style={{display:"flex",flexDirection:"column",gap:7}}>
+                  :<div style={{maxHeight:"38vh",overflowY:"auto",WebkitOverflowScrolling:"touch",display:"flex",flexDirection:"column",gap:7}}>
                     {data.tarjetas.map(t=>{
                       const tc=CC[t.nombre]||null;
                       const dot=tc?.dot||"💳";
