@@ -503,19 +503,21 @@ const GastoItem=memo(({item,pid,editId,setEditId,tarjetas,onCycle,onLongPress,on
   const cardUtilPct=tipo==="card"&&n(debt.limite)>0?Math.min(100,Math.round((n(debt.balance)/n(debt.limite))*100)):0;
   const utilColor=getUtilColor(cardUtilPct);
   const utilLabel=getUtilLabel(cardUtilPct);
+  const balanceColor=tipo==="card"?(CC[debt.nombre]?.color||vcStyle?.color||"#ec4899"):"#f85149";
   return(
-    <div style={{...CARD,padding:"11px 13px",marginBottom:8,borderColor:isFirst?"#d29922":showEdit?"rgba(88,166,255,0.5)":debt.priority?"rgba(245,158,11,0.35)":T.border,transition:"border-color 0.2s"}}>
-      {/* ── Compact header row ── */}
-      <div style={{display:"flex",alignItems:"center",gap:6,marginBottom:showEdit?7:6}}>
-        <span style={{fontSize:13,flexShrink:0}}>{debtIcon}</span>
+    <div style={{...CARD,padding:"12px 14px",marginBottom:9,borderColor:isFirst?"#d29922":showEdit?"rgba(88,166,255,0.5)":debt.priority?"rgba(245,158,11,0.35)":T.border,transition:"border-color 0.2s"}}>
+
+      {/* ── Header: icon · name · balance · star · edit · delete ── */}
+      <div style={{display:"flex",alignItems:"center",gap:7,marginBottom:6}}>
+        <span style={{fontSize:15,flexShrink:0}}>{debtIcon}</span>
         {showEdit
           ?<input style={{...INP,fontWeight:700,fontSize:14,background:"transparent",border:"none",borderBottom:`1.5px solid ${T.accent}`,borderRadius:0,padding:"2px 0",flex:1}} value={debt.nombre} onChange={e=>onUpdate(debt.id,"nombre",e.target.value)} autoFocus={editing&&!isAdding}/>
-          :<span style={{flex:1,fontWeight:700,fontSize:13,color:T.text,minWidth:0,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{debt.nombre}</span>
+          :<span style={{flex:1,fontWeight:700,fontSize:14,color:T.text,minWidth:0,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{debt.nombre}</span>
         }
-        {isFirst&&!showEdit&&<span style={{fontSize:9,fontWeight:700,color:"#d29922",background:"rgba(210,153,34,0.13)",border:"1px solid rgba(210,153,34,0.3)",borderRadius:5,padding:"1px 5px",flexShrink:0}}>🎯</span>}
-        <span style={{fontFamily:"monospace",fontWeight:800,fontSize:13,color:tipo==="card"?"#ec4899":"#f85149",flexShrink:0}}>{fmt(n(debt.balance))}</span>
-        <button style={{...BTN,background:"transparent",color:debt.priority?"#f59e0b":T.muted,padding:"2px 3px",fontSize:14,border:"none",opacity:debt.priority?1:0.38,flexShrink:0,transition:"opacity 0.15s"}} onClick={()=>onTogglePriority(debt.id)}>⭐</button>
-        {!isAdding&&<button style={{...BTN,background:editing?"rgba(88,166,255,0.13)":"transparent",color:editing?T.accent:T.muted,padding:"2px 6px",fontSize:11,border:`1px solid ${editing?T.accent:"transparent"}`,borderRadius:7,flexShrink:0}} onClick={()=>setEditing(e=>!e)}>{editing?"✓":"✏️"}</button>}
+        {isFirst&&!showEdit&&<span style={{fontSize:9,fontWeight:700,color:"#d29922",background:"rgba(210,153,34,0.13)",border:"1px solid rgba(210,153,34,0.28)",borderRadius:5,padding:"1px 5px",flexShrink:0}}>🎯</span>}
+        <span style={{fontFamily:"monospace",fontWeight:800,fontSize:16,color:balanceColor,flexShrink:0,letterSpacing:-0.3}}>{fmt(n(debt.balance))}</span>
+        <button style={{...BTN,background:"transparent",color:debt.priority?"#f59e0b":T.muted,padding:"2px 3px",fontSize:14,border:"none",opacity:debt.priority?1:0.35,flexShrink:0,transition:"opacity 0.15s"}} onClick={()=>onTogglePriority(debt.id)}>⭐</button>
+        {!isAdding&&<button style={{...BTN,background:editing?"rgba(88,166,255,0.13)":"transparent",color:editing?T.accent:T.muted,padding:"2px 7px",fontSize:11,border:`1px solid ${editing?T.accent:"transparent"}`,borderRadius:7,flexShrink:0}} onClick={()=>setEditing(e=>!e)}>{editing?"✓":"✏️"}</button>}
         <button style={{...BTN,background:"transparent",color:T.muted,padding:"2px 4px",fontSize:12,flexShrink:0}} onClick={()=>onRemove(debt.id)}>🗑</button>
       </div>
 
@@ -533,11 +535,12 @@ const GastoItem=memo(({item,pid,editId,setEditId,tarjetas,onCycle,onLongPress,on
 
       {/* ── Compact view ── */}
       {!showEdit&&(<>
-        {/* Card: util bar */}
-        {tipo==="card"&&(<div style={{marginBottom:6}}>
-          <div style={{display:"flex",justifyContent:"space-between",fontSize:9,marginBottom:3}}>
-            <span style={{color:T.muted}}>{fmt(debt.balance)} / {fmt(debt.limite)}</span>
-            <span style={{color:utilColor,fontWeight:700}}>{cardUtilPct}% {utilLabel}</span>
+
+        {/* Card: utilization bar */}
+        {tipo==="card"&&(<div style={{marginBottom:7}}>
+          <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:3}}>
+            <span style={{fontSize:10,color:T.muted}}>{fmt(debt.balance)} / {fmt(debt.limite)}</span>
+            <span style={{fontSize:10,color:utilColor,fontWeight:700}}>{cardUtilPct}% {utilLabel}</span>
           </div>
           <div style={{height:5,background:T.surface2,borderRadius:4,overflow:"hidden"}}>
             <div style={{height:"100%",width:`${cardUtilPct}%`,background:utilColor,borderRadius:4,transition:"width 0.5s"}}/>
@@ -545,66 +548,66 @@ const GastoItem=memo(({item,pid,editId,setEditId,tarjetas,onCycle,onLongPress,on
         </div>)}
 
         {/* Loan: progress bar */}
-        {tipo==="loan"&&n(debt.original)>0&&(<div style={{marginBottom:6}}>
-          <div style={{display:"flex",justifyContent:"space-between",fontSize:9,marginBottom:3}}>
-            <span style={{color:T.muted}}>Paid {fmt(n(debt.original)-n(debt.balance))} of {fmt(debt.original)}</span>
-            <span style={{color:"#3fb950",fontWeight:700}}>{pct}%</span>
+        {tipo==="loan"&&n(debt.original)>0&&(<div style={{marginBottom:7}}>
+          <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:3}}>
+            <span style={{fontSize:10,color:T.muted}}>Paid {fmt(n(debt.original)-n(debt.balance))} of {fmt(debt.original)}</span>
+            <span style={{fontSize:10,color:"#3fb950",fontWeight:700}}>{pct}% done</span>
           </div>
           <div style={{height:5,background:T.surface2,borderRadius:4,overflow:"hidden"}}><div style={{height:"100%",width:`${pct}%`,background:"linear-gradient(90deg,#3fb950,#58a6ff)",borderRadius:4}}/></div>
         </div>)}
 
-        {/* Stats row */}
-        <div style={{display:"flex",gap:4,marginBottom:5,flexWrap:"wrap"}}>
+        {/* Stats + due date row */}
+        <div style={{display:"flex",gap:5,alignItems:"center",flexWrap:"wrap",marginBottom:4}}>
           {(tipo==="card"
-            ?[["Min",fmt(n(debt.minimo)),"#f85149"],["APR",n(debt.interes)+"%","#d29922"],["Min/chk",fmt(n(debt.minimo)/2),T.muted]]
-            :[["Min",fmt(n(debt.minimo)),"#ec4899"],["APR",n(debt.interes)+"%","#d29922"],["Min/chk",fmt(n(debt.minimo)/2),T.muted]]
-          ).map(([l,v,c])=>(<div key={l} style={{background:T.surface2,borderRadius:6,padding:"3px 7px",display:"flex",gap:4,alignItems:"baseline"}}>
-            <span style={{fontSize:9,color:T.muted}}>{l}</span>
-            <span style={{fontFamily:"monospace",fontWeight:700,fontSize:11,color:c}}>{v}</span>
+            ?[["Min/mo",fmt(n(debt.minimo)),"#f85149"],["APR",n(debt.interes)+"%","#d29922"],["Min/chk",fmt(n(debt.minimo)/2),T.muted]]
+            :[["Min/mo",fmt(n(debt.minimo)),"#ec4899"],["APR",n(debt.interes)+"%","#d29922"],["Min/chk",fmt(n(debt.minimo)/2),T.muted]]
+          ).map(([l,v,c])=>(<div key={l} style={{background:T.surface2,borderRadius:6,padding:"4px 8px",display:"flex",gap:4,alignItems:"baseline"}}>
+            <span style={{fontSize:10,color:T.muted}}>{l}</span>
+            <span style={{fontFamily:"monospace",fontWeight:700,fontSize:12,color:c}}>{v}</span>
           </div>))}
-          {/* Due date inline pill */}
-          {fpd&&dp!==null&&(<div style={{background:dueBg,border:`1px solid ${dueBorder}`,borderRadius:6,padding:"3px 7px",display:"flex",gap:4,alignItems:"baseline",marginLeft:"auto"}}>
-            <span style={{fontSize:9,color:dueColor}}>Due</span>
-            <span style={{fontFamily:"monospace",fontWeight:700,fontSize:11,color:dueColor}}>{fmd(fpd)}</span>
-            <span style={{fontSize:9,fontWeight:700,color:dueColor}}>{dpLabel}</span>
+          {/* Due date pill — pushed right, more prominent */}
+          {fpd&&dp!==null&&(<div style={{background:dueBg,border:`1px solid ${dueBorder}`,borderRadius:7,padding:"4px 9px",display:"flex",gap:5,alignItems:"center",marginLeft:"auto"}}>
+            <span style={{fontSize:10,color:dueColor,fontWeight:600}}>Due</span>
+            <span style={{fontFamily:"monospace",fontWeight:800,fontSize:13,color:dueColor}}>{fmd(fpd)}</span>
+            {dp<=7&&<span style={{fontSize:10,fontWeight:700,color:dueColor,background:dp<=3?"rgba(248,81,73,0.15)":"transparent",borderRadius:4,padding:"0 3px"}}>{dpLabel}</span>}
           </div>)}
         </div>
 
-        {/* Cutoff pill (cards only, compact) */}
-        {tipo==="card"&&fcd&&(<div style={{display:"flex",alignItems:"center",gap:6,marginBottom:5}}>
-          <span style={{fontSize:9,color:T.muted}}>✂️ Cutoff</span>
-          <span style={{fontSize:11,fontWeight:600,color:T.muted}}>{fmd(fcd)}</span>
-          <span style={{fontSize:9,color:T.muted}}>({getDU(debt.fechaCorte)}d left)</span>
-          <span style={{marginLeft:"auto",fontSize:9,color:"#d29922"}}>~{fmt((n(debt.interes)/100/12)*n(debt.balance))}/mo</span>
+        {/* Cutoff row (cards only) */}
+        {tipo==="card"&&fcd&&(<div style={{display:"flex",alignItems:"center",gap:6,marginBottom:3}}>
+          <span style={{fontSize:10,color:T.muted}}>✂️ Cutoff {fmd(fcd)}</span>
+          <span style={{fontSize:10,color:T.muted}}>({getDU(debt.fechaCorte)}d left)</span>
+          <span style={{marginLeft:"auto",fontSize:10,color:"#d29922"}}>~{fmt((n(debt.interes)/100/12)*n(debt.balance))}/mo</span>
         </div>)}
 
-        {/* Loan interest row */}
-        {tipo==="loan"&&(<div style={{marginBottom:5,display:"flex",gap:6,alignItems:"center",flexWrap:"wrap"}}>
-          <span style={{fontSize:9,color:"#d29922"}}>~{fmt((n(debt.interes)/100/12)*n(debt.balance))}/mo interest</span>
+        {/* Loan secondary info row */}
+        {tipo==="loan"&&(<div style={{display:"flex",gap:5,alignItems:"center",flexWrap:"wrap",marginBottom:3}}>
+          <span style={{fontSize:10,color:"#d29922"}}>~{fmt((n(debt.interes)/100/12)*n(debt.balance))}/mo</span>
           {lc&&n(lc.interest)>0&&(<>
-            <span style={{fontSize:9,color:T.muted}}>·</span>
-            <span style={{fontSize:9,color:"#f85149"}}>Int {fmtD(lc.interest)}</span>
-            <span style={{fontSize:9,color:"#3fb950"}}>Prin {fmtD(lc.principal)}</span>
-            <span style={{fontSize:9,color:"#58a6ff"}}>→ {fmt(lc.newBalance)}</span>
+            <span style={{fontSize:10,color:T.muted}}>·</span>
+            <span style={{fontSize:10,color:"#f85149"}}>Int {fmtD(lc.interest)}</span>
+            <span style={{fontSize:10,color:"#3fb950"}}>Prin {fmtD(lc.principal)}</span>
+            <span style={{fontSize:10,color:"#58a6ff"}}>→ {fmt(lc.newBalance)}</span>
           </>)}
         </div>)}
+
       </>)}
 
       {/* ── Action area ── */}
       {!isAdding&&!editing&&(
         isActive
-          ?(<div style={{background:T.bg,borderRadius:8,padding:"9px 10px",border:`1px solid ${accion.tipo==="pago"?"#3fb950":"#f85149"}`,marginTop:4}}>
-            <div style={{fontSize:11,fontWeight:700,color:accion.tipo==="pago"?"#3fb950":"#f85149",marginBottom:6}}>{accion.tipo==="pago"?"💳 Amount paid?":"🛒 Amount charged?"}</div>
+          ?(<div style={{background:T.bg,borderRadius:8,padding:"10px 11px",border:`1px solid ${accion.tipo==="pago"?"#3fb950":"#f85149"}`,marginTop:6}}>
+            <div style={{fontSize:11,fontWeight:700,color:accion.tipo==="pago"?"#3fb950":"#f85149",marginBottom:7}}>{accion.tipo==="pago"?"💳 Amount paid?":"🛒 Amount charged?"}</div>
             <div style={{display:"flex",gap:6,marginBottom:5}}>
-              <input style={{...INP,flex:1,fontFamily:"monospace",fontWeight:700,fontSize:16,padding:"7px 10px"}} type="number" inputMode="decimal" placeholder="$0" value={montoAccion} onChange={e=>setMontoAccion(e.target.value)}/>
-              <button style={{...BTN,padding:"7px 12px",background:accion.tipo==="pago"?"#238636":"rgba(248,81,73,0.2)",color:accion.tipo==="pago"?"#fff":"#f85149",fontSize:14}} onClick={()=>onApply(debt.id,tipo)}>✓</button>
-              <button style={{...BTN,padding:"7px 9px",background:T.surface2,color:T.muted,fontSize:14}} onClick={()=>{setAccion(null);setMontoAccion("");}}>✕</button>
+              <input style={{...INP,flex:1,fontFamily:"monospace",fontWeight:700,fontSize:16,padding:"8px 10px"}} type="number" inputMode="decimal" placeholder="$0" value={montoAccion} onChange={e=>setMontoAccion(e.target.value)}/>
+              <button style={{...BTN,padding:"8px 13px",background:accion.tipo==="pago"?"#238636":"rgba(248,81,73,0.2)",color:accion.tipo==="pago"?"#fff":"#f85149",fontSize:14}} onClick={()=>onApply(debt.id,tipo)}>✓</button>
+              <button style={{...BTN,padding:"8px 10px",background:T.surface2,color:T.muted,fontSize:14}} onClick={()=>{setAccion(null);setMontoAccion("");}}>✕</button>
             </div>
-            {(debt.historial||[]).slice(0,2).map((h,i)=>(<div key={i} style={{display:"flex",justifyContent:"space-between",fontSize:10,padding:"2px 0",borderBottom:`1px solid ${T.border}`}}><span style={{color:T.muted}}>{h.fecha} · {h.tipo==="pago"?"Paid":"Charge"}</span><span style={{color:h.tipo==="pago"?"#3fb950":"#f85149",fontWeight:700}}>{h.tipo==="pago"?"-":"+"}${h.monto}</span></div>))}
+            {(debt.historial||[]).slice(0,2).map((h,i)=>(<div key={i} style={{display:"flex",justifyContent:"space-between",fontSize:10,padding:"3px 0",borderBottom:`1px solid ${T.border}`}}><span style={{color:T.muted}}>{h.fecha} · {h.tipo==="pago"?"Paid":"Charge"}</span><span style={{color:h.tipo==="pago"?"#3fb950":"#f85149",fontWeight:700}}>{h.tipo==="pago"?"-":"+"}${h.monto}</span></div>))}
           </div>)
-          :(<div style={{display:"flex",gap:5,marginTop:4}}>
-            <button style={{...BTN,flex:1,padding:"7px",background:"rgba(63,185,80,0.1)",color:"#3fb950",fontSize:11,border:"1px solid rgba(63,185,80,0.3)"}} onClick={()=>{setAccion({id:debt.id,tipo:"pago"});setMontoAccion("");}}>💳 Pay</button>
-            {tipo==="card"&&<button style={{...BTN,flex:1,padding:"7px",background:"rgba(248,81,73,0.07)",color:"#f85149",fontSize:11,border:"1px solid rgba(248,81,73,0.22)"}} onClick={()=>{setAccion({id:debt.id,tipo:"gasto"});setMontoAccion("");}}>🛒 Charge</button>}
+          :(<div style={{display:"flex",gap:6,marginTop:6}}>
+            <button style={{...BTN,flex:1,padding:"8px",background:"rgba(63,185,80,0.1)",color:"#3fb950",fontSize:12,border:"1px solid rgba(63,185,80,0.3)",fontWeight:600}} onClick={()=>{setAccion({id:debt.id,tipo:"pago"});setMontoAccion("");}}>💳 Payment</button>
+            {tipo==="card"&&<button style={{...BTN,flex:1,padding:"8px",background:"rgba(248,81,73,0.07)",color:"#f85149",fontSize:12,border:"1px solid rgba(248,81,73,0.22)",fontWeight:600}} onClick={()=>{setAccion({id:debt.id,tipo:"gasto"});setMontoAccion("");}}>🛒 Charge</button>}
           </div>)
       )}
     </div>
@@ -1372,10 +1375,6 @@ function App(){
                 <span style={{fontSize:10,color:T.muted}}>⭐ Priority</span>
                 <span style={{fontFamily:"monospace",fontWeight:700,color:"#f59e0b",fontSize:12}}>{fmt(totalPriority)}</span>
               </div>)}
-              <div style={{display:"flex",alignItems:"center",gap:5,padding:"5px 10px",borderRadius:9,background:"rgba(210,153,34,0.07)",border:"1px solid rgba(210,153,34,0.2)"}}>
-                <span style={{fontSize:10,color:T.muted}}>~interest</span>
-                <span style={{fontFamily:"monospace",fontWeight:700,color:"#d29922",fontSize:12}}>{fmt(interesTotal)}/mo</span>
-              </div>
             </div>
             {debtsFilter==="all"&&(<div style={{background:"rgba(210,153,34,0.07)",border:"1px solid rgba(210,153,34,0.2)",borderRadius:11,padding:"10px 13px",marginBottom:16,fontSize:11,color:T.muted}}>
               🎯 Avalanche: pay minimums on all · all extra to <strong style={{color:"#d29922"}}>{avalancheTarget?.nombre}</strong> ({avalancheTarget?.interes}% APR)
