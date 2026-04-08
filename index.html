@@ -493,90 +493,119 @@ const GastoItem=memo(({item,pid,editId,setEditId,tarjetas,onCycle,onLongPress,on
   const lc=tipo==="loan"?calcLoan(debt.balance,debt.interes,debt.minimo):null;
   const fields=tipo==="card"?[["BALANCE","balance"],["LIMIT","limite"],["MIN ($)","minimo"],["APR (%)","interes"]]:[["BALANCE","balance"],["MONTHLY","minimo"],["APR (%)","interes"]];
   const newFields=tipo==="card"?fields:[["BALANCE","balance"],["ORIGINAL","original"],["MONTHLY","minimo"],["APR (%)","interes"]];
-  const dpLabel=dp===0?"TODAY 🎉":dp===null?null:`${dp}d left`;
+  const dpLabel=dp===0?"TODAY":dp===null?null:`${dp}d`;
   const showEdit=editing||isAdding;
   const dueBg=dp<=0?"rgba(88,166,255,0.1)":dp<=5?"rgba(248,81,73,0.1)":"rgba(63,185,80,0.07)";
   const dueBorder=dp<=0?"rgba(88,166,255,0.3)":dp<=5?"rgba(248,81,73,0.3)":"rgba(63,185,80,0.2)";
   const dueColor=dp<=0?"#58a6ff":dp<=5?"#f85149":"#3fb950";
   const vcStyle=tipo==="card"&&debt._vc?debt._vc:null;
   const debtIcon=tipo==="card"?(CC[debt.nombre]?.dot||vcStyle?.dot||"💳"):getLoanIcon(debt.nombre);
+  const cardUtilPct=tipo==="card"&&n(debt.limite)>0?Math.min(100,Math.round((n(debt.balance)/n(debt.limite))*100)):0;
+  const utilColor=getUtilColor(cardUtilPct);
+  const utilLabel=getUtilLabel(cardUtilPct);
   return(
-    <div style={{...CARD,padding:"15px 17px",marginBottom:12,borderColor:isFirst?"#d29922":showEdit?"rgba(88,166,255,0.5)":T.border,transition:"border-color 0.2s"}}>
-      <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:8}}>
-        {isFirst?<div style={{padding:"2px 9px",borderRadius:20,fontSize:10,fontWeight:700,background:"rgba(210,153,34,0.15)",color:"#d29922"}}>🎯 ATTACK FIRST</div>:<div style={{padding:"2px 9px",borderRadius:20,fontSize:10,fontWeight:700,background:T.surface2,color:T.muted}}>#{idx+1}</div>}
-        <div style={{display:"flex",gap:6,alignItems:"center"}}>
-          <button style={{...BTN,background:"transparent",color:debt.priority?"#f59e0b":T.muted,padding:"3px 5px",fontSize:16,border:"none",opacity:debt.priority?1:0.45,transition:"opacity 0.15s,color 0.15s"}} onClick={()=>onTogglePriority(debt.id)} title={debt.priority?"Remove priority":"Mark as priority"}>⭐</button>
-          <span style={{fontSize:15}}>{debtIcon}</span>
-          {!isAdding&&(<button style={{...BTN,background:editing?"rgba(88,166,255,0.15)":"transparent",color:editing?T.accent:T.muted,padding:"3px 8px",fontSize:12,border:`1px solid ${editing?T.accent:"transparent"}`,borderRadius:8}} onClick={()=>setEditing(e=>!e)}>{editing?"✓ Done":"✏️ Edit"}</button>)}
-          <button style={{...BTN,background:"transparent",color:T.muted,padding:"3px 7px",fontSize:14}} onClick={()=>onRemove(debt.id)}>🗑</button>
-        </div>
+    <div style={{...CARD,padding:"11px 13px",marginBottom:8,borderColor:isFirst?"#d29922":showEdit?"rgba(88,166,255,0.5)":debt.priority?"rgba(245,158,11,0.35)":T.border,transition:"border-color 0.2s"}}>
+      {/* ── Compact header row ── */}
+      <div style={{display:"flex",alignItems:"center",gap:6,marginBottom:showEdit?7:6}}>
+        <span style={{fontSize:13,flexShrink:0}}>{debtIcon}</span>
+        {showEdit
+          ?<input style={{...INP,fontWeight:700,fontSize:14,background:"transparent",border:"none",borderBottom:`1.5px solid ${T.accent}`,borderRadius:0,padding:"2px 0",flex:1}} value={debt.nombre} onChange={e=>onUpdate(debt.id,"nombre",e.target.value)} autoFocus={editing&&!isAdding}/>
+          :<span style={{flex:1,fontWeight:700,fontSize:13,color:T.text,minWidth:0,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{debt.nombre}</span>
+        }
+        {isFirst&&!showEdit&&<span style={{fontSize:9,fontWeight:700,color:"#d29922",background:"rgba(210,153,34,0.13)",border:"1px solid rgba(210,153,34,0.3)",borderRadius:5,padding:"1px 5px",flexShrink:0}}>🎯</span>}
+        <span style={{fontFamily:"monospace",fontWeight:800,fontSize:13,color:tipo==="card"?"#ec4899":"#f85149",flexShrink:0}}>{fmt(n(debt.balance))}</span>
+        <button style={{...BTN,background:"transparent",color:debt.priority?"#f59e0b":T.muted,padding:"2px 3px",fontSize:14,border:"none",opacity:debt.priority?1:0.38,flexShrink:0,transition:"opacity 0.15s"}} onClick={()=>onTogglePriority(debt.id)}>⭐</button>
+        {!isAdding&&<button style={{...BTN,background:editing?"rgba(88,166,255,0.13)":"transparent",color:editing?T.accent:T.muted,padding:"2px 6px",fontSize:11,border:`1px solid ${editing?T.accent:"transparent"}`,borderRadius:7,flexShrink:0}} onClick={()=>setEditing(e=>!e)}>{editing?"✓":"✏️"}</button>}
+        <button style={{...BTN,background:"transparent",color:T.muted,padding:"2px 4px",fontSize:12,flexShrink:0}} onClick={()=>onRemove(debt.id)}>🗑</button>
       </div>
-      {showEdit?(<div style={{display:"flex",alignItems:"center",gap:8,marginBottom:12}}>
-          <span style={{fontSize:18,flexShrink:0}}>{debtIcon}</span>
-          <input style={{...INP,fontWeight:700,fontSize:15,background:"transparent",border:"none",borderBottom:`1.5px solid ${T.accent}`,borderRadius:0,padding:"3px 0",flex:1}} value={debt.nombre} onChange={e=>onUpdate(debt.id,"nombre",e.target.value)} autoFocus={editing&&!isAdding}/>
-        </div>)
-        :<div style={{fontWeight:700,fontSize:15,marginBottom:12,paddingBottom:6,borderBottom:`1px solid ${T.border}`,color:T.text}}>{debt.nombre}</div>}
-      {tipo==="card"&&<LimitBar balance={n(debt.balance)} limite={n(debt.limite)} T={T}/>}
-      {tipo==="loan"&&n(debt.original)>0&&(<div style={{marginBottom:12}}>
-        <div style={{display:"flex",justifyContent:"space-between",fontSize:11,marginBottom:5}}><span style={{color:T.muted}}>Paid {fmt(n(debt.original)-n(debt.balance))} of {fmt(debt.original)}</span><span style={{color:"#3fb950",fontWeight:700}}>{pct}% done</span></div>
-        <div style={{height:9,background:T.surface2,borderRadius:8,overflow:"hidden"}}><div style={{height:"100%",width:`${pct}%`,background:"linear-gradient(90deg,#3fb950,#58a6ff)",borderRadius:8}}/></div>
-      </div>)}
-      {tipo==="loan"&&lc&&n(lc.interest)>0&&(<div style={{background:"rgba(210,153,34,0.07)",border:"1px solid rgba(210,153,34,0.2)",borderRadius:10,padding:"10px 12px",marginBottom:12}}>
-        <div style={{fontSize:10,color:"#d29922",fontWeight:700,marginBottom:8}}>📊 NEXT PAYMENT BREAKDOWN</div>
-        <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:6}}>
-          {[["Interest",fmtD(lc.interest),"#f85149"],["Principal",fmtD(lc.principal),"#3fb950"],["New Balance",fmt(lc.newBalance),"#58a6ff"]].map(([l,v,c])=>(<div key={l} style={{textAlign:"center",background:T.surface,borderRadius:8,padding:"6px"}}>
-            <div style={{fontSize:9,color:T.muted,marginBottom:2}}>{l}</div>
-            <div style={{fontFamily:"monospace",fontSize:12,fontWeight:700,color:c}}>{v}</div>
-          </div>))}
-        </div>
-      </div>)}
+
+      {/* ── Edit fields ── */}
       {showEdit&&(<>
-        <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:7,marginBottom:10}}>
-          {(isAdding?newFields:fields).map(([l,f])=>(<div key={f}><div style={{fontSize:9,color:T.muted,marginBottom:4}}>{l}</div><input style={{...INP,fontSize:14,padding:"8px 11px"}} type="number" inputMode="decimal" value={debt[f]||""} onChange={e=>onUpdate(debt.id,f,e.target.value)}/></div>))}
+        <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:6,marginBottom:7}}>
+          {(isAdding?newFields:fields).map(([l,f])=>(<div key={f}><div style={{fontSize:9,color:T.muted,marginBottom:3}}>{l}</div><input style={{...INP,fontSize:14,padding:"7px 10px"}} type="number" inputMode="decimal" value={debt[f]||""} onChange={e=>onUpdate(debt.id,f,e.target.value)}/></div>))}
         </div>
-        <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:7,marginBottom:12}}>
-          <div><div style={{fontSize:9,color:"#f85149",marginBottom:4,fontWeight:700}}>⚠️ DUE DAY</div><input style={{...INP,fontSize:14,padding:"8px 11px",borderColor:"rgba(248,81,73,0.3)"}} type="number" inputMode="numeric" placeholder="e.g. 7" value={debt.fechaPago||""} onChange={e=>onUpdate(debt.id,"fechaPago",e.target.value)}/></div>
-          {tipo==="card"&&<div><div style={{fontSize:9,color:T.muted,marginBottom:4}}>✂️ CUTOFF DAY</div><input style={{...INP,fontSize:14,padding:"8px 11px"}} type="number" inputMode="numeric" placeholder="e.g. 13" value={debt.fechaCorte||""} onChange={e=>onUpdate(debt.id,"fechaCorte",e.target.value)}/></div>}
+        <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:6,marginBottom:8}}>
+          <div><div style={{fontSize:9,color:"#f85149",marginBottom:3,fontWeight:700}}>⚠️ DUE DAY</div><input style={{...INP,fontSize:14,padding:"7px 10px",borderColor:"rgba(248,81,73,0.3)"}} type="number" inputMode="numeric" placeholder="e.g. 7" value={debt.fechaPago||""} onChange={e=>onUpdate(debt.id,"fechaPago",e.target.value)}/></div>
+          {tipo==="card"&&<div><div style={{fontSize:9,color:T.muted,marginBottom:3}}>✂️ CUTOFF DAY</div><input style={{...INP,fontSize:14,padding:"7px 10px"}} type="number" inputMode="numeric" placeholder="e.g. 13" value={debt.fechaCorte||""} onChange={e=>onUpdate(debt.id,"fechaCorte",e.target.value)}/></div>}
         </div>
-        {isAdding&&<button style={{...BTN,width:"100%",padding:"11px",background:"#238636",color:"#fff",fontSize:14,marginBottom:4}} onClick={()=>setAddingDebt(null)}>✓ Done Adding</button>}
+        {isAdding&&<button style={{...BTN,width:"100%",padding:"9px",background:"#238636",color:"#fff",fontSize:13,marginBottom:2}} onClick={()=>setAddingDebt(null)}>✓ Done Adding</button>}
       </>)}
+
+      {/* ── Compact view ── */}
       {!showEdit&&(<>
-        <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:7,marginBottom:10}}>
-          {(tipo==="card"
-            ?[["Balance",fmt(n(debt.balance)),"#ec4899"],["Limit",fmt(n(debt.limite)),T.muted],["Min/mo",fmt(n(debt.minimo)),"#f85149"],["APR",n(debt.interes)+"%","#d29922"]]
-            :[["Balance",fmt(n(debt.balance)),"#f85149"],["Min/mo",fmt(n(debt.minimo)),"#ec4899"],["APR",n(debt.interes)+"%","#d29922"]]
-          ).map(([l,v,c])=>(<div key={l} style={{background:T.surface2,borderRadius:9,padding:"8px 11px"}}>
-            <div style={{fontSize:9,color:T.muted,marginBottom:3}}>{l}</div>
-            <div style={{fontFamily:"monospace",fontWeight:700,fontSize:13,color:c}}>{v}</div>
-          </div>))}
-        </div>
-        {fpd&&dp!==null&&(<div style={{padding:"9px 13px",borderRadius:9,background:dueBg,border:`1px solid ${dueBorder}`,marginBottom:tipo==="card"&&fcd?8:10,display:"flex",justifyContent:"space-between",alignItems:"center"}}>
-          <div><div style={{fontSize:9,color:dueColor,fontWeight:700,marginBottom:2}}>⚠️ DUE DATE</div><div style={{fontSize:13,fontWeight:700,color:dueColor}}>{fmd(fpd)}</div></div>
-          <div style={{fontSize:13,fontWeight:800,color:dueColor,background:dp<=5?"rgba(248,81,73,0.12)":"transparent",padding:"3px 9px",borderRadius:7}}>{dpLabel}</div>
+        {/* Card: util bar */}
+        {tipo==="card"&&(<div style={{marginBottom:6}}>
+          <div style={{display:"flex",justifyContent:"space-between",fontSize:9,marginBottom:3}}>
+            <span style={{color:T.muted}}>{fmt(debt.balance)} / {fmt(debt.limite)}</span>
+            <span style={{color:utilColor,fontWeight:700}}>{cardUtilPct}% {utilLabel}</span>
+          </div>
+          <div style={{height:5,background:T.surface2,borderRadius:4,overflow:"hidden"}}>
+            <div style={{height:"100%",width:`${cardUtilPct}%`,background:utilColor,borderRadius:4,transition:"width 0.5s"}}/>
+          </div>
         </div>)}
-        {tipo==="card"&&fcd&&(<div style={{padding:"8px 13px",borderRadius:9,background:T.surface2,border:`1px solid ${T.border}`,marginBottom:10,display:"flex",justifyContent:"space-between",alignItems:"center"}}>
-          <div><div style={{fontSize:9,color:T.muted,fontWeight:700,marginBottom:2}}>✂️ CUTOFF DATE</div><div style={{fontSize:13,fontWeight:600,color:T.text}}>{fmd(fcd)}</div></div>
-          <div style={{fontSize:12,color:T.muted,fontWeight:600}}>{getDU(debt.fechaCorte)}d left</div>
+
+        {/* Loan: progress bar */}
+        {tipo==="loan"&&n(debt.original)>0&&(<div style={{marginBottom:6}}>
+          <div style={{display:"flex",justifyContent:"space-between",fontSize:9,marginBottom:3}}>
+            <span style={{color:T.muted}}>Paid {fmt(n(debt.original)-n(debt.balance))} of {fmt(debt.original)}</span>
+            <span style={{color:"#3fb950",fontWeight:700}}>{pct}%</span>
+          </div>
+          <div style={{height:5,background:T.surface2,borderRadius:4,overflow:"hidden"}}><div style={{height:"100%",width:`${pct}%`,background:"linear-gradient(90deg,#3fb950,#58a6ff)",borderRadius:4}}/></div>
+        </div>)}
+
+        {/* Stats row */}
+        <div style={{display:"flex",gap:4,marginBottom:5,flexWrap:"wrap"}}>
+          {(tipo==="card"
+            ?[["Min",fmt(n(debt.minimo)),"#f85149"],["APR",n(debt.interes)+"%","#d29922"],["Min/chk",fmt(n(debt.minimo)/2),T.muted]]
+            :[["Min",fmt(n(debt.minimo)),"#ec4899"],["APR",n(debt.interes)+"%","#d29922"],["Min/chk",fmt(n(debt.minimo)/2),T.muted]]
+          ).map(([l,v,c])=>(<div key={l} style={{background:T.surface2,borderRadius:6,padding:"3px 7px",display:"flex",gap:4,alignItems:"baseline"}}>
+            <span style={{fontSize:9,color:T.muted}}>{l}</span>
+            <span style={{fontFamily:"monospace",fontWeight:700,fontSize:11,color:c}}>{v}</span>
+          </div>))}
+          {/* Due date inline pill */}
+          {fpd&&dp!==null&&(<div style={{background:dueBg,border:`1px solid ${dueBorder}`,borderRadius:6,padding:"3px 7px",display:"flex",gap:4,alignItems:"baseline",marginLeft:"auto"}}>
+            <span style={{fontSize:9,color:dueColor}}>Due</span>
+            <span style={{fontFamily:"monospace",fontWeight:700,fontSize:11,color:dueColor}}>{fmd(fpd)}</span>
+            <span style={{fontSize:9,fontWeight:700,color:dueColor}}>{dpLabel}</span>
+          </div>)}
+        </div>
+
+        {/* Cutoff pill (cards only, compact) */}
+        {tipo==="card"&&fcd&&(<div style={{display:"flex",alignItems:"center",gap:6,marginBottom:5}}>
+          <span style={{fontSize:9,color:T.muted}}>✂️ Cutoff</span>
+          <span style={{fontSize:11,fontWeight:600,color:T.muted}}>{fmd(fcd)}</span>
+          <span style={{fontSize:9,color:T.muted}}>({getDU(debt.fechaCorte)}d left)</span>
+          <span style={{marginLeft:"auto",fontSize:9,color:"#d29922"}}>~{fmt((n(debt.interes)/100/12)*n(debt.balance))}/mo</span>
+        </div>)}
+
+        {/* Loan interest row */}
+        {tipo==="loan"&&(<div style={{marginBottom:5,display:"flex",gap:6,alignItems:"center",flexWrap:"wrap"}}>
+          <span style={{fontSize:9,color:"#d29922"}}>~{fmt((n(debt.interes)/100/12)*n(debt.balance))}/mo interest</span>
+          {lc&&n(lc.interest)>0&&(<>
+            <span style={{fontSize:9,color:T.muted}}>·</span>
+            <span style={{fontSize:9,color:"#f85149"}}>Int {fmtD(lc.interest)}</span>
+            <span style={{fontSize:9,color:"#3fb950"}}>Prin {fmtD(lc.principal)}</span>
+            <span style={{fontSize:9,color:"#58a6ff"}}>→ {fmt(lc.newBalance)}</span>
+          </>)}
         </div>)}
       </>)}
-      {!isAdding&&(<div style={{fontSize:11,color:T.muted,marginBottom:10,display:"flex",justifyContent:"space-between",paddingTop:2}}>
-        <span>Min/check: <strong style={{color:T.text}}>{fmt(n(debt.minimo)/2)}</strong></span>
-        <span style={{color:"#d29922"}}>~{fmt((n(debt.interes)/100/12)*n(debt.balance))}/mo interest</span>
-      </div>)}
+
+      {/* ── Action area ── */}
       {!isAdding&&!editing&&(
-        isActive?(<div style={{background:T.bg,borderRadius:10,padding:"12px",border:`1px solid ${accion.tipo==="pago"?"#3fb950":"#f85149"}`}}>
-          <div style={{fontSize:12,fontWeight:700,color:accion.tipo==="pago"?"#3fb950":"#f85149",marginBottom:8}}>{accion.tipo==="pago"?"💳 How much did you pay?":"🛒 How much did you charge?"}</div>
-          <div style={{display:"flex",gap:7,marginBottom:8}}>
-            <input style={{...INP,flex:1,fontFamily:"monospace",fontWeight:700,fontSize:18}} type="number" inputMode="decimal" placeholder="$0" value={montoAccion} onChange={e=>setMontoAccion(e.target.value)}/>
-            <button style={{...BTN,padding:"9px 13px",background:accion.tipo==="pago"?"#238636":"rgba(248,81,73,0.2)",color:accion.tipo==="pago"?"#fff":"#f85149",fontSize:14}} onClick={()=>onApply(debt.id,tipo)}>✓</button>
-            <button style={{...BTN,padding:"9px 10px",background:T.surface2,color:T.muted,fontSize:14}} onClick={()=>{setAccion(null);setMontoAccion("");}}>✕</button>
-          </div>
-          {(debt.historial||[]).slice(0,3).map((h,i)=>(<div key={i} style={{display:"flex",justifyContent:"space-between",fontSize:11,padding:"3px 0",borderBottom:`1px solid ${T.border}`}}><span style={{color:T.muted}}>{h.fecha} · {h.tipo==="pago"?"Payment":"Charge"}</span><span style={{color:h.tipo==="pago"?"#3fb950":"#f85149",fontWeight:700}}>{h.tipo==="pago"?"-":"+"}${h.monto}</span></div>))}
-        </div>)
-        :(<div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:7}}>
-          <button style={{...BTN,padding:"10px",background:"rgba(63,185,80,0.1)",color:"#3fb950",fontSize:12,border:"1px solid rgba(63,185,80,0.3)"}} onClick={()=>{setAccion({id:debt.id,tipo:"pago"});setMontoAccion("");}}>💳 Payment</button>
-          <button style={{...BTN,padding:"10px",background:"rgba(248,81,73,0.07)",color:"#f85149",fontSize:12,border:"1px solid rgba(248,81,73,0.22)"}} onClick={()=>{setAccion({id:debt.id,tipo:"gasto"});setMontoAccion("");}}>🛒 Charge</button>
-        </div>)
+        isActive
+          ?(<div style={{background:T.bg,borderRadius:8,padding:"9px 10px",border:`1px solid ${accion.tipo==="pago"?"#3fb950":"#f85149"}`,marginTop:4}}>
+            <div style={{fontSize:11,fontWeight:700,color:accion.tipo==="pago"?"#3fb950":"#f85149",marginBottom:6}}>{accion.tipo==="pago"?"💳 Amount paid?":"🛒 Amount charged?"}</div>
+            <div style={{display:"flex",gap:6,marginBottom:5}}>
+              <input style={{...INP,flex:1,fontFamily:"monospace",fontWeight:700,fontSize:16,padding:"7px 10px"}} type="number" inputMode="decimal" placeholder="$0" value={montoAccion} onChange={e=>setMontoAccion(e.target.value)}/>
+              <button style={{...BTN,padding:"7px 12px",background:accion.tipo==="pago"?"#238636":"rgba(248,81,73,0.2)",color:accion.tipo==="pago"?"#fff":"#f85149",fontSize:14}} onClick={()=>onApply(debt.id,tipo)}>✓</button>
+              <button style={{...BTN,padding:"7px 9px",background:T.surface2,color:T.muted,fontSize:14}} onClick={()=>{setAccion(null);setMontoAccion("");}}>✕</button>
+            </div>
+            {(debt.historial||[]).slice(0,2).map((h,i)=>(<div key={i} style={{display:"flex",justifyContent:"space-between",fontSize:10,padding:"2px 0",borderBottom:`1px solid ${T.border}`}}><span style={{color:T.muted}}>{h.fecha} · {h.tipo==="pago"?"Paid":"Charge"}</span><span style={{color:h.tipo==="pago"?"#3fb950":"#f85149",fontWeight:700}}>{h.tipo==="pago"?"-":"+"}${h.monto}</span></div>))}
+          </div>)
+          :(<div style={{display:"flex",gap:5,marginTop:4}}>
+            <button style={{...BTN,flex:1,padding:"7px",background:"rgba(63,185,80,0.1)",color:"#3fb950",fontSize:11,border:"1px solid rgba(63,185,80,0.3)"}} onClick={()=>{setAccion({id:debt.id,tipo:"pago"});setMontoAccion("");}}>💳 Pay</button>
+            {tipo==="card"&&<button style={{...BTN,flex:1,padding:"7px",background:"rgba(248,81,73,0.07)",color:"#f85149",fontSize:11,border:"1px solid rgba(248,81,73,0.22)"}} onClick={()=>{setAccion({id:debt.id,tipo:"gasto"});setMontoAccion("");}}>🛒 Charge</button>}
+          </div>)
       )}
     </div>
   );
