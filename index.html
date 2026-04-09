@@ -89,9 +89,10 @@ const DEST = {
   dining:       {label:"Dining",        icon:"🍽️",color:"#f472b6",bg:"rgba(244,114,182,0.1)", border:"rgba(244,114,182,0.3)"},
   entertainment:{label:"Entertainment", icon:"🎬",color:"#a78bfa",bg:"rgba(167,139,250,0.1)", border:"rgba(167,139,250,0.3)"},
   medical:      {label:"Medical/Health",icon:"🏥",color:"#34d399",bg:"rgba(52,211,153,0.1)",  border:"rgba(52,211,153,0.3)"},
+  lifestyle:    {label:"Lifestyle",      icon:"✨",color:"#a78bfa",bg:"rgba(167,139,250,0.1)", border:"rgba(167,139,250,0.3)"},
   other:        {label:"Other",         icon:"📌",color:"#8b949e",bg:"transparent",            border:"#21262d"},
 };
-const DEST_ORDER = ["savings_acct","credit_card","rent","utilities","auto","insurance","groceries","subscription","gas","emergency","investment","temp","dining","entertainment","medical","other"];
+const DEST_ORDER = ["savings_acct","credit_card","rent","utilities","auto","insurance","groceries","subscription","gas","emergency","investment","temp","dining","entertainment","medical","lifestyle","other"];
 const POTS = {
   savings_acct:{label:"Savings",   icon:"🏦",color:"#3fb950",bg:"rgba(63,185,80,0.1)"},
   emergency:   {label:"Emergency", icon:"🆘",color:"#06b6d4",bg:"rgba(6,182,212,0.1)"},
@@ -123,13 +124,13 @@ const CICONS={
   auto:"🚗",rent:"🏠",subscription:"📱",gas:"⛽",credit_card:"💳",
   groceries:"🛒",other:"📌",insurance:"🛡️",utilities:"⚡",savings_acct:"🏦",
   emergency:"🆘",investment:"📈",loan:"🏦",temp:"🔄",
-  dining:"🍽️",entertainment:"🎬",medical:"🏥",
+  dining:"🍽️",entertainment:"🎬",medical:"🏥",lifestyle:"✨",
 };
 const CATCOLORS={
   auto:"#f97316",rent:"#3b82f6",subscription:"#8b5cf6",gas:"#ef4444",
   credit_card:"#ec4899",groceries:"#22c55e",other:"#94a3b8",insurance:"#6366f1",
   utilities:"#f59e0b",savings_acct:"#3fb950",emergency:"#06b6d4",investment:"#10b981",
-  loan:"#f97316",temp:"#d29922",dining:"#f472b6",entertainment:"#a78bfa",medical:"#34d399",
+  loan:"#f97316",temp:"#d29922",dining:"#f472b6",entertainment:"#a78bfa",medical:"#34d399",lifestyle:"#a78bfa",
 };
 const LOAN_ICONS={
   "auto loan":"🚗","auto":"🚗","car loan":"🚗","car":"🚗",
@@ -144,7 +145,7 @@ const getLoanIcon=(nombre)=>{
   for(const[k,v] of Object.entries(LOAN_ICONS)){if(lower.includes(k))return v;}
   return"🏦";
 };
-const DORDER=["savings_acct","emergency","investment","rent","auto","insurance","utilities","gas","credit_card","groceries","subscription","dining","entertainment","medical","temp","other"];
+const DORDER=["savings_acct","emergency","investment","rent","auto","insurance","utilities","gas","credit_card","groceries","subscription","dining","entertainment","medical","lifestyle","temp","other"];
 const DUE_DAY_CATS=new Set(["credit_card","rent","utilities","insurance","subscription","auto","medical"]);
 const gds=(d,r,cardObj)=>{if(d==="credit_card"&&r&&CC[r])return{...DEST.credit_card,...CC[r],label:r};if(d==="credit_card"&&cardObj&&cardObj._vc)return{...DEST.credit_card,...cardObj._vc,label:r||cardObj.nombre||"Credit Card"};if(d==="credit_card"&&r)return{...DEST.credit_card,label:r};return DEST[d]||DEST.other;};
 const fmt=v=>new Intl.NumberFormat("en-US",{style:"currency",currency:"USD",maximumFractionDigits:0}).format(v||0);
@@ -289,7 +290,7 @@ const buildMonthPeriods=(anchor,freq)=>{
 const migrate=raw=>{
   if(!raw)return null;
   const dm={savings:"savings_acct",directo:"rent",temporal:"temp",ninguno:"other",tarjeta:"credit_card",savings_acct:"savings_acct",credit_card:"credit_card",rent:"rent",utilities:"utilities",auto:"auto",insurance:"insurance",groceries:"groceries",subscription:"subscription",gas:"gas",emergency:"emergency",investment:"investment",temp:"temp",dining:"dining",entertainment:"entertainment",medical:"medical",other:"other"};
-  const cm={carro:"auto",vivienda:"rent",servicios:"subscription",gas:"gas",tarjeta:"credit_card",comida:"groceries",otro:"other",auto:"auto",rent:"rent",subscription:"subscription",credit_card:"credit_card",groceries:"groceries",other:"other",insurance:"insurance",utilities:"utilities",dining:"dining",entertainment:"entertainment",medical:"medical"};
+  const cm={carro:"auto",vivienda:"rent",servicios:"subscription",gas:"gas",tarjeta:"credit_card",comida:"groceries",otro:"other",auto:"auto",rent:"rent",subscription:"subscription",credit_card:"credit_card",groceries:"groceries",other:"other",insurance:"insurance",utilities:"utilities",dining:"dining",entertainment:"entertainment",medical:"medical",lifestyle:"lifestyle"};
   const mg=g=>({...g,cat:cm[g.cat]||cm[g.categoria]||"other",destino:dm[g.destino]||"other",diaPago:g.diaPago||null,tarjetaRef:g.tarjetaRef||"",state:g.state||(g.pagado?"paid":"pending"),_quick:g._quick||false});
   const anchor=raw.proximoCobro||"2026-04-03";
   const freq=raw.payFreq||"biweekly";
@@ -976,6 +977,72 @@ function App(){
       </div>);
     });
   };
+  // Categories considered "Fixed" for visual grouping in Checks
+  const FIXED_CATS=new Set(["rent","insurance","subscription","utilities","auto","credit_card","savings_acct","emergency","investment","medical","loan"]);
+  // Categories considered "Flexible"
+  const FLEXIBLE_CATS=new Set(["gas","groceries","dining","entertainment","temp","lifestyle","other"]);
+
+  const getRemainingColor=(rem)=>{
+    if(rem>=200)return"#3fb950";
+    if(rem>=50) return"#4caf70";
+    if(rem>=0)  return"#56d364";
+    if(rem>=-99)return"#f97316";
+    return"#f85149";
+  };
+
+  const renderCheckTabGrouped=(pid,gastos)=>{
+    const fixedItems=[],flexItems=[];
+    gastos.forEach(g=>{
+      const cat=g.cat||g.destino||"other";
+      if(FIXED_CATS.has(cat)||FIXED_CATS.has(g.destino))fixedItems.push(g);
+      else flexItems.push(g);
+    });
+    const renderSection=(sectionItems,sectionLabel,sectionColor)=>{
+      if(!sectionItems.length)return null;
+      const groups={};
+      sectionItems.forEach(g=>{
+        let k;
+        if(editId===g.id&&editGroupKeyRef.current!==null){k=editGroupKeyRef.current;}
+        else{k=g.destino==="credit_card"?(g.tarjetaRef||"Credit Card"):g.destino;}
+        if(!groups[k])groups[k]={d:g.destino,r:g.tarjetaRef,items:[]};
+        groups[k].items.push(g);
+      });
+      if(editId!==null&&editGroupKeyRef.current!==null){
+        const k=editGroupKeyRef.current;
+        if(groups[k]){
+          const isCardRef=!DEST[k];
+          if(isCardRef){groups[k].d="credit_card";groups[k].r=k;}
+          else{groups[k].d=k;groups[k].r="";}
+        }
+      }
+      return(<div style={{marginBottom:16}}>
+        <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:8}}>
+          <span style={{fontSize:9,fontWeight:700,letterSpacing:1.5,color:sectionColor,textTransform:"uppercase"}}>{sectionLabel}</span>
+          <div style={{flex:1,height:1,background:sectionColor,opacity:0.2}}/>
+        </div>
+        {Object.keys(groups).sort((a,b)=>(DORDER.indexOf(groups[a].d)+1||99)-(DORDER.indexOf(groups[b].d)+1||99)).map(k=>{
+          const{d,r,items}=groups[k];const dst=gds(d,r);const sub=items.reduce((s,g)=>s+n(g.monto),0);
+          return(<div key={k} style={{marginBottom:14}}>
+            <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"6px 10px",marginBottom:5,background:dst.bg,borderRadius:9,border:`1px solid ${dst.border}`}}>
+              <span style={{fontSize:12,fontWeight:700,color:dst.color}}>{dst.icon} {dst.label}</span>
+              <span style={{fontFamily:"monospace",fontSize:13,fontWeight:800,color:dst.color}}>{fmt(sub)}</span>
+            </div>
+            <DragList items={items} onReorder={newItems=>{const rest=gastos.filter(g=>!items.find(i=>i.id===g.id));reorder(pid,[...newItems,...rest]);}}
+              renderItem={(item,_,touch)=>(<GastoItem key={item.id} item={item} pid={pid} editId={editId} setEditId={(id)=>openEditId(id,gastos)} tarjetas={data.tarjetas}
+                onCycle={id=>cycleState(pid,id)} onLongPress={id=>setReserved(pid,id)}
+                onUpdate={(id,f,v)=>updateGasto(pid,id,f,v)}
+                onBatchUpdate={(id,fields)=>batchUpdateGasto(pid,id,fields)}
+                onRemove={id=>removeGasto(pid,id)} touch={touch} T={T}/>)}/>
+          </div>);
+        })}
+      </div>);
+    };
+    return(<>
+      {renderSection(fixedItems,"Fixed","#6366f1")}
+      {renderSection(flexItems,"Flexible","#f59e0b")}
+    </>);
+  };
+
   const renderCheckTab=(period)=>{
     const{id:pid,label,isCurrent,payday}=period;
     const gastos=getPGastos(pid);
@@ -988,6 +1055,10 @@ function App(){
     const pct=total>0?Math.round(((paid+reserved)/total)*100):0;
     const done=gastos.length>0&&gastos.every(g=>g.state==="paid");
     const pdDays=Math.ceil((payday-today)/86400000);
+    // Debt portion: sum of expenses whose category/destination is debt-related
+    const DEBT_CATS=new Set(["credit_card","auto","loan"]);
+    const debtPortion=gastos.filter(g=>DEBT_CATS.has(g.destino)||DEBT_CATS.has(g.cat)).reduce((s,g)=>s+n(g.monto),0);
+    const remColor=getRemainingColor(sob);
     return(<div className="anim">
       <div style={{display:"flex",gap:8,marginBottom:12}}>
         {isCurrent&&<div style={{flex:1,background:"rgba(88,166,255,0.1)",border:"1px solid rgba(88,166,255,0.3)",borderRadius:10,padding:"8px 12px",fontSize:11,color:"#58a6ff",fontWeight:600}}>✓ Active check period</div>}
@@ -1010,26 +1081,47 @@ function App(){
         <input style={{...INP,fontFamily:"monospace",fontSize:22,fontWeight:700}} type="number" inputMode="decimal" value={amt||""} onChange={e=>setPeriodAmount(pid,e.target.value)} placeholder={String(globalCheckAmount)}/>
         {!periodAmountIsCustom&&<div style={{fontSize:10,color:T.muted,marginTop:5}}>Using default amount · edit to override for this check only</div>}
       </div>
-      <div style={{...CARD,padding:"13px 16px",marginBottom:12,borderColor:done?"#2ea043":T.border}}>
-        <div style={{display:"flex",justifyContent:"space-between",marginBottom:7}}>
-          <div>
-            <div style={{fontSize:13,fontWeight:600,color:done?"#3fb950":T.text}}>{done?"✅ All paid!":`${fmt(paid)} paid · ${fmt(reserved)} reserved`}</div>
-            <div style={{fontSize:11,color:T.muted,marginTop:2}}>Pending: <span style={{color:"#f85149",fontWeight:700}}>{fmt(total-paid-reserved)}</span></div>
+      {/* Paycheck summary card — improved clarity */}
+      <div style={{...CARD,padding:"14px 16px",marginBottom:12,borderColor:done?"#2ea043":T.border}}>
+        {/* Top: income / assigned / remaining */}
+        <div style={{marginBottom:10}}>
+          <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"5px 0",borderBottom:`1px solid ${T.border}`}}>
+            <span style={{fontSize:11,color:T.muted}}>Income</span>
+            <span style={{fontFamily:"monospace",fontWeight:700,fontSize:13,color:"#3fb950"}}>{fmt(amt)}</span>
           </div>
-          <div style={{fontFamily:"monospace",fontSize:20,fontWeight:800,color:done?"#3fb950":"#d29922"}}>{pct}%</div>
+          <div style={{padding:"5px 0",borderBottom:`1px solid ${T.border}`}}>
+            <div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+              <span style={{fontSize:11,color:T.muted}}>Assigned</span>
+              <span style={{fontFamily:"monospace",fontWeight:700,fontSize:13,color:"#f85149"}}>{fmt(total)}</span>
+            </div>
+            {debtPortion>0&&(<div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginTop:3}}>
+              <span style={{fontSize:10,color:T.muted,paddingLeft:10}}>↳ Debt portion</span>
+              <span style={{fontFamily:"monospace",fontWeight:600,fontSize:11,color:"#d29922"}}>{fmt(debtPortion)}</span>
+            </div>)}
+          </div>
+          <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"7px 0"}}>
+            <span style={{fontSize:13,fontWeight:700,color:T.text}}>Remaining</span>
+            <span style={{fontFamily:"monospace",fontSize:20,fontWeight:800,color:remColor}}>{fmt(sob)}</span>
+          </div>
         </div>
-        <div style={{height:7,background:T.surface2,borderRadius:8,overflow:"hidden",display:"flex"}}>
+        {/* Progress bar */}
+        <div style={{height:6,background:T.surface2,borderRadius:8,overflow:"hidden",display:"flex",marginBottom:8}}>
           <div style={{width:`${total>0?Math.round((paid/total)*100):0}%`,background:"#2ea043",transition:"width 0.5s"}}/>
           <div style={{width:`${total>0?Math.round((reserved/total)*100):0}%`,background:"#d29922",transition:"width 0.5s"}}/>
         </div>
-        <div style={{display:"flex",gap:12,marginTop:6,fontSize:10}}><span>Tap ● = paid · Long press ◑ = reserved</span></div>
+        {/* Status row */}
+        <div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+          <div style={{fontSize:11,color:done?"#3fb950":T.muted}}>{done?"✅ All paid!":`${fmt(paid)} paid · ${fmt(reserved)} reserved`}</div>
+          <div style={{fontFamily:"monospace",fontSize:13,fontWeight:800,color:done?"#3fb950":"#d29922"}}>{pct}%</div>
+        </div>
+        <div style={{fontSize:10,color:T.muted,marginTop:4}}>Tap ● = paid · Long press ◑ = reserved</div>
       </div>
       <DestinoSummary gastos={gastos} T={T}/>
-      {renderGrouped(pid,gastos)}
+      {renderCheckTabGrouped(pid,gastos)}
       <button style={{...BTN,width:"100%",marginTop:4,marginBottom:12,padding:"11px",background:"transparent",color:T.accent,fontSize:13,border:`1.5px dashed ${T.border}`}} onClick={()=>addGasto(pid)}>+ Add Expense</button>
       <div style={{...CARD,padding:"13px 16px",marginBottom:10,borderColor:sob>=0?"#238636":"#da3633"}}>
-        <div style={{display:"flex",justifyContent:"space-between",marginBottom:5}}><span style={{fontSize:12,color:T.muted}}>Total expenses</span><span style={{fontFamily:"monospace",fontWeight:700,color:"#f85149"}}>{fmt(total)}</span></div>
-        <div style={{display:"flex",justifyContent:"space-between"}}><span style={{fontSize:14,fontWeight:700}}>Left over</span><span style={{fontFamily:"monospace",fontSize:20,fontWeight:800,color:sob>=0?"#3fb950":"#f85149"}}>{fmt(sob)}</span></div>
+        <div style={{display:"flex",justifyContent:"space-between",marginBottom:5}}><span style={{fontSize:12,color:T.muted}}>Total assigned</span><span style={{fontFamily:"monospace",fontWeight:700,color:"#f85149"}}>{fmt(total)}</span></div>
+        <div style={{display:"flex",justifyContent:"space-between"}}><span style={{fontSize:14,fontWeight:700}}>Left over</span><span style={{fontFamily:"monospace",fontSize:20,fontWeight:800,color:remColor}}>{fmt(sob)}</span></div>
       </div>
       <button style={{...BTN,width:"100%",padding:"11px",background:"rgba(248,81,73,0.08)",color:"#f85149",fontSize:13,border:"1px solid rgba(248,81,73,0.25)"}} onClick={()=>resetCheck(pid,label)}>🔄 New Cycle — Reset {label}</button>
     </div>);
