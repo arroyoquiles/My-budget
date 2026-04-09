@@ -1113,10 +1113,6 @@ function App(){
       <DestinoSummary gastos={gastos} T={T}/>
       {renderCheckTabGrouped(pid,gastos)}
       <button style={{...BTN,width:"100%",marginTop:4,marginBottom:12,padding:"11px",background:"transparent",color:T.accent,fontSize:13,border:`1.5px dashed ${T.border}`}} onClick={()=>addGasto(pid)}>+ Add Expense</button>
-      <div style={{...CARD,padding:"13px 16px",marginBottom:10,borderColor:sob>=0?"#238636":"#da3633"}}>
-        <div style={{display:"flex",justifyContent:"space-between",marginBottom:5}}><span style={{fontSize:12,color:T.muted}}>Total assigned</span><span style={{fontFamily:"monospace",fontWeight:700,color:"#f85149"}}>{fmt(total)}</span></div>
-        <div style={{display:"flex",justifyContent:"space-between"}}><span style={{fontSize:14,fontWeight:700}}>Left over</span><span style={{fontFamily:"monospace",fontSize:20,fontWeight:800,color:remColor}}>{fmt(sob)}</span></div>
-      </div>
       <button style={{...BTN,width:"100%",padding:"11px",background:"rgba(248,81,73,0.08)",color:"#f85149",fontSize:13,border:"1px solid rgba(248,81,73,0.25)"}} onClick={()=>resetCheck(pid,label)}>🔄 New Cycle — Reset {label}</button>
     </div>);
   };
