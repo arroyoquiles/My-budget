@@ -30,7 +30,6 @@
     ::-webkit-scrollbar{width:3px;}::-webkit-scrollbar-thumb{background:#30363d;}
     input[type=text],input[type=number],input[type=email],input[type=date],select,textarea{font-size:16px!important;-webkit-text-size-adjust:100%!important;}
     .expense-row{user-select:none;-webkit-user-select:none;-webkit-touch-callout:none;}
-    .debt-card-no-sel{user-select:none;-webkit-user-select:none;-webkit-touch-callout:none;}
     .dest-picker{display:grid;grid-template-columns:repeat(2,1fr);gap:5px;}
     /* Full-screen quick modal */
     .quick-modal-fullscreen{
@@ -490,6 +489,7 @@ const GastoItem=memo(({item,pid,editId,setEditId,tarjetas,onCycle,onLongPress,on
 });const DebtCard=memo(({debt,idx,isFirst,tipo,accion,setAccion,montoAccion,setMontoAccion,onApply,onUpdate,onRemove,isAdding,setAddingDebt,onTogglePriority,T})=>{
   const [editing,setEditing]=useState(false);
   const [longPressMenu,setLongPressMenu]=useState(false);
+  const [savedSnapshot,setSavedSnapshot]=useState(null);
   const INP=mkINP(T),BTN=mkBTN(),CARD=mkCARD(T);
   const dp=getDU(debt.fechaPago),fpd=gdf(debt.fechaPago),fcd=debt.fechaCorte?gdf(debt.fechaCorte):null;
   const isActive=accion?.id===debt.id;
@@ -511,6 +511,14 @@ const GastoItem=memo(({item,pid,editId,setEditId,tarjetas,onCycle,onLongPress,on
   const lpTimer=useRef(null);
   const hLPStart=()=>{lpTimer.current=setTimeout(()=>setLongPressMenu(true),500);};
   const hLPEnd=()=>clearTimeout(lpTimer.current);
+  const startEditing=()=>{setSavedSnapshot({...debt});setEditing(true);setLongPressMenu(false);};
+  const cancelEditing=()=>{
+    if(savedSnapshot){
+      Object.keys(savedSnapshot).forEach(k=>onUpdate(debt.id,k,savedSnapshot[k]));
+    }
+    setEditing(false);setSavedSnapshot(null);
+  };
+  const saveEditing=()=>{setEditing(false);setSavedSnapshot(null);};
   return(
     <div style={{...CARD,padding:"12px 14px",marginBottom:9,borderColor:isFirst?"#d29922":showEdit?"rgba(88,166,255,0.5)":debt.priority?"rgba(245,158,11,0.35)":T.border,transition:"border-color 0.2s",userSelect:"none",WebkitUserSelect:"none",WebkitTouchCallout:"none"}}>
 
@@ -518,7 +526,7 @@ const GastoItem=memo(({item,pid,editId,setEditId,tarjetas,onCycle,onLongPress,on
       <div style={{display:"flex",alignItems:"center",gap:7,marginBottom:6,userSelect:"none",WebkitUserSelect:"none"}} onTouchStart={e=>{e.preventDefault();hLPStart();}} onTouchEnd={hLPEnd} onMouseDown={hLPStart} onMouseUp={hLPEnd}>
         <span style={{fontSize:15,flexShrink:0}}>{debtIcon}</span>
         {showEdit
-          ?<input style={{...INP,fontWeight:700,fontSize:14,background:"transparent",border:"none",borderBottom:`1.5px solid ${T.accent}`,borderRadius:0,padding:"2px 0",flex:1}} value={debt.nombre} onChange={e=>onUpdate(debt.id,"nombre",e.target.value)} autoFocus={editing&&!isAdding}/>
+          ?<input style={{...INP,fontWeight:700,fontSize:14,background:"transparent",border:"none",borderBottom:`1.5px solid ${T.accent}`,borderRadius:0,padding:"2px 0",flex:1,userSelect:"text",WebkitUserSelect:"text"}} value={debt.nombre} onChange={e=>onUpdate(debt.id,"nombre",e.target.value)} autoFocus={editing&&!isAdding}/>
           :<span style={{flex:1,fontWeight:700,fontSize:14,color:T.text,minWidth:0,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{debt.nombre}</span>
         }
         {isFirst&&!showEdit&&<span style={{fontSize:9,fontWeight:700,color:"#d29922",background:"rgba(210,153,34,0.13)",border:"1px solid rgba(210,153,34,0.28)",borderRadius:5,padding:"1px 5px",flexShrink:0}}>🎯</span>}
@@ -528,8 +536,8 @@ const GastoItem=memo(({item,pid,editId,setEditId,tarjetas,onCycle,onLongPress,on
 
       {/* ── Long-press action menu ── */}
       {longPressMenu&&!isAdding&&(<div style={{display:"flex",gap:8,marginBottom:8,padding:"8px 10px",borderRadius:9,background:T.surface2,border:`1px solid ${T.border}`,alignItems:"center"}}>
-        <span style={{fontSize:10,color:T.muted,flex:1}}>Hold revealed options:</span>
-        <button style={{...BTN,padding:"5px 12px",fontSize:11,background:editing?"rgba(88,166,255,0.15)":"rgba(88,166,255,0.08)",color:T.accent,border:`1px solid rgba(88,166,255,0.3)`,borderRadius:7}} onClick={()=>{setEditing(e=>!e);setLongPressMenu(false);}}>{editing?"✓ Done":"✏️ Edit"}</button>
+        <span style={{fontSize:10,color:T.muted,flex:1}}>Options:</span>
+        <button style={{...BTN,padding:"5px 12px",fontSize:11,background:"rgba(88,166,255,0.08)",color:T.accent,border:`1px solid rgba(88,166,255,0.3)`,borderRadius:7}} onClick={startEditing}>✏️ Edit</button>
         <button style={{...BTN,padding:"5px 12px",fontSize:11,background:"rgba(248,81,73,0.08)",color:"#f85149",border:"1px solid rgba(248,81,73,0.25)",borderRadius:7}} onClick={()=>{if(window.confirm("Delete this debt?"))onRemove(debt.id);setLongPressMenu(false);}}>🗑 Delete</button>
         <button style={{...BTN,padding:"5px 8px",fontSize:11,background:"transparent",color:T.muted,border:`1px solid ${T.border}`,borderRadius:7}} onClick={()=>setLongPressMenu(false)}>✕</button>
       </div>)}
@@ -537,13 +545,22 @@ const GastoItem=memo(({item,pid,editId,setEditId,tarjetas,onCycle,onLongPress,on
       {/* ── Edit fields ── */}
       {showEdit&&(<>
         <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:6,marginBottom:7}}>
-          {(isAdding?newFields:fields).map(([l,f])=>(<div key={f}><div style={{fontSize:9,color:T.muted,marginBottom:3}}>{l}</div><input style={{...INP,fontSize:14,padding:"7px 10px"}} type="number" inputMode="decimal" value={debt[f]||""} onChange={e=>onUpdate(debt.id,f,e.target.value)}/></div>))}
+          {(isAdding?newFields:fields).map(([l,f])=>(<div key={f}><div style={{fontSize:9,color:T.muted,marginBottom:3}}>{l}</div><input style={{...INP,fontSize:14,padding:"7px 10px",userSelect:"text",WebkitUserSelect:"text"}} type="number" inputMode="decimal" value={debt[f]||""} onChange={e=>onUpdate(debt.id,f,e.target.value)}/></div>))}
         </div>
         <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:6,marginBottom:8}}>
-          <div><div style={{fontSize:9,color:"#f85149",marginBottom:3,fontWeight:700}}>⚠️ DUE DAY</div><input style={{...INP,fontSize:14,padding:"7px 10px",borderColor:"rgba(248,81,73,0.3)"}} type="number" inputMode="numeric" placeholder="e.g. 7" value={debt.fechaPago||""} onChange={e=>onUpdate(debt.id,"fechaPago",e.target.value)}/></div>
-          {tipo==="card"&&<div><div style={{fontSize:9,color:T.muted,marginBottom:3}}>✂️ CUTOFF DAY</div><input style={{...INP,fontSize:14,padding:"7px 10px"}} type="number" inputMode="numeric" placeholder="e.g. 13" value={debt.fechaCorte||""} onChange={e=>onUpdate(debt.id,"fechaCorte",e.target.value)}/></div>}
+          <div><div style={{fontSize:9,color:"#f85149",marginBottom:3,fontWeight:700}}>⚠️ DUE DAY</div><input style={{...INP,fontSize:14,padding:"7px 10px",borderColor:"rgba(248,81,73,0.3)",userSelect:"text",WebkitUserSelect:"text"}} type="number" inputMode="numeric" placeholder="e.g. 7" value={debt.fechaPago||""} onChange={e=>onUpdate(debt.id,"fechaPago",e.target.value)}/></div>
+          {tipo==="card"&&<div><div style={{fontSize:9,color:T.muted,marginBottom:3}}>✂️ CUTOFF DAY</div><input style={{...INP,fontSize:14,padding:"7px 10px",userSelect:"text",WebkitUserSelect:"text"}} type="number" inputMode="numeric" placeholder="e.g. 13" value={debt.fechaCorte||""} onChange={e=>onUpdate(debt.id,"fechaCorte",e.target.value)}/></div>}
         </div>
-        {isAdding&&<button style={{...BTN,width:"100%",padding:"9px",background:"#238636",color:"#fff",fontSize:13,marginBottom:2}} onClick={()=>setAddingDebt(null)}>✓ Done Adding</button>}
+        {isAdding
+          ?(<div style={{display:"flex",gap:7,marginBottom:2}}>
+              <button style={{...BTN,flex:1,padding:"9px",background:"#238636",color:"#fff",fontSize:13}} onClick={()=>setAddingDebt(null)}>✓ Done Adding</button>
+              <button style={{...BTN,padding:"9px 14px",background:"rgba(248,81,73,0.1)",color:"#f85149",fontSize:13,border:"1px solid rgba(248,81,73,0.3)"}} onClick={()=>{onRemove(debt.id);setAddingDebt(null);}}>Cancel</button>
+            </div>)
+          :(<div style={{display:"flex",gap:7,marginBottom:2}}>
+              <button style={{...BTN,flex:1,padding:"9px",background:"#238636",color:"#fff",fontSize:13}} onClick={saveEditing}>✓ Save</button>
+              <button style={{...BTN,padding:"9px 14px",background:T.surface2,color:T.muted,fontSize:13,border:`1px solid ${T.border}`}} onClick={cancelEditing}>Cancel</button>
+            </div>)
+        }
       </>)}
 
       {/* ── Compact view ── */}
@@ -688,9 +705,24 @@ function App(){
   const [moveOpen,setMoveOpen]=useState(false);
   const [moveTo,setMoveTo]=useState("savings_acct");
   const [moveAmt,setMoveAmt]=useState("");
-  const [moveNote,setMoveNote]=useState("");
   const [moveMode,setMoveMode]=useState("add");
   const moveAmtRef=useRef(null);
+  const scrollLockPos=useRef(0);
+  useEffect(()=>{
+    if(moveOpen){
+      scrollLockPos.current=window.scrollY||document.documentElement.scrollTop||0;
+      document.body.style.position="fixed";
+      document.body.style.top=`-${scrollLockPos.current}px`;
+      document.body.style.width="100%";
+      document.body.style.overflowY="scroll";
+    } else {
+      document.body.style.position="";
+      document.body.style.top="";
+      document.body.style.width="";
+      document.body.style.overflowY="";
+      window.scrollTo(0,scrollLockPos.current);
+    }
+  },[moveOpen]);
   const [snapDetail,setSnapDetail]=useState(null);
   const [debtsFilter,setDebtsFilter]=useState("all");
   const [cardsCollapsed,setCardsCollapsed]=useState(false);
@@ -864,8 +896,8 @@ function App(){
     if(isUse&&m>curBal)return toast_(`Not enough in ${pot?.label||moveTo}`,"err");
     const newBal=isUse?Math.max(0,curBal-m):curBal+m;
     const mvId=Date.now();
-    setData(p=>({...p,pots:{...p.pots,[moveTo]:newBal},potMovements:[...(p.potMovements||[]),{id:mvId,potKey:moveTo,amount:isUse?-m:m,date:new Date().toLocaleDateString("en-US",{month:"short",day:"numeric"}),note:moveNote||(isUse?"Used from ":"Added to ")+(pot?.label||moveTo)}]}));
-    setMoveAmt("");setMoveNote("");
+    setData(p=>({...p,pots:{...p.pots,[moveTo]:newBal},potMovements:[...(p.potMovements||[]),{id:mvId,potKey:moveTo,amount:isUse?-m:m,date:new Date().toLocaleDateString("en-US",{month:"short",day:"numeric"}),note:(isUse?"Used from ":"Added to ")+(pot?.label||moveTo)}]}));
+    setMoveAmt("");
     toast_(isUse?`💳 ${fmt(m)} used from ${pot?.label||moveTo}`:`💸 ${fmt(m)} added to ${pot?.label||moveTo}`);
   };
   const exportData=useCallback(()=>{
@@ -1202,8 +1234,6 @@ function App(){
       {moveOpen&&(()=>{
         const selPot=POTS[moveTo];
         const selBal=n(pots[moveTo])||0;
-        const selTgt=n((data.potTargets||{})[moveTo])||0;
-        const selPctCalc=selTgt>0?Math.min(100,Math.round((selBal/selTgt)*100)):0;
         return(
         <div style={{position:"fixed",inset:0,zIndex:300,background:"rgba(0,0,0,0.72)",display:"flex",flexDirection:"column",justifyContent:"flex-end"}} onClick={e=>{if(e.target===e.currentTarget)setMoveOpen(false);}}>
           <div style={{width:"100%",maxWidth:500,margin:"0 auto",background:T.surface,borderRadius:"20px 20px 0 0",border:`1px solid ${T.border}`}}>
@@ -1218,7 +1248,7 @@ function App(){
               <div style={{display:"flex",gap:6,background:T.surface2,borderRadius:11,padding:3,marginBottom:12}}>
                 {[{id:"add",label:"+ Add funds",color:"#3fb950"},{id:"use",label:"− Use funds",color:"#f85149"}].map(m=>(
                   <button key={m.id} style={{...BTN,flex:1,padding:"9px",fontSize:12,borderRadius:9,background:moveMode===m.id?T.bg:"transparent",color:moveMode===m.id?m.color:T.muted,border:moveMode===m.id?`1px solid ${m.color}`:"1px solid transparent",transition:"all 0.15s"}}
-                    onClick={()=>{setMoveMode(m.id);requestAnimationFrame(()=>{if(moveAmtRef.current)moveAmtRef.current.focus({preventScroll:true});});}}>
+                    onMouseDown={e=>{e.preventDefault();setMoveMode(m.id);requestAnimationFrame(()=>{if(moveAmtRef.current)moveAmtRef.current.focus({preventScroll:true});});}}>
                     {m.label}
                   </button>
                 ))}
@@ -1228,19 +1258,19 @@ function App(){
                 {[["savings_acct",POTS.savings_acct],["emergency",POTS.emergency]].map(([k,p])=>{
                   const bal=n(pots[k])||0;
                   return(<button key={k} style={{...BTN,flex:1,padding:"10px 9px 8px",fontSize:12,background:moveTo===k?p.bg||"rgba(63,185,80,0.1)":T.surface2,color:moveTo===k?p.color:T.muted,border:`1px solid ${moveTo===k?p.color:T.border}`,display:"flex",flexDirection:"column",alignItems:"center",gap:2,borderRadius:10}}
-                    onClick={()=>{setMoveTo(k);requestAnimationFrame(()=>{if(moveAmtRef.current){moveAmtRef.current.focus({preventScroll:true});}});}}>
+                    onMouseDown={e=>{e.preventDefault();setMoveTo(k);requestAnimationFrame(()=>{if(moveAmtRef.current)moveAmtRef.current.focus({preventScroll:true});});}}>
                     <span>{p.icon} {p.label}</span>
                     <span style={{fontFamily:"monospace",fontSize:11,fontWeight:700,color:moveTo===k?p.color:T.muted}}>{fmt(bal)}</span>
                   </button>);
                 })}
               </div>
-              {/* Amount input — single stable element, not recreated on pot switch */}
+              {/* Amount input — single stable element, never recreated */}
               <div style={{marginBottom:10}}>
                 <div style={{fontSize:10,color:T.muted,marginBottom:5,letterSpacing:1.2,fontWeight:700}}>AMOUNT ($)</div>
                 <input ref={moveAmtRef} style={{...INP,fontFamily:"monospace",fontWeight:700,fontSize:22}} type="number" inputMode="decimal" value={moveAmt} onChange={e=>setMoveAmt(e.target.value)} placeholder="0" autoFocus/>
               </div>
               {/* Balance preview — fixed height container to avoid layout shift */}
-              <div style={{height:36,marginBottom:10,display:"flex",alignItems:"center"}}>
+              <div style={{height:36,marginBottom:14,display:"flex",alignItems:"center"}}>
                 {(()=>{const m=parseFloat(moveAmt)||0;if(!m)return<span style={{fontSize:11,color:T.muted}}>Current: <span style={{fontFamily:"monospace",fontWeight:700,color:selPot?.color}}>{fmt(selBal)}</span></span>;const newBal=moveMode==="add"?selBal+m:Math.max(0,selBal-m);const color=moveMode==="add"?"#3fb950":"#f85149";return(<div style={{width:"100%",padding:"8px 11px",borderRadius:9,background:moveMode==="add"?"rgba(63,185,80,0.06)":"rgba(248,81,73,0.06)",border:`1px solid ${moveMode==="add"?"rgba(63,185,80,0.25)":"rgba(248,81,73,0.25)"}`}}><div style={{display:"flex",justifyContent:"space-between",fontSize:11}}><span style={{color:T.muted}}>{selPot?.label} → new balance</span><span style={{fontFamily:"monospace",fontWeight:700,color}}>{fmt(newBal)}</span></div></div>);})()}
               </div>
               {/* Action */}
@@ -1375,14 +1405,15 @@ function App(){
                 const target=n((data.potTargets||{})[key])||0;
                 const hasTgt=target>0;
                 const pct=hasTgt?Math.min(100,Math.round((bal/target)*100)):0;
-                return(<div key={key} style={{paddingBottom:i<reservePots.length-1?8:0,marginBottom:i<reservePots.length-1?8:0,borderBottom:i<reservePots.length-1?`1px solid ${T.border}`:"none"}}>
-                  <div style={{display:"flex",alignItems:"center",gap:6}}>
-                    <span style={{fontSize:12,flexShrink:0}}>{p.icon}</span>
-                    <span style={{fontSize:11,fontWeight:600,color:T.text,flexShrink:0}}>{p.label}</span>
-                    <span style={{fontFamily:"monospace",fontWeight:800,fontSize:13,color:bal>0?p.color:T.muted,flexShrink:0,marginLeft:2}}>{fmt(bal)}</span>
-                    {hasTgt&&<span style={{fontSize:9,color:T.muted,flexShrink:0}}>/ {fmt(target)}</span>}
-                    <button style={{...BTN,width:30,height:30,borderRadius:8,background:"rgba(63,185,80,0.12)",color:"#3fb950",border:"1px solid rgba(63,185,80,0.35)",fontSize:18,fontWeight:700,display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0,marginLeft:6}} onClick={()=>{setMoveTo(key);setMoveMode("add");setMoveOpen(true);}}>+</button>
-                    <button style={{...BTN,width:30,height:30,borderRadius:8,background:"rgba(248,81,73,0.1)",color:"#f85149",border:"1px solid rgba(248,81,73,0.3)",fontSize:18,fontWeight:700,display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0}} onClick={()=>{setMoveTo(key);setMoveMode("use");setMoveOpen(true);}}>−</button>
+                return(<div key={key} style={{paddingBottom:i<reservePots.length-1?9:0,marginBottom:i<reservePots.length-1?9:0,borderBottom:i<reservePots.length-1?`1px solid ${T.border}`:"none"}}>
+                  <div style={{display:"flex",alignItems:"center",gap:0}}>
+                    <span style={{fontSize:12,marginRight:5,flexShrink:0}}>{p.icon}</span>
+                    <span style={{fontSize:11,fontWeight:600,color:T.text,flex:1}}>{p.label}</span>
+                    <div style={{display:"flex",alignItems:"center",gap:6,flexShrink:0}}>
+                      <button style={{...BTN,width:34,height:34,borderRadius:9,background:"rgba(63,185,80,0.12)",color:"#3fb950",border:"1px solid rgba(63,185,80,0.35)",fontSize:20,fontWeight:700,display:"flex",alignItems:"center",justifyContent:"center"}} onClick={()=>{setMoveTo(key);setMoveMode("add");setMoveOpen(true);}}>+</button>
+                      <span style={{fontFamily:"monospace",fontWeight:800,fontSize:13,color:bal>0?p.color:T.muted,minWidth:52,textAlign:"center"}}>{fmt(bal)}</span>
+                      <button style={{...BTN,width:34,height:34,borderRadius:9,background:"rgba(248,81,73,0.1)",color:"#f85149",border:"1px solid rgba(248,81,73,0.3)",fontSize:20,fontWeight:700,display:"flex",alignItems:"center",justifyContent:"center"}} onClick={()=>{setMoveTo(key);setMoveMode("use");setMoveOpen(true);}}>−</button>
+                    </div>
                   </div>
                   {hasTgt&&(<div style={{height:3,background:T.surface2,borderRadius:3,overflow:"hidden",marginTop:5}}>
                     <div style={{height:"100%",width:`${pct}%`,background:p.color,borderRadius:3,opacity:0.7,transition:"width 0.5s"}}/>
