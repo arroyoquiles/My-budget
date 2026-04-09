@@ -712,8 +712,6 @@ function App(){
   const scrollLockPos=useRef(0);
   const [kbHeight,setKbHeight]=useState(0);
   const kbHeightRef=useRef(0);
-  const [quickKbHeight,setQuickKbHeight]=useState(0);
-  const quickKbHeightRef=useRef(0);
   useEffect(()=>{
     if(!moveOpen)return;
     const onResize=()=>{
@@ -736,28 +734,6 @@ function App(){
     };
   },[moveOpen]);
   useEffect(()=>{
-    if(!quickOpen)return;
-    const onResize=()=>{
-      const visualH=window.visualViewport?window.visualViewport.height:window.innerHeight;
-      const windowH=window.innerHeight;
-      const kb=Math.max(0,windowH-visualH);
-      quickKbHeightRef.current=kb;
-      setQuickKbHeight(kb);
-    };
-    if(window.visualViewport){
-      window.visualViewport.addEventListener("resize",onResize);
-      window.visualViewport.addEventListener("scroll",onResize);
-    }
-    onResize();
-    return()=>{
-      if(window.visualViewport){
-        window.visualViewport.removeEventListener("resize",onResize);
-        window.visualViewport.removeEventListener("scroll",onResize);
-      }
-      setQuickKbHeight(0);
-    };
-  },[quickOpen]);
-  useEffect(()=>{
     if(moveOpen){
       scrollLockPos.current=window.scrollY||document.documentElement.scrollTop||0;
       document.body.style.position="fixed";
@@ -773,22 +749,6 @@ function App(){
       setKbHeight(0);
     }
   },[moveOpen]);
-  useEffect(()=>{
-    if(quickOpen){
-      scrollLockPos.current=window.scrollY||document.documentElement.scrollTop||0;
-      document.body.style.position="fixed";
-      document.body.style.top=`-${scrollLockPos.current}px`;
-      document.body.style.width="100%";
-      document.body.style.overflowY="scroll";
-    } else {
-      document.body.style.position="";
-      document.body.style.top="";
-      document.body.style.width="";
-      document.body.style.overflowY="";
-      window.scrollTo(0,scrollLockPos.current);
-      setQuickKbHeight(0);
-    }
-  },[quickOpen]);
   const [snapDetail,setSnapDetail]=useState(null);
   const [resetConfirm,setResetConfirm]=useState(null);
   const [debtsFilter,setDebtsFilter]=useState("all");
@@ -1214,110 +1174,179 @@ function App(){
       )}
       <button style={{...BTN,position:"fixed",bottom:22,right:18,zIndex:200,width:52,height:52,borderRadius:"50%",background:"#238636",color:"#fff",fontSize:26,boxShadow:"0 4px 20px rgba(35,134,54,0.5)",display:"flex",alignItems:"center",justifyContent:"center"}} onClick={()=>setQuickOpen(true)}>+</button>
 
-      {/* ── Quick Expense Sheet Modal ── */}
+      {/* ── Quick Expense Full-Screen Modal ── */}
       {quickOpen&&(
-        <div style={{position:"fixed",inset:0,zIndex:300,background:"rgba(0,0,0,0.72)",display:"flex",flexDirection:"column",justifyContent:"flex-end"}} onClick={e=>{if(e.target===e.currentTarget)setQuickOpen(false);}}>
-          <div style={{width:"100%",maxWidth:500,margin:"0 auto",background:T.surface,borderRadius:"20px 20px 0 0",border:`1px solid ${T.border}`,transform:`translateY(-${quickKbHeight}px)`,transition:"transform 0.0s",willChange:"transform",display:"flex",flexDirection:"column",maxHeight:"92vh"}}>
-            {/* Header */}
-            <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",padding:"16px 18px 12px",borderBottom:`1px solid ${T.border}`,flexShrink:0}}>
-              <div style={{fontSize:14,fontWeight:700,color:T.text}}>⚡ Quick Expense</div>
-              <button style={{...BTN,background:"transparent",color:T.muted,fontSize:18,padding:"2px 6px",lineHeight:1}} onClick={()=>setQuickOpen(false)}>✕</button>
-            </div>
-            {/* Scrollable content */}
-            <div style={{overflowY:"auto",WebkitOverflowScrolling:"touch",padding:"14px 18px",paddingBottom:"max(24px,env(safe-area-inset-bottom,24px))",overscrollBehavior:"contain"}}>
+        <div
+          className="quick-modal-fullscreen"
+          style={{
+            position:"fixed",
+            inset:0,
+            zIndex:300,
+            background:T.surface,
+            display:"flex",
+            flexDirection:"column",
+            overflow:"hidden",
+          }}
+        >
+          {/* Header */}
+          <div style={{
+            display:"flex",
+            alignItems:"center",
+            justifyContent:"space-between",
+            padding:"16px 18px 14px",
+            paddingTop:"max(16px, env(safe-area-inset-top, 16px))",
+            borderBottom:`1px solid ${T.border}`,
+            flexShrink:0,
+            background:T.surface,
+          }}>
+            <button style={{...BTN,background:"transparent",color:T.muted,fontSize:15,padding:"4px 0",minWidth:60}} onClick={()=>setQuickOpen(false)}>
+              Cancel
+            </button>
+            <div style={{fontSize:15,fontWeight:700,color:T.text}}>⚡ Quick Expense</div>
+            <div style={{minWidth:60}}/>
+          </div>
 
-              {/* Apply To toggle */}
-              <div style={{display:"flex",gap:6,background:T.surface2,borderRadius:11,padding:3,marginBottom:14}}>
-                <button style={{...BTN,flex:1,padding:"9px",fontSize:12,borderRadius:9,background:quickApplyTo==="check"?T.bg:"transparent",color:quickApplyTo==="check"?T.accent:T.muted,border:quickApplyTo==="check"?`1px solid ${T.accent}`:"1px solid transparent",transition:"all 0.15s"}}
-                  onMouseDown={e=>{e.preventDefault();switchQuickApplyTo("check");}}>
+          {/* Scrollable body */}
+          <div style={{
+            flex:1,
+            overflowY:"auto",
+            WebkitOverflowScrolling:"touch",
+            padding:"20px 18px",
+            paddingBottom:"max(28px, env(safe-area-inset-bottom, 28px))",
+          }}>
+
+            {/* Apply To toggle */}
+            <div style={{marginBottom:20}}>
+              <div style={{fontSize:10,color:T.muted,letterSpacing:1.2,fontWeight:700,marginBottom:8}}>APPLY TO</div>
+              <div style={{display:"flex",gap:8,background:T.surface2,borderRadius:13,padding:4}}>
+                <button style={{
+                  ...BTN,flex:1,padding:"10px",fontSize:13,borderRadius:10,
+                  background:quickApplyTo==="check"?T.bg:"transparent",
+                  color:quickApplyTo==="check"?T.accent:T.muted,
+                  border:quickApplyTo==="check"?`1px solid ${T.accent}`:"1px solid transparent",
+                  transition:"all 0.15s",
+                }} onClick={()=>switchQuickApplyTo("check")}>
                   💰 Check
                 </button>
-                <button style={{...BTN,flex:1,padding:"9px",fontSize:12,borderRadius:9,background:quickApplyTo==="card"?T.bg:"transparent",color:quickApplyTo==="card"?"#ec4899":T.muted,border:quickApplyTo==="card"?"1px solid rgba(236,72,153,0.5)":"1px solid transparent",transition:"all 0.15s"}}
-                  onMouseDown={e=>{e.preventDefault();switchQuickApplyTo("card");}}>
+                <button style={{
+                  ...BTN,flex:1,padding:"10px",fontSize:13,borderRadius:10,
+                  background:quickApplyTo==="card"?T.bg:"transparent",
+                  color:quickApplyTo==="card"?"#ec4899":T.muted,
+                  border:quickApplyTo==="card"?"1px solid rgba(236,72,153,0.5)":"1px solid transparent",
+                  transition:"all 0.15s",
+                }} onClick={()=>switchQuickApplyTo("card")}>
                   💳 Credit Card
                 </button>
               </div>
+            </div>
 
-              {/* Check mode fields */}
-              {quickApplyTo==="check"&&(<>
-                <div style={{marginBottom:12}}>
-                  <div style={{fontSize:10,color:T.muted,letterSpacing:1.2,fontWeight:700,marginBottom:6}}>WHAT WAS IT?</div>
-                  <input style={{...INP}} value={quickNote} onChange={e=>setQuickNote(e.target.value)} placeholder="e.g. Walmart, gas stop..." autoFocus/>
+            {/* Check mode fields */}
+            {quickApplyTo==="check"&&(<>
+              <div style={{marginBottom:16}}>
+                <div style={{fontSize:10,color:T.muted,letterSpacing:1.2,fontWeight:700,marginBottom:8}}>WHAT WAS IT?</div>
+                <input
+                  style={{...INP}}
+                  value={quickNote}
+                  onChange={e=>setQuickNote(e.target.value)}
+                  placeholder="e.g. Walmart, gas stop..."
+                  autoFocus
+                />
+              </div>
+
+              <div style={{marginBottom:16}}>
+                <div style={{fontSize:10,color:T.muted,letterSpacing:1.2,fontWeight:700,marginBottom:8}}>AMOUNT ($)</div>
+                <input ref={quickAmtInputRef} style={{...INP,fontFamily:"monospace",fontWeight:700,fontSize:20}} type="number" inputMode="decimal" value={quickAmt} onChange={e=>setQuickAmt(e.target.value)} placeholder="0.00"/>
+              </div>
+
+              <div style={{marginBottom:16}}>
+                <div style={{fontSize:10,color:T.muted,letterSpacing:1.2,fontWeight:700,marginBottom:8}}>DEDUCT FROM</div>
+                <div style={{display:"flex",gap:7,flexWrap:"wrap"}}>
+                  {monthPeriods.map(p=>(<button key={p.id} style={{
+                    ...BTN,flex:1,padding:"10px",fontSize:12,
+                    background:quickPid===p.id?"rgba(88,166,255,0.15)":T.surface2,
+                    color:quickPid===p.id?T.accent:T.muted,
+                    border:`1px solid ${quickPid===p.id?T.accent:T.border}`,
+                  }} onClick={()=>setQuickPid(p.id)}>{p.isCurrent?"💰":"📋"} {p.label}{p.isCurrent?" ✓":""}</button>))}
                 </div>
-                <div style={{marginBottom:12}}>
-                  <div style={{fontSize:10,color:T.muted,letterSpacing:1.2,fontWeight:700,marginBottom:6}}>AMOUNT ($)</div>
-                  <input ref={quickAmtInputRef} style={{...INP,fontFamily:"monospace",fontWeight:700,fontSize:22}} type="number" inputMode="decimal" value={quickAmt} onChange={e=>setQuickAmt(e.target.value)} placeholder="0"/>
-                </div>
-                <div style={{marginBottom:12}}>
-                  <div style={{fontSize:10,color:T.muted,letterSpacing:1.2,fontWeight:700,marginBottom:6}}>DEDUCT FROM</div>
-                  <div style={{display:"flex",gap:7}}>
-                    {monthPeriods.map(p=>(<button key={p.id} style={{...BTN,flex:1,padding:"9px",fontSize:12,background:quickPid===p.id?"rgba(88,166,255,0.15)":T.surface2,color:quickPid===p.id?T.accent:T.muted,border:`1px solid ${quickPid===p.id?T.accent:T.border}`}}
-                      onMouseDown={e=>{e.preventDefault();setQuickPid(p.id);requestAnimationFrame(()=>{if(quickAmtInputRef.current)quickAmtInputRef.current.focus({preventScroll:true});});}}>
-                      {p.isCurrent?"💰":"📋"} {p.label}{p.isCurrent?" ✓":""}
-                    </button>))}
+              </div>
+
+              {quickAmtNum>0&&quickPreviewCheck&&(
+                <div style={{marginBottom:16,padding:"12px 14px",borderRadius:11,background:quickPreviewCheck.newLeftover>=0?"rgba(63,185,80,0.07)":"rgba(248,81,73,0.07)",border:`1px solid ${quickPreviewCheck.newLeftover>=0?"rgba(63,185,80,0.25)":"rgba(248,81,73,0.25)"}`}}>
+                  <div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+                    <span style={{fontSize:11,color:T.muted}}>Left over after this</span>
+                    <span style={{fontFamily:"monospace",fontWeight:700,fontSize:15,color:quickPreviewCheck.newLeftover>=0?"#3fb950":"#f85149"}}>{fmt(quickPreviewCheck.newLeftover)}</span>
                   </div>
                 </div>
-                {/* Preview — fixed height to avoid layout shift */}
-                <div style={{height:40,marginBottom:12,display:"flex",alignItems:"center"}}>
-                  {quickAmtNum>0&&quickPreviewCheck
-                    ?<div style={{width:"100%",padding:"8px 11px",borderRadius:9,background:quickPreviewCheck.newLeftover>=0?"rgba(63,185,80,0.06)":"rgba(248,81,73,0.06)",border:`1px solid ${quickPreviewCheck.newLeftover>=0?"rgba(63,185,80,0.25)":"rgba(248,81,73,0.25)"}`}}>
-                      <div style={{display:"flex",justifyContent:"space-between",fontSize:11}}><span style={{color:T.muted}}>Left over after this</span><span style={{fontFamily:"monospace",fontWeight:700,color:quickPreviewCheck.newLeftover>=0?"#3fb950":"#f85149"}}>{fmt(quickPreviewCheck.newLeftover)}</span></div>
-                    </div>
-                    :<span style={{fontSize:11,color:T.muted}}>Enter an amount to preview</span>}
-                </div>
-              </>)}
+              )}
+            </>)}
 
-              {/* Card mode fields */}
-              {quickApplyTo==="card"&&(<>
-                <div style={{marginBottom:12}}>
-                  <div style={{fontSize:10,color:T.muted,letterSpacing:1.2,fontWeight:700,marginBottom:6}}>AMOUNT ($)</div>
-                  <input ref={quickAmtInputRef} style={{...INP,fontFamily:"monospace",fontWeight:700,fontSize:22}} type="number" inputMode="decimal" value={quickAmt} onChange={e=>setQuickAmt(e.target.value)} placeholder="0" autoFocus/>
+            {/* Card mode fields */}
+            {quickApplyTo==="card"&&(<>
+              <div style={{marginBottom:16}}>
+                <div style={{fontSize:10,color:T.muted,letterSpacing:1.2,fontWeight:700,marginBottom:8}}>AMOUNT ($)</div>
+                <input ref={quickAmtInputRef} style={{...INP,fontFamily:"monospace",fontWeight:700,fontSize:20}} type="number" inputMode="decimal" value={quickAmt} onChange={e=>setQuickAmt(e.target.value)} placeholder="0.00"/>
+              </div>
+
+              {quickAmtNum>0&&quickPreviewCard&&(
+                <div style={{marginBottom:16,padding:"12px 14px",borderRadius:11,background:"rgba(236,72,153,0.07)",border:"1px solid rgba(236,72,153,0.25)"}}>
+                  <div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+                    <span style={{fontSize:11,color:T.muted}}>New card balance</span>
+                    <span style={{fontFamily:"monospace",fontWeight:700,fontSize:15,color:"#ec4899"}}>
+                      {fmt(quickPreviewCard.newBalance)}
+                      {quickPreviewCard.pct!==null&&<span style={{fontSize:10,fontWeight:400,color:quickPreviewCard.pct>=90?"#f85149":quickPreviewCard.pct>=70?"#d29922":T.muted,marginLeft:6}}>{quickPreviewCard.pct}% used</span>}
+                    </span>
+                  </div>
                 </div>
-                {/* Preview — fixed height */}
-                <div style={{height:40,marginBottom:12,display:"flex",alignItems:"center"}}>
-                  {quickAmtNum>0&&quickPreviewCard
-                    ?<div style={{width:"100%",padding:"8px 11px",borderRadius:9,background:"rgba(236,72,153,0.06)",border:"1px solid rgba(236,72,153,0.25)"}}>
-                      <div style={{display:"flex",justifyContent:"space-between",fontSize:11}}><span style={{color:T.muted}}>New card balance</span><span style={{fontFamily:"monospace",fontWeight:700,color:"#ec4899"}}>{fmt(quickPreviewCard.newBalance)}{quickPreviewCard.pct!==null&&<span style={{fontSize:10,fontWeight:400,color:quickPreviewCard.pct>=90?"#f85149":quickPreviewCard.pct>=70?"#d29922":T.muted,marginLeft:6}}>{quickPreviewCard.pct}% used</span>}</span></div>
-                    </div>
-                    :<span style={{fontSize:11,color:T.muted}}>Enter an amount to preview</span>}
-                </div>
-                <div style={{marginBottom:12}}>
-                  <div style={{fontSize:10,color:T.muted,letterSpacing:1.2,fontWeight:700,marginBottom:6}}>WHICH CARD?</div>
-                  {data.tarjetas.length===0
-                    ?<div style={{fontSize:12,color:T.muted,padding:"12px 14px",background:T.surface2,borderRadius:10}}>No cards found. Add one in Debts.</div>
-                    :<div style={{display:"flex",flexDirection:"column",gap:7}}>
-                      {data.tarjetas.map(t=>{
-                        const tc=CC[t.nombre]||null;
-                        const dot=tc?.dot||t._vc?.dot||"💳";
-                        const cardColor=tc?.color||t._vc?.color||"#ec4899";
-                        const cardBorder=tc?.border||t._vc?.border||"rgba(236,72,153,0.4)";
-                        const isSelected=quickCardId===String(t.id);
-                        return(<button key={t.id} style={{...BTN,padding:"11px 13px",fontSize:13,textAlign:"left",background:isSelected?"rgba(236,72,153,0.1)":T.surface2,color:isSelected?cardColor:T.text,border:`1px solid ${isSelected?cardBorder:T.border}`,display:"flex",justifyContent:"space-between",alignItems:"center",borderRadius:11}}
-                          onMouseDown={e=>{e.preventDefault();setQuickCardId(String(t.id));requestAnimationFrame(()=>{if(quickAmtInputRef.current)quickAmtInputRef.current.focus({preventScroll:true});});}}>
-                          <div style={{display:"flex",alignItems:"center",gap:8}}>
-                            <span style={{fontSize:16}}>{dot}</span>
-                            <div>
-                              <div style={{fontWeight:600,fontSize:13}}>{t.nombre}</div>
-                              {t.fechaPago&&<div style={{fontSize:10,color:T.muted,marginTop:1}}>Due day {t.fechaPago}</div>}
-                            </div>
+              )}
+
+              <div style={{marginBottom:16}}>
+                <div style={{fontSize:10,color:T.muted,letterSpacing:1.2,fontWeight:700,marginBottom:8}}>WHICH CARD?</div>
+                {data.tarjetas.length===0
+                  ?<div style={{fontSize:12,color:T.muted,padding:"12px 14px",background:T.surface2,borderRadius:10}}>No cards found. Add one in Debts.</div>
+                  :<div style={{maxHeight:"36vh",overflowY:"auto",WebkitOverflowScrolling:"touch",display:"flex",flexDirection:"column",gap:7}}>
+                    {data.tarjetas.map(t=>{
+                      const tc=CC[t.nombre]||null;
+                      const dot=tc?.dot||t._vc?.dot||"💳";
+                      const cardColor=tc?.color||t._vc?.color||"#ec4899";
+                      const cardBorder=tc?.border||t._vc?.border||"rgba(236,72,153,0.4)";
+                      const isSelected=quickCardId===String(t.id);
+                      return(<button key={t.id} style={{
+                        ...BTN,padding:"12px 14px",fontSize:13,textAlign:"left",
+                        background:isSelected?"rgba(236,72,153,0.1)":T.surface2,
+                        color:isSelected?cardColor:T.text,
+                        border:`1px solid ${isSelected?cardBorder:T.border}`,
+                        display:"flex",justifyContent:"space-between",alignItems:"center",
+                        borderRadius:11,
+                      }} onClick={()=>setQuickCardId(String(t.id))}>
+                        <div style={{display:"flex",alignItems:"center",gap:8}}>
+                          <span style={{fontSize:16}}>{dot}</span>
+                          <div>
+                            <div style={{fontWeight:600,fontSize:13}}>{t.nombre}</div>
+                            {t.fechaPago&&<div style={{fontSize:10,color:T.muted,marginTop:1}}>Due day {t.fechaPago}</div>}
                           </div>
-                          <div style={{textAlign:"right"}}>
-                            <div style={{fontFamily:"monospace",fontWeight:700,fontSize:13,color:isSelected?cardColor:T.muted}}>{fmt(t.balance)}</div>
-                            {n(t.limite)>0&&<div style={{fontSize:9,color:T.muted,marginTop:1}}>of {fmt(t.limite)}</div>}
-                          </div>
-                        </button>);
-                      })}
-                    </div>
-                  }
-                </div>
-              </>)}
+                        </div>
+                        <div style={{textAlign:"right"}}>
+                          <div style={{fontFamily:"monospace",fontWeight:700,fontSize:13,color:isSelected?cardColor:T.muted}}>{fmt(t.balance)}</div>
+                          {n(t.limite)>0&&<div style={{fontSize:9,color:T.muted,marginTop:1}}>of {fmt(t.limite)}</div>}
+                        </div>
+                      </button>);
+                    })}
+                  </div>
+                }
+              </div>
+            </>)}
 
-              {/* Action button */}
-              <button style={{...BTN,width:"100%",padding:"13px",background:quickActionBg,color:"#fff",fontSize:14,fontWeight:700,borderRadius:11}} onClick={addQuickExpense}>
-                {quickActionLabel}
-              </button>
+            {/* Action button */}
+            <button style={{
+              ...BTN,width:"100%",padding:"15px",
+              background:quickActionBg,
+              color:"#fff",fontSize:15,fontWeight:700,
+              borderRadius:13,
+              marginTop:4,
+            }} onClick={addQuickExpense}>
+              {quickActionLabel}
+            </button>
 
-            </div>
           </div>
         </div>
       )}
