@@ -34,14 +34,20 @@
     /* Full-screen quick modal */
     .quick-modal-fullscreen{
       position:fixed;
-      inset:0;
+      top:0;
+      left:0;
+      right:0;
+      bottom:0;
       z-index:301;
       display:flex;
       flex-direction:column;
       background:var(--qm-bg,#161b22);
       overflow:hidden;
-      height:100dvh;
-      max-height:100dvh;
+      width:100%;
+      max-width:100%;
+      /* Prevent any transform/size distortion */
+      transform:none;
+      will-change:auto;
     }
     .quick-modal-header{
       display:flex;
@@ -51,16 +57,17 @@
       padding-top:max(16px, env(safe-area-inset-top, 16px));
       border-bottom:1px solid var(--qm-border,#30363d);
       flex-shrink:0;
+      width:100%;
     }
     .quick-modal-body{
       flex:1;
       overflow-y:auto;
       -webkit-overflow-scrolling:touch;
-      padding:18px 18px 32px;
-      padding-bottom:max(32px, env(safe-area-inset-bottom, 32px));
+      padding:18px 18px 120px;
+      padding-bottom:max(120px, env(safe-area-inset-bottom, 32px));
       min-height:0;
       overscroll-behavior:contain;
-      padding-bottom:max(120px, env(safe-area-inset-bottom, 32px));
+      width:100%;
     }
   </style>
 </head>
@@ -880,6 +887,13 @@ function App(){
     setQuickNote("");setQuickAmt("");setQuickOpen(false);toast_(`🛒 ${fmt(m)} charged to ${cardName}`);
   };
 
+  const addQuickExpenseAsReserved=()=>{
+    const m=parseFloat(quickAmt);if(!m||m<=0||!quickNote.trim())return toast_("Add name and amount","err");
+    const pid=quickPid||currentPid;const nid=Date.now();
+    updPeriodGastos(pid,g=>[...g,{id:nid,nombre:quickNote.trim(),monto:m,cat:"other",state:"reserved",pagado:false,destino:"temp",tarjetaRef:"",diaPago:null,_quick:true}]);
+    setQuickNote("");setQuickAmt("");setQuickOpen(false);toast_(`◑ "${quickNote.trim()}" ${fmt(m)} added as reserved`);
+  };
+
   const addQuickExpense=()=>{
     if(quickApplyTo==="card")addQuickExpenseToCard();
     else addQuickExpenseToCheck();
@@ -1103,10 +1117,16 @@ function App(){
             <span style={{fontSize:11,color:T.muted}}>Assigned</span>
             <span style={{fontFamily:"monospace",fontWeight:700,fontSize:13,color:"#f85149"}}>{fmt(total)}</span>
           </div>
-          <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"7px 0"}}>
+          <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"7px 0",borderBottom:reserved>0?`1px solid ${T.border}`:"none"}}>
             <span style={{fontSize:13,fontWeight:700,color:T.text}}>Remaining</span>
             <span style={{fontFamily:"monospace",fontSize:20,fontWeight:800,color:remColor}}>{fmt(sob)}</span>
           </div>
+          {reserved>0&&(
+            <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"4px 0"}}>
+              <span style={{fontSize:10,color:"#d29922",opacity:0.85}}>◑ Reserved</span>
+              <span style={{fontFamily:"monospace",fontWeight:600,fontSize:11,color:"#d29922",opacity:0.85}}>{fmt(reserved)}</span>
+            </div>
+          )}
         </div>
         {/* Progress bar */}
         <div style={{height:6,background:T.surface2,borderRadius:8,overflow:"hidden",display:"flex",marginBottom:6}}>
@@ -1180,12 +1200,15 @@ function App(){
           className="quick-modal-fullscreen"
           style={{
             position:"fixed",
-            inset:0,
+            top:0,left:0,right:0,bottom:0,
             zIndex:300,
             background:T.surface,
             display:"flex",
             flexDirection:"column",
             overflow:"hidden",
+            width:"100%",
+            maxWidth:"100%",
+            transform:"none",
           }}
         >
           {/* Header */}
@@ -1198,6 +1221,7 @@ function App(){
             borderBottom:`1px solid ${T.border}`,
             flexShrink:0,
             background:T.surface,
+            width:"100%",
           }}>
             <button style={{...BTN,background:"transparent",color:T.muted,fontSize:15,padding:"4px 0",minWidth:60}} onClick={()=>setQuickOpen(false)}>
               Cancel
@@ -1212,7 +1236,10 @@ function App(){
             overflowY:"auto",
             WebkitOverflowScrolling:"touch",
             padding:"20px 18px",
-            paddingBottom:"max(28px, env(safe-area-inset-bottom, 28px))",
+            paddingBottom:"max(130px, env(safe-area-inset-bottom, 130px))",
+            minHeight:0,
+            overscrollBehavior:"contain",
+            width:"100%",
           }}>
 
             {/* Apply To toggle */}
@@ -1336,13 +1363,27 @@ function App(){
               </div>
             </>)}
 
-            {/* Action button */}
+            {/* Action buttons */}
+            {quickApplyTo==="check"&&(
+              <button style={{
+                ...BTN,width:"100%",padding:"13px",
+                background:"rgba(210,153,34,0.15)",
+                color:"#d29922",fontSize:14,fontWeight:700,
+                borderRadius:13,
+                marginTop:8,
+                border:"1px solid rgba(210,153,34,0.4)",
+              }} onClick={addQuickExpenseAsReserved}>
+                ◑ Add — Reserved
+              </button>
+            )}
             <button style={{
               ...BTN,width:"100%",padding:"15px",
               background:quickActionBg,
               color:"#fff",fontSize:15,fontWeight:700,
               borderRadius:13,
-              marginTop:4,
+              marginTop:8,
+              position:"sticky",
+              bottom:16,
             }} onClick={addQuickExpense}>
               {quickActionLabel}
             </button>
@@ -1517,6 +1558,7 @@ function App(){
                   <div style={{background:T.surface2,borderRadius:8,padding:"6px 8px"}}>
                     <div style={{fontSize:9,color:T.muted,marginBottom:2}}>Remaining</div>
                     <div style={{fontFamily:"monospace",fontWeight:700,fontSize:12,color:remaining>=0?"#3fb950":"#f85149"}}>{fmt(remaining)}</div>
+                    {reserved>0&&<div style={{fontFamily:"monospace",fontWeight:500,fontSize:9,color:"#d29922",marginTop:2,opacity:0.85}}>◑ {fmt(reserved)} reserved</div>}
                   </div>
                 </div>
                 <div style={{height:6,background:T.bg,borderRadius:8,overflow:"hidden",marginBottom:8,display:"flex"}}>
