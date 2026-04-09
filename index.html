@@ -1498,7 +1498,8 @@ function App(){
               const paid=gastos.filter(g=>g.state==="paid").reduce((s,g)=>s+n(g.monto),0);
               const reserved=gastos.filter(g=>g.state==="reserved").reduce((s,g)=>s+n(g.monto),0);
               const sob=periodAmt-total;
-              const available=periodAmt-reserved;
+              const assigned=paid+reserved;
+              const remaining=periodAmt-assigned;
               return(<div key={p.id} style={{paddingBottom:pi<monthPeriods.length-1?12:0,marginBottom:pi<monthPeriods.length-1?12:0,borderBottom:pi<monthPeriods.length-1?`1px solid ${T.border}`:"none"}}>
                 <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:7}}>
                   <div style={{display:"flex",alignItems:"center",gap:6}}>
@@ -1506,20 +1507,16 @@ function App(){
                     <span style={{fontFamily:"monospace",fontWeight:700,fontSize:12,color:T.muted}}>{fmt(periodAmt)}</span>
                     <span style={{fontSize:9,fontWeight:700,padding:"1px 6px",borderRadius:5,background:p.isCurrent?"rgba(63,185,80,0.12)":"rgba(210,153,34,0.1)",color:p.isCurrent?"#3fb950":"#d29922",border:`1px solid ${p.isCurrent?"rgba(63,185,80,0.3)":"rgba(210,153,34,0.3)"}`}}>{p.isCurrent?"ACTIVE":"UPCOMING"}</span>
                   </div>
-                  <span style={{fontFamily:"monospace",fontWeight:800,fontSize:13,color:sob>=0?"#3fb950":"#f85149"}}>{fmt(sob)}<span style={{fontSize:9,color:T.muted,fontWeight:400}}> left</span></span>
+                  <span style={{fontFamily:"monospace",fontWeight:800,fontSize:13,color:remaining>=0?"#3fb950":"#f85149"}}>{fmt(remaining)}<span style={{fontSize:9,color:T.muted,fontWeight:400}}> left</span></span>
                 </div>
-                <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:6,marginBottom:8}}>
+                <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:6,marginBottom:8}}>
                   <div style={{background:T.surface2,borderRadius:8,padding:"6px 8px"}}>
-                    <div style={{fontSize:9,color:T.muted,marginBottom:2}}>Reserved</div>
-                    <div style={{fontFamily:"monospace",fontWeight:700,fontSize:12,color:"#d29922"}}>{fmt(reserved)}</div>
+                    <div style={{fontSize:9,color:T.muted,marginBottom:2}}>Assigned</div>
+                    <div style={{fontFamily:"monospace",fontWeight:700,fontSize:12,color:"#f85149"}}>{fmt(assigned)}</div>
                   </div>
                   <div style={{background:T.surface2,borderRadius:8,padding:"6px 8px"}}>
-                    <div style={{fontSize:9,color:T.muted,marginBottom:2}}>Available</div>
-                    <div style={{fontFamily:"monospace",fontWeight:700,fontSize:12,color:"#58a6ff"}}>{fmt(available)}</div>
-                  </div>
-                  <div style={{background:T.surface2,borderRadius:8,padding:"6px 8px"}}>
-                    <div style={{fontSize:9,color:T.muted,marginBottom:2}}>Left over</div>
-                    <div style={{fontFamily:"monospace",fontWeight:700,fontSize:12,color:sob>=0?"#3fb950":"#f85149"}}>{fmt(sob)}</div>
+                    <div style={{fontSize:9,color:T.muted,marginBottom:2}}>Remaining</div>
+                    <div style={{fontFamily:"monospace",fontWeight:700,fontSize:12,color:remaining>=0?"#3fb950":"#f85149"}}>{fmt(remaining)}</div>
                   </div>
                 </div>
                 <div style={{height:6,background:T.bg,borderRadius:8,overflow:"hidden",marginBottom:8,display:"flex"}}>
@@ -1607,7 +1604,7 @@ function App(){
                 boxShadow:isActive&&isCur?"0 0 0 2px rgba(88,166,255,0.18)":"none",
                 transition:"all 0.15s",display:"flex",flexDirection:"column",alignItems:"center",gap:1}} onClick={()=>setActiveCheckPid(p.id)}>
                 <span style={{fontWeight:isActive?700:500}}>{p.label}</span>
-                {p.statusLabel&&<span style={{fontSize:8,fontWeight:700,letterSpacing:0.5,color:isActive?T.accent:p.statusLabel==="Current"?"#3fb950":"#d29922",lineHeight:1}}>{p.statusLabel.toUpperCase()}</span>}
+                {p.statusLabel&&<span style={{fontSize:8,fontWeight:700,letterSpacing:0.5,color:isActive?T.accent:p.statusLabel==="Current"?"#3fb950":"#d29922",lineHeight:1}}>{p.statusLabel.toUpperCase()}<span style={{fontWeight:400,letterSpacing:0,color:T.muted,marginLeft:3}}>· {pusedPct}%</span></span>}
               </button>);
             })}
           </div>)}
@@ -1813,8 +1810,8 @@ function App(){
             </div>
             <div style={{background:T.surface2,borderRadius:10,padding:"10px 12px",fontSize:11,color:T.muted,lineHeight:1.7}}>
               <div>This month: <strong style={{color:T.accent}}>{monthPeriods.length} pay period{monthPeriods.length!==1?"s":""}</strong> ({monthPeriods.map(p=>fmd(p.payday)).join(", ")})</div>
-              <div style={{marginTop:2}}><span style={{fontWeight:600,color:T.text}}>Current</span> <strong style={{color:T.text}}>{currentPeriod?fmd(currentPeriod.payday):"-"}</strong></div>
-              <div style={{marginTop:2}}><span style={{fontWeight:600,color:"#3fb950"}}>Next payday</span> <strong style={{color:"#3fb950"}}>{nextPayday?fmd(nextPayday):"-"}</strong> <span style={{color:T.muted}}>({diasProx===0?"today":diasProx+"d away"})</span></div>
+              <div style={{marginTop:3}}><span style={{fontWeight:600,color:T.text}}>Current</span> — <strong style={{color:T.text,fontSize:12}}>{currentPeriod?fmd(currentPeriod.payday):"-"}</strong></div>
+              <div style={{marginTop:3}}><span style={{fontWeight:700,color:"#3fb950"}}>Next payday</span> — <strong style={{color:"#3fb950",fontSize:12}}>{nextPayday?fmd(nextPayday):"-"}</strong> <span style={{color:T.muted,fontSize:10}}>({diasProx===0?"today":diasProx+"d away"})</span></div>
             </div>
           </div>
           <div style={{...CARD,padding:"14px 16px",marginBottom:14}}>
