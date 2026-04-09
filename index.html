@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8"/>
-  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover"/>
   <meta name="theme-color" content="#0b1220"/>
   <meta name="apple-mobile-web-app-capable" content="yes"/>
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent"/>
@@ -34,20 +34,15 @@
     /* Full-screen quick modal */
     .quick-modal-fullscreen{
       position:fixed;
-      top:0;
-      left:0;
-      right:0;
-      bottom:0;
+      top:0;left:0;right:0;bottom:0;
       z-index:301;
       display:flex;
       flex-direction:column;
       background:var(--qm-bg,#161b22);
       overflow:hidden;
       width:100%;
-      max-width:100%;
-      /* Prevent any transform/size distortion */
-      transform:none;
-      will-change:auto;
+      height:100%;
+      max-height:100%;
     }
     .quick-modal-header{
       display:flex;
@@ -57,17 +52,14 @@
       padding-top:max(16px, env(safe-area-inset-top, 16px));
       border-bottom:1px solid var(--qm-border,#30363d);
       flex-shrink:0;
-      width:100%;
     }
     .quick-modal-body{
       flex:1;
       overflow-y:auto;
       -webkit-overflow-scrolling:touch;
-      padding:18px 18px 120px;
-      padding-bottom:max(120px, env(safe-area-inset-bottom, 32px));
+      padding:18px 18px 32px;
       min-height:0;
       overscroll-behavior:contain;
-      width:100%;
     }
   </style>
 </head>
@@ -887,13 +879,6 @@ function App(){
     setQuickNote("");setQuickAmt("");setQuickOpen(false);toast_(`🛒 ${fmt(m)} charged to ${cardName}`);
   };
 
-  const addQuickExpenseAsReserved=()=>{
-    const m=parseFloat(quickAmt);if(!m||m<=0||!quickNote.trim())return toast_("Add name and amount","err");
-    const pid=quickPid||currentPid;const nid=Date.now();
-    updPeriodGastos(pid,g=>[...g,{id:nid,nombre:quickNote.trim(),monto:m,cat:"other",state:"reserved",pagado:false,destino:"temp",tarjetaRef:"",diaPago:null,_quick:true}]);
-    setQuickNote("");setQuickAmt("");setQuickOpen(false);toast_(`◑ "${quickNote.trim()}" ${fmt(m)} added as reserved`);
-  };
-
   const addQuickExpense=()=>{
     if(quickApplyTo==="card")addQuickExpenseToCard();
     else addQuickExpenseToCheck();
@@ -1117,16 +1102,13 @@ function App(){
             <span style={{fontSize:11,color:T.muted}}>Assigned</span>
             <span style={{fontFamily:"monospace",fontWeight:700,fontSize:13,color:"#f85149"}}>{fmt(total)}</span>
           </div>
-          <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"7px 0",borderBottom:reserved>0?`1px solid ${T.border}`:"none"}}>
+          <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"7px 0"}}>
             <span style={{fontSize:13,fontWeight:700,color:T.text}}>Remaining</span>
-            <span style={{fontFamily:"monospace",fontSize:20,fontWeight:800,color:remColor}}>{fmt(sob)}</span>
-          </div>
-          {reserved>0&&(
-            <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"4px 0"}}>
-              <span style={{fontSize:10,color:"#d29922",opacity:0.85}}>◑ Reserved</span>
-              <span style={{fontFamily:"monospace",fontWeight:600,fontSize:11,color:"#d29922",opacity:0.85}}>{fmt(reserved)}</span>
+            <div style={{textAlign:"right"}}>
+              <span style={{fontFamily:"monospace",fontSize:20,fontWeight:800,color:remColor}}>{fmt(sob)}</span>
+              {reserved>0&&<div style={{fontSize:10,color:"#d29922",fontWeight:400,marginTop:1,opacity:0.75}}>· {fmt(reserved)} reserved</div>}
             </div>
-          )}
+          </div>
         </div>
         {/* Progress bar */}
         <div style={{height:6,background:T.surface2,borderRadius:8,overflow:"hidden",display:"flex",marginBottom:6}}>
@@ -1179,6 +1161,7 @@ function App(){
         .tabs{display:flex;gap:4px;overflow-x:auto;padding-bottom:2px;-webkit-overflow-scrolling:touch;scrollbar-width:none;margin-bottom:14px;}
         .tabs::-webkit-scrollbar{display:none;}
         .quick-modal-fullscreen{animation:slideInUp 0.22s ease;}
+        .quick-modal-fullscreen input,.quick-modal-fullscreen select,.quick-modal-fullscreen textarea{transform:none!important;}
       `}</style>
       {toast&&<div style={{position:"fixed",top:16,right:16,zIndex:9999,background:toast.type==="err"?"#da3633":"#238636",color:"#fff",padding:"10px 16px",borderRadius:11,fontWeight:600,fontSize:13,boxShadow:"0 8px 24px rgba(0,0,0,0.4)"}}>{toast.msg}</div>}
       {urgentDebts.length>0&&!alertDim&&(
@@ -1207,8 +1190,6 @@ function App(){
             flexDirection:"column",
             overflow:"hidden",
             width:"100%",
-            maxWidth:"100%",
-            transform:"none",
           }}
         >
           {/* Header */}
@@ -1221,7 +1202,6 @@ function App(){
             borderBottom:`1px solid ${T.border}`,
             flexShrink:0,
             background:T.surface,
-            width:"100%",
           }}>
             <button style={{...BTN,background:"transparent",color:T.muted,fontSize:15,padding:"4px 0",minWidth:60}} onClick={()=>setQuickOpen(false)}>
               Cancel
@@ -1236,10 +1216,10 @@ function App(){
             overflowY:"auto",
             WebkitOverflowScrolling:"touch",
             padding:"20px 18px",
-            paddingBottom:"max(130px, env(safe-area-inset-bottom, 130px))",
+            paddingBottom:"max(100px, env(safe-area-inset-bottom, 100px))",
             minHeight:0,
             overscrollBehavior:"contain",
-            width:"100%",
+            position:"relative",
           }}>
 
             {/* Apply To toggle */}
@@ -1330,7 +1310,7 @@ function App(){
                 <div style={{fontSize:10,color:T.muted,letterSpacing:1.2,fontWeight:700,marginBottom:8}}>WHICH CARD?</div>
                 {data.tarjetas.length===0
                   ?<div style={{fontSize:12,color:T.muted,padding:"12px 14px",background:T.surface2,borderRadius:10}}>No cards found. Add one in Debts.</div>
-                  :<div style={{maxHeight:"36vh",overflowY:"auto",WebkitOverflowScrolling:"touch",display:"flex",flexDirection:"column",gap:7}}>
+                  :<div style={{overflowY:"auto",WebkitOverflowScrolling:"touch",display:"flex",flexDirection:"column",gap:7,maxHeight:"38vh"}}>
                     {data.tarjetas.map(t=>{
                       const tc=CC[t.nombre]||null;
                       const dot=tc?.dot||t._vc?.dot||"💳";
@@ -1363,27 +1343,14 @@ function App(){
               </div>
             </>)}
 
-            {/* Action buttons */}
-            {quickApplyTo==="check"&&(
-              <button style={{
-                ...BTN,width:"100%",padding:"13px",
-                background:"rgba(210,153,34,0.15)",
-                color:"#d29922",fontSize:14,fontWeight:700,
-                borderRadius:13,
-                marginTop:8,
-                border:"1px solid rgba(210,153,34,0.4)",
-              }} onClick={addQuickExpenseAsReserved}>
-                ◑ Add — Reserved
-              </button>
-            )}
+            {/* Action button */}
             <button style={{
               ...BTN,width:"100%",padding:"15px",
               background:quickActionBg,
               color:"#fff",fontSize:15,fontWeight:700,
               borderRadius:13,
-              marginTop:8,
-              position:"sticky",
-              bottom:16,
+              marginTop:4,
+              marginBottom:8,
             }} onClick={addQuickExpense}>
               {quickActionLabel}
             </button>
@@ -1558,7 +1525,6 @@ function App(){
                   <div style={{background:T.surface2,borderRadius:8,padding:"6px 8px"}}>
                     <div style={{fontSize:9,color:T.muted,marginBottom:2}}>Remaining</div>
                     <div style={{fontFamily:"monospace",fontWeight:700,fontSize:12,color:remaining>=0?"#3fb950":"#f85149"}}>{fmt(remaining)}</div>
-                    {reserved>0&&<div style={{fontFamily:"monospace",fontWeight:500,fontSize:9,color:"#d29922",marginTop:2,opacity:0.85}}>◑ {fmt(reserved)} reserved</div>}
                   </div>
                 </div>
                 <div style={{height:6,background:T.bg,borderRadius:8,overflow:"hidden",marginBottom:8,display:"flex"}}>
