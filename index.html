@@ -1055,9 +1055,6 @@ function App(){
     const pct=total>0?Math.round(((paid+reserved)/total)*100):0;
     const done=gastos.length>0&&gastos.every(g=>g.state==="paid");
     const pdDays=Math.ceil((payday-today)/86400000);
-    // Debt portion: sum of expenses whose category/destination is debt-related
-    const DEBT_CATS=new Set(["credit_card","auto","loan"]);
-    const debtPortion=gastos.filter(g=>DEBT_CATS.has(g.destino)||DEBT_CATS.has(g.cat)).reduce((s,g)=>s+n(g.monto),0);
     const remColor=getRemainingColor(sob);
     return(<div className="anim">
       <div style={{display:"flex",gap:8,marginBottom:12}}>
@@ -1089,15 +1086,9 @@ function App(){
             <span style={{fontSize:11,color:T.muted}}>Income</span>
             <span style={{fontFamily:"monospace",fontWeight:700,fontSize:13,color:"#3fb950"}}>{fmt(amt)}</span>
           </div>
-          <div style={{padding:"5px 0",borderBottom:`1px solid ${T.border}`}}>
-            <div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}>
-              <span style={{fontSize:11,color:T.muted}}>Assigned</span>
-              <span style={{fontFamily:"monospace",fontWeight:700,fontSize:13,color:"#f85149"}}>{fmt(total)}</span>
-            </div>
-            {debtPortion>0&&(<div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginTop:3}}>
-              <span style={{fontSize:10,color:T.muted,paddingLeft:10}}>↳ Debt portion</span>
-              <span style={{fontFamily:"monospace",fontWeight:600,fontSize:11,color:"#d29922"}}>{fmt(debtPortion)}</span>
-            </div>)}
+          <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"5px 0",borderBottom:`1px solid ${T.border}`}}>
+            <span style={{fontSize:11,color:T.muted}}>Assigned</span>
+            <span style={{fontFamily:"monospace",fontWeight:700,fontSize:13,color:"#f85149"}}>{fmt(total)}</span>
           </div>
           <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"7px 0"}}>
             <span style={{fontSize:13,fontWeight:700,color:T.text}}>Remaining</span>
