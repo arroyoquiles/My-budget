@@ -1608,7 +1608,6 @@ function App(){
                 transition:"all 0.15s",display:"flex",flexDirection:"column",alignItems:"center",gap:1}} onClick={()=>setActiveCheckPid(p.id)}>
                 <span style={{fontWeight:isActive?700:500}}>{p.label}</span>
                 {p.statusLabel&&<span style={{fontSize:8,fontWeight:700,letterSpacing:0.5,color:isActive?T.accent:p.statusLabel==="Current"?"#3fb950":"#d29922",lineHeight:1}}>{p.statusLabel.toUpperCase()}</span>}
-                {ptotal>0&&<span style={{fontSize:8,color:isActive?T.accent:T.muted,fontWeight:600,lineHeight:1,opacity:0.8}}>{pusedPct}% used</span>}
               </button>);
             })}
           </div>)}
@@ -1801,7 +1800,7 @@ function App(){
             <div style={{marginBottom:10}}>
               <div style={{fontSize:9,color:T.muted,marginBottom:5}}>DEFAULT PAYCHECK AMOUNT ($)</div>
               <input style={{...INP,fontSize:16,fontFamily:"monospace",fontWeight:700}} type="number" inputMode="decimal" value={data.checkAmount||""} onChange={e=>setData(p=>({...p,checkAmount:parseFloat(e.target.value)||0}))} placeholder="1520"/>
-              <div style={{fontSize:10,color:T.muted,marginTop:5}}>Used as the default for all pay periods. You can override each period's amount individually in its own Check tab.</div>
+              <div style={{fontSize:10,color:T.muted,marginTop:5}}>Used as default for all pay periods. Each paycheck can override its amount individually.</div>
             </div>
             <div style={{marginBottom:10}}><div style={{fontSize:9,color:T.muted,marginBottom:5}}>ANCHOR PAYDAY DATE</div><input style={{...INP,fontSize:14,padding:"9px 12px"}} type="date" value={data.proximoCobro||""} onChange={e=>setData(p=>({...p,proximoCobro:e.target.value}))}/></div>
             <div style={{marginBottom:10}}><div style={{fontSize:9,color:T.muted,marginBottom:5}}>FREQUENCY</div>
@@ -1814,8 +1813,8 @@ function App(){
             </div>
             <div style={{background:T.surface2,borderRadius:10,padding:"10px 12px",fontSize:11,color:T.muted,lineHeight:1.7}}>
               <div>This month: <strong style={{color:T.accent}}>{monthPeriods.length} pay period{monthPeriods.length!==1?"s":""}</strong> ({monthPeriods.map(p=>fmd(p.payday)).join(", ")})</div>
-              <div>Current: <strong style={{color:T.text}}>{currentPeriod?fmd(currentPeriod.payday):"-"}</strong></div>
-              <div>Next payday: <strong style={{color:"#3fb950"}}>{nextPayday?fmd(nextPayday):"-"}</strong> ({diasProx===0?"today":diasProx+"d away"})</div>
+              <div style={{marginTop:2}}><span style={{fontWeight:600,color:T.text}}>Current</span> <strong style={{color:T.text}}>{currentPeriod?fmd(currentPeriod.payday):"-"}</strong></div>
+              <div style={{marginTop:2}}><span style={{fontWeight:600,color:"#3fb950"}}>Next payday</span> <strong style={{color:"#3fb950"}}>{nextPayday?fmd(nextPayday):"-"}</strong> <span style={{color:T.muted}}>({diasProx===0?"today":diasProx+"d away"})</span></div>
             </div>
           </div>
           <div style={{...CARD,padding:"14px 16px",marginBottom:14}}>
