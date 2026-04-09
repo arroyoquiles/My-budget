@@ -691,6 +691,7 @@ const getSnapshotReminder=(today,snapshots)=>{
 function App(){
   const [data,setData]=useState(loadData);
   const [tab,setTab]=useState("overview");
+  const [activeCheckPid,setActiveCheckPid]=useState("");
   const [toast,setToast]=useState(null);
   const [editId,setEditId]=useState(null);
   const [accion,setAccion]=useState(null);
@@ -792,8 +793,10 @@ function App(){
   const urgentDebts=allDebts.filter(d=>getDU(d.fechaPago)!==null&&getDU(d.fechaPago)<=3);
   const pots=data.pots||{};
   useEffect(()=>{if(!quickPid&&currentPid)setQuickPid(currentPid);},[currentPid]);
+  useEffect(()=>{if(currentPid&&!activeCheckPid)setActiveCheckPid(currentPid);},[currentPid]);
+  useEffect(()=>{if(tab==="paychecks"&&!activeCheckPid&&monthPeriods.length>0){const cur=monthPeriods.find(p=>p.isCurrent)||monthPeriods[0];setActiveCheckPid(cur.id);}},[tab]);
   useEffect(()=>{if(!quickCardId&&data.tarjetas.length>0)setQuickCardId(String(data.tarjetas[0].id));},[data.tarjetas]);
-  const TABS_ORDER=useMemo(()=>["overview",...monthPeriods.map(p=>p.id),"debts","calendar","history","settings"],[monthPeriods]);
+  const TABS_ORDER=useMemo(()=>["overview","paychecks","debts","calendar","history","settings"],[]);
   const handleSwipeTouchStart=useCallback(e=>{
     const t=e.touches[0];
     if(tabBarRef.current){const rect=tabBarRef.current.getBoundingClientRect();if(t.clientY>=rect.top&&t.clientY<=rect.bottom){swipeFromContent.current=false;swipeStart.current=null;return;}}
@@ -1117,13 +1120,14 @@ function App(){
       <button style={{...BTN,width:"100%",padding:"11px",background:"rgba(248,81,73,0.08)",color:"#f85149",fontSize:13,border:"1px solid rgba(248,81,73,0.25)"}} onClick={()=>resetCheck(pid,label)}>🔄 New Cycle — Reset {label}</button>
     </div>);
   };
+  const hasActiveCheck=monthPeriods.some(p=>p.isCurrent);
   const TABS=[
-    {id:"overview",icon:"📊",label:"Overview"},
-    ...monthPeriods.map(p=>({id:p.id,icon:p.isCurrent?"💰":"📋",label:p.label,statusLabel:p.statusLabel,isCurrent:p.isCurrent})),
-    {id:"debts",   icon:"💳",label:"Debts",urgent:urgentDebts.length>0},
-    {id:"calendar",icon:"📅",label:"Calendar"},
-    {id:"history", icon:"📆",label:"History"},
-    {id:"settings",icon:"⚙️",label:"Settings"},
+    {id:"overview",  icon:"📊",label:"Overview"},
+    {id:"paychecks", icon:"💰",label:"Paychecks",hasActive:hasActiveCheck},
+    {id:"debts",     icon:"💳",label:"Debts",urgent:urgentDebts.length>0},
+    {id:"calendar",  icon:"📅",label:"Calendar"},
+    {id:"history",   icon:"📆",label:"History"},
+    {id:"settings",  icon:"⚙️",label:"Settings"},
   ];
   const snapReminder=useMemo(()=>getSnapshotReminder(today,data.snapshots),[today,data.snapshots]);
 
@@ -1410,18 +1414,15 @@ function App(){
             <div style={{fontSize:9,color:T.accent,letterSpacing:2,marginBottom:3,fontWeight:600}}>FINANCIAL PLANNER</div>
             <div style={{fontSize:22,fontWeight:800,letterSpacing:-0.5}}>My Budget</div>
           </div>
-          {diasProx!==null&&(<div style={{background:"rgba(63,185,80,0.08)",border:"1px solid rgba(63,185,80,0.25)",borderRadius:10,padding:"5px 10px",textAlign:"center",cursor:"pointer"}} onClick={()=>{if(currentPeriod)setTab(currentPeriod.id);}}>
+          {diasProx!==null&&(<div style={{background:"rgba(63,185,80,0.08)",border:"1px solid rgba(63,185,80,0.25)",borderRadius:10,padding:"5px 10px",textAlign:"center",cursor:"pointer"}} onClick={()=>{if(currentPeriod){setActiveCheckPid(currentPeriod.id);setTab("paychecks");}}}>
             <div style={{fontSize:9,color:T.muted}}>NEXT CHECK</div>
             <div style={{fontFamily:"monospace",fontWeight:800,color:diasProx===0?"#58a6ff":"#3fb950",fontSize:diasProx===0?10:14}}>{diasProx===0?"TODAY 🎉":`${diasProx}d`}</div>
             <div style={{fontSize:9,color:T.muted}}>{nextPayday?fmd(nextPayday):""}</div>
           </div>)}
         </div>
         <div ref={tabBarRef} className="tabs">
-          {TABS.map(t=>(<button key={t.id} style={{...BTN,padding:"7px 11px",fontSize:10,whiteSpace:"nowrap",flexShrink:0,background:tab===t.id?T.accent:T.surface2,color:tab===t.id?(theme==="dark"?"#0d1117":"#fff"):T.muted,border:`1px solid ${tab===t.id?T.accent:t.urgent?"#f85149":t.isCurrent?"#3fb950":T.border}`,position:"relative"}} onClick={()=>setTab(t.id)}>
-            <div style={{display:"flex",flexDirection:"column",alignItems:"center",gap:1}}>
-              <span>{t.icon} {t.label}</span>
-              {t.statusLabel&&<span style={{fontSize:8,fontWeight:700,letterSpacing:0.5,color:tab===t.id?(theme==="dark"?"#0d1117":"#fff"):t.statusLabel==="Current"?"#3fb950":"#d29922",lineHeight:1}}>{t.statusLabel.toUpperCase()}</span>}
-            </div>
+          {TABS.map(t=>(<button key={t.id} style={{...BTN,padding:"7px 11px",fontSize:10,whiteSpace:"nowrap",flexShrink:0,background:tab===t.id?T.accent:T.surface2,color:tab===t.id?(theme==="dark"?"#0d1117":"#fff"):T.muted,border:`1px solid ${tab===t.id?T.accent:t.urgent?"#f85149":t.hasActive?"#3fb950":T.border}`,position:"relative"}} onClick={()=>setTab(t.id)}>
+            <span>{t.icon} {t.label}</span>
             {t.urgent&&tab!==t.id&&<span style={{position:"absolute",top:-3,right:-3,width:8,height:8,borderRadius:"50%",background:"#f85149",border:"2px solid "+T.bg}}/>}
           </button>))}
         </div>
@@ -1506,7 +1507,7 @@ function App(){
                   <div style={{width:`${total>0?Math.round((paid/total)*100):0}%`,background:"#2ea043",transition:"width 0.5s"}}/>
                   <div style={{width:`${total>0?Math.round((reserved/total)*100):0}%`,background:"#d29922",transition:"width 0.5s"}}/>
                 </div>
-                <button style={{...BTN,width:"100%",padding:"7px",background:T.surface2,color:T.muted,fontSize:11,border:`1px solid ${T.border}`}} onClick={()=>setTab(p.id)}>Go to {p.label} →</button>
+                <button style={{...BTN,width:"100%",padding:"7px",background:T.surface2,color:T.muted,fontSize:11,border:`1px solid ${T.border}`}} onClick={()=>{setActiveCheckPid(p.id);setTab("paychecks");}}>Go to {p.label} →</button>
               </div>);
             })}
           </div>
@@ -1570,7 +1571,23 @@ function App(){
             setData(p=>({...p,snapshots:[s,...p.snapshots].slice(0,24)}));toast_("✅ Snapshot saved");
           }}>💾 Save Monthly Snapshot</button>
         </div>)}
-        {monthPeriods.map(p=>tab===p.id&&<div key={p.id}>{renderCheckTab(p)}</div>)}
+        {tab==="paychecks"&&(<div className="anim">
+          {/* Internal paycheck sub-tabs */}
+          {monthPeriods.length>1&&(<div style={{display:"flex",gap:5,marginBottom:14,background:T.surface2,borderRadius:11,padding:3}}>
+            {monthPeriods.map(p=>{
+              const isActive=activeCheckPid===p.id||((!activeCheckPid)&&p.isCurrent);
+              return(<button key={p.id} style={{...BTN,flex:1,padding:"8px 6px",fontSize:11,borderRadius:9,background:isActive?T.bg:"transparent",color:isActive?T.accent:T.muted,border:isActive?`1px solid ${T.accent}`:"1px solid transparent",transition:"all 0.15s",display:"flex",flexDirection:"column",alignItems:"center",gap:1}} onClick={()=>setActiveCheckPid(p.id)}>
+                <span style={{fontWeight:isActive?700:500}}>{p.label}</span>
+                {p.statusLabel&&<span style={{fontSize:8,fontWeight:700,letterSpacing:0.5,color:isActive?T.accent:p.statusLabel==="Current"?"#3fb950":"#d29922",lineHeight:1}}>{p.statusLabel.toUpperCase()}</span>}
+              </button>);
+            })}
+          </div>)}
+          {(()=>{
+            const pid=activeCheckPid||(monthPeriods.find(p=>p.isCurrent)||monthPeriods[0])?.id;
+            const period=monthPeriods.find(p=>p.id===pid)||monthPeriods[0];
+            return period?renderCheckTab(period):null;
+          })()}
+        </div>)}
         {tab==="debts"&&(()=>{
           const cards=allDebts.filter(d=>d.tipo==="card");
           const loans=allDebts.filter(d=>d.tipo==="loan");
