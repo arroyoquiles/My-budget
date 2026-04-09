@@ -712,6 +712,8 @@ function App(){
   const scrollLockPos=useRef(0);
   const [kbHeight,setKbHeight]=useState(0);
   const kbHeightRef=useRef(0);
+  const quickOverlayRef=useRef(null);
+  const quickKbHeightRef=useRef(0);
   useEffect(()=>{
     if(!moveOpen)return;
     const onResize=()=>{
@@ -733,6 +735,31 @@ function App(){
       }
     };
   },[moveOpen]);
+  useEffect(()=>{
+    if(!quickOpen)return;
+    const applyVV=()=>{
+      if(!quickOverlayRef.current)return;
+      const vv=window.visualViewport;
+      if(vv){
+        quickOverlayRef.current.style.top=vv.offsetTop+"px";
+        quickOverlayRef.current.style.height=vv.height+"px";
+      } else {
+        quickOverlayRef.current.style.top="0px";
+        quickOverlayRef.current.style.height=window.innerHeight+"px";
+      }
+    };
+    applyVV();
+    if(window.visualViewport){
+      window.visualViewport.addEventListener("resize",applyVV);
+      window.visualViewport.addEventListener("scroll",applyVV);
+    }
+    return()=>{
+      if(window.visualViewport){
+        window.visualViewport.removeEventListener("resize",applyVV);
+        window.visualViewport.removeEventListener("scroll",applyVV);
+      }
+    };
+  },[quickOpen]);
   useEffect(()=>{
     if(moveOpen){
       scrollLockPos.current=window.scrollY||document.documentElement.scrollTop||0;
@@ -762,7 +789,6 @@ function App(){
       document.body.style.width="";
       document.body.style.overflowY="";
       window.scrollTo(0,scrollLockPos.current);
-      setQuickKbHeight(0);
     }
   },[quickOpen]);
   const [snapDetail,setSnapDetail]=useState(null);
@@ -1192,8 +1218,8 @@ function App(){
 
       {/* ── Quick Expense Sheet Modal ── */}
       {quickOpen&&(
-        <div style={{position:"fixed",inset:0,zIndex:300,background:"rgba(0,0,0,0.72)"}} onClick={e=>{if(e.target===e.currentTarget)setQuickOpen(false);}}>
-          <div style={{position:"fixed",bottom:0,left:0,right:0,width:"100%",maxWidth:500,margin:"0 auto",background:T.surface,borderRadius:"20px 20px 0 0",border:`1px solid ${T.border}`,display:"flex",flexDirection:"column",maxHeight:"92dvh"}}>
+        <div ref={quickOverlayRef} style={{position:"fixed",top:0,left:0,right:0,height:"100%",zIndex:300,background:"rgba(0,0,0,0.72)",display:"flex",flexDirection:"column",justifyContent:"flex-end"}} onClick={e=>{if(e.target===e.currentTarget)setQuickOpen(false);}}>
+          <div style={{width:"100%",maxWidth:500,margin:"0 auto",background:T.surface,borderRadius:"20px 20px 0 0",border:`1px solid ${T.border}`,display:"flex",flexDirection:"column",maxHeight:"92%"}}>
             {/* Header */}
             <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",padding:"16px 18px 12px",borderBottom:`1px solid ${T.border}`,flexShrink:0}}>
               <div style={{fontSize:14,fontWeight:700,color:T.text}}>⚡ Quick Expense</div>
