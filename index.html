@@ -489,7 +489,7 @@ const GastoItem=memo(({item,pid,editId,setEditId,tarjetas,onCycle,onLongPress,on
       </div>
     </div>
   );
-});const DebtCard=memo(({debt,idx,isFirst,tipo,accion,setAccion,montoAccion,setMontoAccion,onApply,onUpdate,onRemove,isAdding,setAddingDebt,onTogglePriority,T})=>{
+});const DebtCard=memo(({debt,idx,isFirst,tipo,accion,setAccion,montoAccion,setMontoAccion,onApply,onUpdate,onRemove,isAdding,setAddingDebt,onTogglePriority,T,_isOpen,_onCollapse})=>{
   const [editing,setEditing]=useState(false);
   const [longPressMenu,setLongPressMenu]=useState(false);
   const [savedSnapshot,setSavedSnapshot]=useState(null);
@@ -523,7 +523,8 @@ const GastoItem=memo(({item,pid,editId,setEditId,tarjetas,onCycle,onLongPress,on
   };
   const saveEditing=()=>{setEditing(false);setSavedSnapshot(null);};
   return(
-    <div style={{...CARD,padding:"12px 14px",marginBottom:9,borderColor:isFirst?"#d29922":showEdit?"rgba(88,166,255,0.5)":debt.priority?"rgba(245,158,11,0.35)":T.border,transition:"border-color 0.2s",userSelect:"none",WebkitUserSelect:"none",WebkitTouchCallout:"none"}}>
+    <div onClick={e=>e.stopPropagation()} style={{position:"relative"}}>
+    <div style={{...CARD,padding:"12px 14px",marginBottom:0,borderColor:isFirst?"#d29922":showEdit?"rgba(88,166,255,0.5)":debt.priority?"rgba(245,158,11,0.35)":T.border,transition:"border-color 0.2s",userSelect:"none",WebkitUserSelect:"none",WebkitTouchCallout:"none"}}>
 
       {/* ── Header: icon · name · balance · star ── */}
       <div style={{display:"flex",alignItems:"center",gap:7,marginBottom:6,userSelect:"none",WebkitUserSelect:"none"}} onTouchStart={e=>{e.preventDefault();hLPStart();}} onTouchEnd={hLPEnd} onMouseDown={hLPStart} onMouseUp={hLPEnd}>
@@ -534,15 +535,15 @@ const GastoItem=memo(({item,pid,editId,setEditId,tarjetas,onCycle,onLongPress,on
         }
         {isFirst&&!showEdit&&<span style={{fontSize:9,fontWeight:700,color:"#d29922",background:"rgba(210,153,34,0.13)",border:"1px solid rgba(210,153,34,0.28)",borderRadius:5,padding:"1px 5px",flexShrink:0}}>🎯</span>}
         <span style={{fontFamily:"monospace",fontWeight:800,fontSize:tipo==="card"?18:16,color:balanceColor,flexShrink:0,letterSpacing:-0.3}}>{fmt(n(debt.balance))}</span>
-        <button style={{...BTN,background:"transparent",color:debt.priority?"#f59e0b":T.muted,padding:"2px 3px",fontSize:14,border:"none",opacity:debt.priority?1:0.35,flexShrink:0,transition:"opacity 0.15s"}} onClick={()=>onTogglePriority(debt.id)}>⭐</button>
+        <button style={{...BTN,background:"transparent",color:debt.priority?"#f59e0b":T.muted,padding:"2px 3px",fontSize:14,border:"none",opacity:debt.priority?1:0.35,flexShrink:0,transition:"opacity 0.15s"}} onClick={e=>{e.stopPropagation();onTogglePriority(debt.id);}}>⭐</button>
       </div>
 
       {/* ── Long-press action menu ── */}
       {longPressMenu&&!isAdding&&(<div style={{display:"flex",gap:8,marginBottom:8,padding:"8px 10px",borderRadius:9,background:T.surface2,border:`1px solid ${T.border}`,alignItems:"center"}}>
         <span style={{fontSize:10,color:T.muted,flex:1}}>Options:</span>
-        <button style={{...BTN,padding:"5px 12px",fontSize:11,background:"rgba(88,166,255,0.08)",color:T.accent,border:`1px solid rgba(88,166,255,0.3)`,borderRadius:7}} onClick={startEditing}>✏️ Edit</button>
-        <button style={{...BTN,padding:"5px 12px",fontSize:11,background:"rgba(248,81,73,0.08)",color:"#f85149",border:"1px solid rgba(248,81,73,0.25)",borderRadius:7}} onClick={()=>{if(window.confirm("Delete this debt?"))onRemove(debt.id);setLongPressMenu(false);}}>🗑 Delete</button>
-        <button style={{...BTN,padding:"5px 8px",fontSize:11,background:"transparent",color:T.muted,border:`1px solid ${T.border}`,borderRadius:7}} onClick={()=>setLongPressMenu(false)}>✕</button>
+        <button style={{...BTN,padding:"5px 12px",fontSize:11,background:"rgba(88,166,255,0.08)",color:T.accent,border:`1px solid rgba(88,166,255,0.3)`,borderRadius:7}} onClick={e=>{e.stopPropagation();startEditing();}}>✏️ Edit</button>
+        <button style={{...BTN,padding:"5px 12px",fontSize:11,background:"rgba(248,81,73,0.08)",color:"#f85149",border:"1px solid rgba(248,81,73,0.25)",borderRadius:7}} onClick={e=>{e.stopPropagation();if(window.confirm("Delete this debt?"))onRemove(debt.id);setLongPressMenu(false);}}>🗑 Delete</button>
+        <button style={{...BTN,padding:"5px 8px",fontSize:11,background:"transparent",color:T.muted,border:`1px solid ${T.border}`,borderRadius:7}} onClick={e=>{e.stopPropagation();setLongPressMenu(false);}}>✕</button>
       </div>)}
 
       {/* ── Edit fields ── */}
@@ -556,12 +557,12 @@ const GastoItem=memo(({item,pid,editId,setEditId,tarjetas,onCycle,onLongPress,on
         </div>
         {isAdding
           ?(<div style={{display:"flex",gap:7,marginBottom:2}}>
-              <button style={{...BTN,flex:1,padding:"9px",background:"#238636",color:"#fff",fontSize:13}} onClick={()=>setAddingDebt(null)}>✓ Done Adding</button>
-              <button style={{...BTN,padding:"9px 14px",background:"rgba(248,81,73,0.1)",color:"#f85149",fontSize:13,border:"1px solid rgba(248,81,73,0.3)"}} onClick={()=>{onRemove(debt.id);setAddingDebt(null);}}>Cancel</button>
+              <button style={{...BTN,flex:1,padding:"9px",background:"#238636",color:"#fff",fontSize:13}} onClick={e=>{e.stopPropagation();setAddingDebt(null);}}>✓ Done Adding</button>
+              <button style={{...BTN,padding:"9px 14px",background:"rgba(248,81,73,0.1)",color:"#f85149",fontSize:13,border:"1px solid rgba(248,81,73,0.3)"}} onClick={e=>{e.stopPropagation();onRemove(debt.id);setAddingDebt(null);}}>Cancel</button>
             </div>)
           :(<div style={{display:"flex",gap:7,marginBottom:2}}>
-              <button style={{...BTN,flex:1,padding:"9px",background:"#238636",color:"#fff",fontSize:13}} onClick={saveEditing}>✓ Save</button>
-              <button style={{...BTN,padding:"9px 14px",background:T.surface2,color:T.muted,fontSize:13,border:`1px solid ${T.border}`}} onClick={cancelEditing}>Cancel</button>
+              <button style={{...BTN,flex:1,padding:"9px",background:"#238636",color:"#fff",fontSize:13}} onClick={e=>{e.stopPropagation();saveEditing();}}>✓ Save</button>
+              <button style={{...BTN,padding:"9px 14px",background:T.surface2,color:T.muted,fontSize:13,border:`1px solid ${T.border}`}} onClick={e=>{e.stopPropagation();cancelEditing();}}>Cancel</button>
             </div>)
         }
       </>)}
@@ -646,16 +647,23 @@ const GastoItem=memo(({item,pid,editId,setEditId,tarjetas,onCycle,onLongPress,on
             <div style={{fontSize:11,fontWeight:700,color:accion.tipo==="pago"?"#3fb950":"#f85149",marginBottom:7}}>{accion.tipo==="pago"?"💳 Amount paid?":"🛒 Amount charged?"}</div>
             <div style={{display:"flex",gap:6,marginBottom:5}}>
               <input style={{...INP,flex:1,fontFamily:"monospace",fontWeight:700,fontSize:16,padding:"8px 10px"}} type="number" inputMode="decimal" placeholder="$0" value={montoAccion} onChange={e=>setMontoAccion(e.target.value)}/>
-              <button style={{...BTN,padding:"8px 13px",background:accion.tipo==="pago"?"#238636":"rgba(248,81,73,0.2)",color:accion.tipo==="pago"?"#fff":"#f85149",fontSize:14}} onClick={()=>onApply(debt.id,tipo)}>✓</button>
-              <button style={{...BTN,padding:"8px 10px",background:T.surface2,color:T.muted,fontSize:14}} onClick={()=>{setAccion(null);setMontoAccion("");}}>✕</button>
+              <button style={{...BTN,padding:"8px 13px",background:accion.tipo==="pago"?"#238636":"rgba(248,81,73,0.2)",color:accion.tipo==="pago"?"#fff":"#f85149",fontSize:14}} onClick={e=>{e.stopPropagation();onApply(debt.id,tipo);}}>✓</button>
+              <button style={{...BTN,padding:"8px 10px",background:T.surface2,color:T.muted,fontSize:14}} onClick={e=>{e.stopPropagation();setAccion(null);setMontoAccion("");}}>✕</button>
             </div>
             {(debt.historial||[]).slice(0,2).map((h,i)=>(<div key={i} style={{display:"flex",justifyContent:"space-between",fontSize:10,padding:"3px 0",borderBottom:`1px solid ${T.border}`}}><span style={{color:T.muted}}>{h.fecha} · {h.tipo==="pago"?"Paid":"Charge"}</span><span style={{color:h.tipo==="pago"?"#3fb950":"#f85149",fontWeight:700}}>{h.tipo==="pago"?"-":"+"}${h.monto}</span></div>))}
           </div>)
           :(<div style={{display:"flex",gap:6,marginTop:6}}>
-            <button style={{...BTN,flex:1,padding:"8px",background:"rgba(63,185,80,0.1)",color:"#3fb950",fontSize:12,border:"1px solid rgba(63,185,80,0.3)",fontWeight:600}} onClick={()=>{setAccion({id:debt.id,tipo:"pago"});setMontoAccion("");}}>💳 Payment</button>
-            {tipo==="card"&&<button style={{...BTN,flex:1,padding:"8px",background:"rgba(248,81,73,0.07)",color:"#f85149",fontSize:12,border:"1px solid rgba(248,81,73,0.22)",fontWeight:600}} onClick={()=>{setAccion({id:debt.id,tipo:"gasto"});setMontoAccion("");}}>🛒 Charge</button>}
+            <button style={{...BTN,flex:1,padding:"8px",background:"rgba(63,185,80,0.1)",color:"#3fb950",fontSize:12,border:"1px solid rgba(63,185,80,0.3)",fontWeight:600}} onClick={e=>{e.stopPropagation();setAccion({id:debt.id,tipo:"pago"});setMontoAccion("");}}>💳 Payment</button>
+            {tipo==="card"&&<button style={{...BTN,flex:1,padding:"8px",background:"rgba(248,81,73,0.07)",color:"#f85149",fontSize:12,border:"1px solid rgba(248,81,73,0.22)",fontWeight:600}} onClick={e=>{e.stopPropagation();setAccion({id:debt.id,tipo:"gasto"});setMontoAccion("");}}>🛒 Charge</button>}
           </div>)
       )}
+
+      {/* ── Collapse handle (solo cuando está expandida manualmente) ── */}
+      {_isOpen&&_onCollapse&&!showEdit&&(<div style={{display:"flex",justifyContent:"center",marginTop:8,marginBottom:-2}}>
+        <button style={{...BTN,padding:"4px 20px",fontSize:10,background:T.surface2,color:T.muted,border:`1px solid ${T.border}`,borderRadius:20,letterSpacing:0.5}} onClick={e=>{e.stopPropagation();_onCollapse();}}>▲ cerrar</button>
+      </div>)}
+
+    </div>
     </div>
   );
 });
@@ -756,6 +764,7 @@ function App(){
   const [debtsFilter,setDebtsFilter]=useState("all");
   const [cardsCollapsed,setCardsCollapsed]=useState(false);
   const [loansCollapsed,setLoansCollapsed]=useState(false);
+  const [expandedDebtId,setExpandedDebtId]=useState(null);
   const toastRef=useRef();
   const swipeStart=useRef(null);
   const swipeFromContent=useRef(false);
@@ -1695,10 +1704,50 @@ function App(){
                 </div>
                 <div style={{flex:1,height:1,background:`linear-gradient(90deg,${T.border},transparent)`}}/>
               </button>
-              {!cardsCollapsed&&(<>
-                {visibleCards.map((d)=>{const globalIdx=allDebts.findIndex(x=>x.id===d.id&&x.tipo===d.tipo);return(<DebtCard key={d.id} debt={d} idx={globalIdx} isFirst={globalIdx===0} tipo="card" accion={accion} setAccion={setAccion} montoAccion={montoAccion} setMontoAccion={setMontoAccion} onApply={applyAccion} onUpdate={updateTarjeta} onRemove={removeTarjeta} isAdding={addingDebt?.id===d.id} setAddingDebt={setAddingDebt} onTogglePriority={togglePriorityCard} T={T}/>);})}
-                {(debtsFilter==="all"||debtsFilter==="cards")&&(<button style={{...BTN,width:"100%",marginBottom:24,padding:"10px",background:"transparent",color:"#ec4899",fontSize:12,border:`1.5px dashed rgba(236,72,153,0.3)`}} onClick={addCard}>+ Add Card</button>)}
-              </>)}
+              {!cardsCollapsed&&(()=>{
+                /* ── WALLET STACK ──
+                   Cada tarjeta se envuelve en un div con overflow:hidden + maxHeight fijo.
+                   PEEK_H = altura visible cuando está apilada (llega hasta la fila APR).
+                   Al tocar una tarjeta, expandedDebtId === d.id → se quita el clip y se ve completa.
+                   La última tarjeta del grupo nunca se clipea (ya es la de abajo del stack). */
+                const PEEK_H = 105; // px — cubre hasta APR, oculta cutoff / botones
+                return(<>
+                  {visibleCards.map((d,si)=>{
+                    const globalIdx=allDebts.findIndex(x=>x.id===d.id&&x.tipo===d.tipo);
+                    const isLast = si===visibleCards.length-1;
+                    const forceOpen = addingDebt?.id===d.id || accion?.id===d.id;
+                    const isOpen = expandedDebtId===d.id || forceOpen;
+                    const clip = !isOpen && !isLast && visibleCards.length>1;
+                    return(
+                      <div key={d.id}
+                        style={{
+                          overflow: clip?"hidden":"visible",
+                          maxHeight: clip?PEEK_H+"px":"none",
+                          marginBottom: clip?-2:6,
+                          borderRadius:14,
+                          cursor: clip?"pointer":"default",
+                          WebkitTapHighlightColor:"transparent",
+                          position:"relative",
+                          zIndex: isOpen?10:(visibleCards.length-si),
+                          boxShadow: si>0&&clip?"0 -4px 16px rgba(0,0,0,0.5)":"none",
+                          transition:"max-height 0.25s ease, margin-bottom 0.25s ease",
+                        }}
+                        onClick={()=>{ if(clip) setExpandedDebtId(d.id); }}
+                      >
+                        <DebtCard key={d.id} debt={d} idx={globalIdx} isFirst={globalIdx===0} tipo="card"
+                          accion={accion} setAccion={(v)=>{if(!isOpen&&v)setExpandedDebtId(d.id);setAccion(v);}}
+                          montoAccion={montoAccion} setMontoAccion={setMontoAccion}
+                          onApply={applyAccion} onUpdate={updateTarjeta} onRemove={removeTarjeta}
+                          isAdding={addingDebt?.id===d.id} setAddingDebt={setAddingDebt}
+                          onTogglePriority={(id)=>{setExpandedDebtId(d.id);togglePriorityCard(id);}} T={T}
+                          _isOpen={isOpen} _onCollapse={isOpen&&!forceOpen?()=>setExpandedDebtId(null):null}
+                        />
+                      </div>
+                    );
+                  })}
+                  {(debtsFilter==="all"||debtsFilter==="cards")&&(<button style={{...BTN,width:"100%",marginBottom:24,marginTop:8,padding:"10px",background:"transparent",color:"#ec4899",fontSize:12,border:`1.5px dashed rgba(236,72,153,0.3)`}} onClick={addCard}>+ Add Card</button>)}
+                </>);
+              })()}
             </>)}
             {visibleLoans.length>0&&(<>
               <button style={{...BTN,width:"100%",display:"flex",alignItems:"center",gap:0,marginBottom:loansCollapsed?8:10,background:"transparent",border:"none",padding:0,borderRadius:0}} onClick={()=>setLoansCollapsed(c=>!c)}>
@@ -1710,10 +1759,45 @@ function App(){
                 </div>
                 <div style={{flex:1,height:1,background:`linear-gradient(90deg,${T.border},transparent)`}}/>
               </button>
-              {!loansCollapsed&&(<>
-                {visibleLoans.map((d)=>{const globalIdx=allDebts.findIndex(x=>x.id===d.id&&x.tipo===d.tipo);return(<DebtCard key={d.id} debt={d} idx={globalIdx} isFirst={globalIdx===0} tipo="loan" accion={accion} setAccion={setAccion} montoAccion={montoAccion} setMontoAccion={setMontoAccion} onApply={applyAccion} onUpdate={updateLoan} onRemove={removeLoan} isAdding={addingDebt?.id===d.id} setAddingDebt={setAddingDebt} onTogglePriority={togglePriorityLoan} T={T}/>);})}
-                {(debtsFilter==="all"||debtsFilter==="loans")&&(<button style={{...BTN,width:"100%",marginBottom:24,padding:"10px",background:"transparent",color:"#f97316",fontSize:12,border:`1.5px dashed rgba(249,115,22,0.3)`}} onClick={addLoan}>+ Add Loan</button>)}
-              </>)}
+              {!loansCollapsed&&(()=>{
+                const PEEK_H = 105;
+                return(<>
+                  {visibleLoans.map((d,si)=>{
+                    const globalIdx=allDebts.findIndex(x=>x.id===d.id&&x.tipo===d.tipo);
+                    const isLast = si===visibleLoans.length-1;
+                    const forceOpen = addingDebt?.id===d.id || accion?.id===d.id;
+                    const isOpen = expandedDebtId===d.id || forceOpen;
+                    const clip = !isOpen && !isLast && visibleLoans.length>1;
+                    return(
+                      <div key={d.id}
+                        style={{
+                          overflow: clip?"hidden":"visible",
+                          maxHeight: clip?PEEK_H+"px":"none",
+                          marginBottom: clip?-2:6,
+                          borderRadius:14,
+                          cursor: clip?"pointer":"default",
+                          WebkitTapHighlightColor:"transparent",
+                          position:"relative",
+                          zIndex: isOpen?10:(visibleLoans.length-si),
+                          boxShadow: si>0&&clip?"0 -4px 16px rgba(0,0,0,0.5)":"none",
+                          transition:"max-height 0.25s ease, margin-bottom 0.25s ease",
+                        }}
+                        onClick={()=>{ if(clip) setExpandedDebtId(d.id); }}
+                      >
+                        <DebtCard key={d.id} debt={d} idx={globalIdx} isFirst={globalIdx===0} tipo="loan"
+                          accion={accion} setAccion={(v)=>{if(!isOpen&&v)setExpandedDebtId(d.id);setAccion(v);}}
+                          montoAccion={montoAccion} setMontoAccion={setMontoAccion}
+                          onApply={applyAccion} onUpdate={updateLoan} onRemove={removeLoan}
+                          isAdding={addingDebt?.id===d.id} setAddingDebt={setAddingDebt}
+                          onTogglePriority={(id)=>{setExpandedDebtId(d.id);togglePriorityLoan(id);}} T={T}
+                          _isOpen={isOpen} _onCollapse={isOpen&&!forceOpen?()=>setExpandedDebtId(null):null}
+                        />
+                      </div>
+                    );
+                  })}
+                  {(debtsFilter==="all"||debtsFilter==="loans")&&(<button style={{...BTN,width:"100%",marginBottom:24,marginTop:8,padding:"10px",background:"transparent",color:"#f97316",fontSize:12,border:`1.5px dashed rgba(249,115,22,0.3)`}} onClick={addLoan}>+ Add Loan</button>)}
+                </>);
+              })()}
             </>)}
             {(debtsFilter==="all"||debtsFilter==="cards")&&cards.length===0&&(<button style={{...BTN,width:"100%",marginBottom:12,padding:"11px",background:"transparent",color:T.accent,fontSize:12,border:`1.5px dashed ${T.border}`}} onClick={addCard}>+ Add Card</button>)}
             {(debtsFilter==="all"||debtsFilter==="loans")&&loans.length===0&&(<button style={{...BTN,width:"100%",marginBottom:12,padding:"11px",background:"transparent",color:"#f97316",fontSize:12,border:`1.5px dashed ${T.border}`}} onClick={addLoan}>+ Add Loan</button>)}
