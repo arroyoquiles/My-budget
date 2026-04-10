@@ -34,14 +34,18 @@
     /* Full-screen quick modal */
     .quick-modal-fullscreen{
       position:fixed;
-      inset:0;
+      top:0;
+      left:0;
+      width:100vw;
+      height:100dvh;
       z-index:301;
       display:flex;
       flex-direction:column;
       background:var(--qm-bg,#161b22);
       overflow:hidden;
-      height:100dvh;
       max-height:100dvh;
+      -webkit-transform:translateZ(0);
+      transform:translateZ(0);
     }
     .quick-modal-header{
       display:flex;
@@ -793,6 +797,22 @@ function App(){
   const interesTotal=allDebts.reduce((s,d)=>s+(n(d.interes)/100/12)*n(d.balance),0);
   const urgentDebts=allDebts.filter(d=>getDU(d.fechaPago)!==null&&getDU(d.fechaPago)<=3);
   const pots=data.pots||{};
+  useEffect(()=>{
+    if(quickOpen){
+      const pos=window.scrollY||document.documentElement.scrollTop||0;
+      document.body.style.position="fixed";
+      document.body.style.top=`-${pos}px`;
+      document.body.style.width="100%";
+      document.body.style.overflowY="scroll";
+    } else {
+      const pos=parseInt(document.body.style.top||"0")*-1;
+      document.body.style.position="";
+      document.body.style.top="";
+      document.body.style.width="";
+      document.body.style.overflowY="";
+      if(pos)window.scrollTo(0,pos);
+    }
+  },[quickOpen]);
   useEffect(()=>{if(!quickPid&&currentPid)setQuickPid(currentPid);},[currentPid]);
   useEffect(()=>{if(currentPid&&!activeCheckPid)setActiveCheckPid(currentPid);},[currentPid]);
   useEffect(()=>{if(tab==="paychecks"&&!activeCheckPid&&monthPeriods.length>0){const cur=monthPeriods.find(p=>p.isCurrent)||monthPeriods[0];setActiveCheckPid(cur.id);}},[tab]);
@@ -1180,12 +1200,16 @@ function App(){
           className="quick-modal-fullscreen"
           style={{
             position:"fixed",
-            inset:0,
+            top:0,left:0,
+            width:"100vw",
+            height:"100dvh",
             zIndex:300,
             background:T.surface,
             display:"flex",
             flexDirection:"column",
             overflow:"hidden",
+            WebkitTransform:"translateZ(0)",
+            transform:"translateZ(0)",
           }}
         >
           {/* Header */}
@@ -1213,6 +1237,8 @@ function App(){
             WebkitOverflowScrolling:"touch",
             padding:"20px 18px",
             paddingBottom:"max(28px, env(safe-area-inset-bottom, 28px))",
+            minHeight:0,
+            overscrollBehavior:"contain",
           }}>
 
             {/* Apply To toggle */}
@@ -1303,7 +1329,7 @@ function App(){
                 <div style={{fontSize:10,color:T.muted,letterSpacing:1.2,fontWeight:700,marginBottom:8}}>WHICH CARD?</div>
                 {data.tarjetas.length===0
                   ?<div style={{fontSize:12,color:T.muted,padding:"12px 14px",background:T.surface2,borderRadius:10}}>No cards found. Add one in Debts.</div>
-                  :<div style={{maxHeight:"36vh",overflowY:"auto",WebkitOverflowScrolling:"touch",display:"flex",flexDirection:"column",gap:7}}>
+                  :<div style={{maxHeight:"32vh",overflowY:"auto",WebkitOverflowScrolling:"touch",overscrollBehavior:"contain",display:"flex",flexDirection:"column",gap:5}}>
                     {data.tarjetas.map(t=>{
                       const tc=CC[t.nombre]||null;
                       const dot=tc?.dot||t._vc?.dot||"💳";
@@ -1311,19 +1337,16 @@ function App(){
                       const cardBorder=tc?.border||t._vc?.border||"rgba(236,72,153,0.4)";
                       const isSelected=quickCardId===String(t.id);
                       return(<button key={t.id} style={{
-                        ...BTN,padding:"12px 14px",fontSize:13,textAlign:"left",
+                        ...BTN,padding:"9px 12px",fontSize:13,textAlign:"left",
                         background:isSelected?"rgba(236,72,153,0.1)":T.surface2,
                         color:isSelected?cardColor:T.text,
                         border:`1px solid ${isSelected?cardBorder:T.border}`,
                         display:"flex",justifyContent:"space-between",alignItems:"center",
-                        borderRadius:11,
+                        borderRadius:10,flexShrink:0,
                       }} onClick={()=>setQuickCardId(String(t.id))}>
                         <div style={{display:"flex",alignItems:"center",gap:8}}>
-                          <span style={{fontSize:16}}>{dot}</span>
-                          <div>
-                            <div style={{fontWeight:600,fontSize:13}}>{t.nombre}</div>
-                            {t.fechaPago&&<div style={{fontSize:10,color:T.muted,marginTop:1}}>Due day {t.fechaPago}</div>}
-                          </div>
+                          <span style={{fontSize:15}}>{dot}</span>
+                          <div style={{fontWeight:600,fontSize:13}}>{t.nombre}</div>
                         </div>
                         <div style={{textAlign:"right"}}>
                           <div style={{fontFamily:"monospace",fontWeight:700,fontSize:13,color:isSelected?cardColor:T.muted}}>{fmt(t.balance)}</div>
@@ -1342,7 +1365,8 @@ function App(){
               background:quickActionBg,
               color:"#fff",fontSize:15,fontWeight:700,
               borderRadius:13,
-              marginTop:4,
+              marginTop:2,
+              marginBottom:16,
             }} onClick={addQuickExpense}>
               {quickActionLabel}
             </button>
