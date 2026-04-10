@@ -927,11 +927,24 @@ function App(){
   },[quickApplyTo,quickAmtNum,quickCardId,data.tarjetas]);
 
   const quickAmtInputRef=useRef(null);
+  const quickNoteInputRef=useRef(null);
+  useEffect(()=>{
+    if(!quickOpen)return;
+    const t=setTimeout(()=>{
+      if(quickApplyTo==="check"&&quickNoteInputRef.current){
+        quickNoteInputRef.current.focus({preventScroll:true});
+      } else if(quickApplyTo==="card"&&quickAmtInputRef.current){
+        quickAmtInputRef.current.focus({preventScroll:true});
+      }
+    },80);
+    return()=>clearTimeout(t);
+  },[quickOpen]);
   const switchQuickApplyTo=useCallback((mode)=>{
     setQuickApplyTo(mode);
-    // Restore focus to amount input after mode switch to keep keyboard open
     setTimeout(()=>{
-      if(quickAmtInputRef.current){
+      if(mode==="check"&&quickNoteInputRef.current){
+        quickNoteInputRef.current.focus({preventScroll:true});
+      } else if(mode==="card"&&quickAmtInputRef.current){
         quickAmtInputRef.current.focus({preventScroll:true});
       }
     },30);
@@ -1262,7 +1275,7 @@ function App(){
             {quickApplyTo==="check"&&(<>
               <div style={{marginBottom:14}}>
                 <div style={{fontSize:10,color:T.muted,letterSpacing:1.2,fontWeight:700,marginBottom:8}}>WHAT WAS IT?</div>
-                <input style={{...INP}} value={quickNote} onChange={e=>setQuickNote(e.target.value)} placeholder="e.g. Walmart, gas stop..." autoFocus/>
+                <input ref={quickNoteInputRef} style={{...INP}} value={quickNote} onChange={e=>setQuickNote(e.target.value)} placeholder="e.g. Walmart, gas stop..."/>
               </div>
               <div style={{marginBottom:14}}>
                 <div style={{fontSize:10,color:T.muted,letterSpacing:1.2,fontWeight:700,marginBottom:8}}>AMOUNT ($)</div>
