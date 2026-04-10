@@ -37,13 +37,11 @@
       top:0;
       left:0;
       width:100vw;
-      height:100dvh;
       z-index:301;
       display:flex;
       flex-direction:column;
       background:var(--qm-bg,#161b22);
       overflow:hidden;
-      max-height:100dvh;
       -webkit-transform:translateZ(0);
       transform:translateZ(0);
     }
@@ -928,6 +926,29 @@ function App(){
 
   const quickAmtInputRef=useRef(null);
   const quickNoteInputRef=useRef(null);
+  const [quickVH,setQuickVH]=useState(()=>window.visualViewport?window.visualViewport.height:window.innerHeight);
+  useEffect(()=>{
+    if(!quickOpen){setQuickVH(window.visualViewport?window.visualViewport.height:window.innerHeight);return;}
+    const update=()=>{
+      const h=window.visualViewport?window.visualViewport.height:window.innerHeight;
+      setQuickVH(h);
+    };
+    update();
+    if(window.visualViewport){
+      window.visualViewport.addEventListener("resize",update);
+      window.visualViewport.addEventListener("scroll",update);
+    } else {
+      window.addEventListener("resize",update);
+    }
+    return()=>{
+      if(window.visualViewport){
+        window.visualViewport.removeEventListener("resize",update);
+        window.visualViewport.removeEventListener("scroll",update);
+      } else {
+        window.removeEventListener("resize",update);
+      }
+    };
+  },[quickOpen]);
   useEffect(()=>{
     if(!quickOpen)return;
     const t=setTimeout(()=>{
@@ -1215,7 +1236,7 @@ function App(){
             position:"fixed",
             top:0,left:0,
             width:"100vw",
-            height:"100dvh",
+            height:quickVH,
             zIndex:300,
             background:T.surface,
             display:"flex",
