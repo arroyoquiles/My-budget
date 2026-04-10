@@ -963,38 +963,26 @@ function App(){
   const quickAmtInputRef=useRef(null);
   const quickNoteInputRef=useRef(null);
   const [quickVH,setQuickVH]=useState(()=>window.visualViewport?window.visualViewport.height:window.innerHeight);
-  const [quickVTop,setQuickVTop]=useState(0);
   useEffect(()=>{
-    if(!quickOpen){
-      setQuickVH(window.visualViewport?window.visualViewport.height:window.innerHeight);
-      setQuickVTop(0);
-      return;
-    }
-    const update=()=>{
-      const vv=window.visualViewport;
+    if(!quickOpen) return;
+
+    const vv = window.visualViewport;
+
+    const update = ()=>{
       if(vv){
         setQuickVH(vv.height);
-        setQuickVTop(vv.offsetTop);
       } else {
         setQuickVH(window.innerHeight);
-        setQuickVTop(0);
       }
     };
+
     update();
-    if(window.visualViewport){
-      window.visualViewport.addEventListener("resize",update);
-      window.visualViewport.addEventListener("scroll",update);
-    } else {
-      window.addEventListener("resize",update);
+
+    if(vv){
+      vv.addEventListener("resize",update);
+      return ()=>vv.removeEventListener("resize",update);
     }
-    return()=>{
-      if(window.visualViewport){
-        window.visualViewport.removeEventListener("resize",update);
-        window.visualViewport.removeEventListener("scroll",update);
-      } else {
-        window.removeEventListener("resize",update);
-      }
-    };
+
   },[quickOpen]);
   useEffect(()=>{
     if(!quickOpen)return;
@@ -1281,7 +1269,7 @@ function App(){
           className="quick-modal-fullscreen"
           style={{
             position:"fixed",
-            top:quickVTop,
+            top:0,
             left:0,
             width:"100vw",
             height:quickVH,
