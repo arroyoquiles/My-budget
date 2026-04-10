@@ -1268,7 +1268,7 @@ function App(){
 
           {/* CHECK MODE */}
           {quickApplyTo==="check"&&(
-            <div style={{flex:1,minHeight:0,overflowY:"auto",WebkitOverflowScrolling:"touch",overscrollBehavior:"contain",padding:"12px 18px 0"}}>
+            <div style={{flex:1,minHeight:0,overflowY:"auto",WebkitOverflowScrolling:"touch",overscrollBehavior:"contain",padding:"12px 18px 80px"}}>
               <div style={{marginBottom:10}}>
                 <div style={{fontSize:10,color:T.muted,letterSpacing:1.2,fontWeight:700,marginBottom:6}}>WHAT WAS IT?</div>
                 <input style={{...INP}} value={quickNote} onChange={e=>setQuickNote(e.target.value)} placeholder="e.g. Walmart, gas stop..."/>
@@ -1321,7 +1321,7 @@ function App(){
             <div style={{
               flex:1,minHeight:0,
               overflowY:"auto",WebkitOverflowScrolling:"touch",overscrollBehavior:"contain",
-              padding:"0 18px 8px",
+              padding:"0 18px 80px",
             }}>
               {data.tarjetas.length===0
                 ?<div style={{fontSize:12,color:T.muted,padding:"10px 12px",background:T.surface2,borderRadius:10}}>No cards found. Add one in Debts.</div>
@@ -1348,7 +1348,7 @@ function App(){
             </div>
           </>)}
 
-          {/* ACTION BUTTON — inside flex column, always pinned at bottom, moves with keyboard */}
+          {/* ACTION BUTTON — inside flex column, pinned at bottom of visible area (above keyboard) */}
           <div style={{
             flexShrink:0,
             padding:"10px 18px 12px",
