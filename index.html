@@ -964,25 +964,30 @@ function App(){
   const quickNoteInputRef=useRef(null);
   const [quickVH,setQuickVH]=useState(()=>window.visualViewport?window.visualViewport.height:window.innerHeight);
   useEffect(()=>{
-    if(!quickOpen) return;
-
-    const vv = window.visualViewport;
-
-    const update = ()=>{
+    if(!quickOpen){
+      return;
+    }
+    const update=()=>{
+      const vv=window.visualViewport;
       if(vv){
         setQuickVH(vv.height);
       } else {
         setQuickVH(window.innerHeight);
       }
     };
-
     update();
-
-    if(vv){
-      vv.addEventListener("resize",update);
-      return ()=>vv.removeEventListener("resize",update);
+    if(window.visualViewport){
+      window.visualViewport.addEventListener("resize",update);
+    } else {
+      window.addEventListener("resize",update);
     }
-
+    return()=>{
+      if(window.visualViewport){
+        window.visualViewport.removeEventListener("resize",update);
+      } else {
+        window.removeEventListener("resize",update);
+      }
+    };
   },[quickOpen]);
   useEffect(()=>{
     if(!quickOpen)return;
