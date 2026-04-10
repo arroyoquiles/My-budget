@@ -1268,7 +1268,7 @@ function App(){
 
           {/* CHECK MODE */}
           {quickApplyTo==="check"&&(
-            <div style={{flexShrink:0,padding:"12px 18px 0"}}>
+            <div style={{flex:1,minHeight:0,overflowY:"auto",WebkitOverflowScrolling:"touch",overscrollBehavior:"contain",padding:"12px 18px 0"}}>
               <div style={{marginBottom:10}}>
                 <div style={{fontSize:10,color:T.muted,letterSpacing:1.2,fontWeight:700,marginBottom:6}}>WHAT WAS IT?</div>
                 <input style={{...INP}} value={quickNote} onChange={e=>setQuickNote(e.target.value)} placeholder="e.g. Walmart, gas stop..."/>
