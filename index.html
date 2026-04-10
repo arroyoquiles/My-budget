@@ -827,16 +827,8 @@ function App(){
       e.preventDefault();
     };
     document.addEventListener("touchmove",blockTouch,{passive:false});
-    // Counter iOS auto-scroll-to-focused-input by resetting scroll on visualViewport scroll
-    const counterScroll=()=>{ window.scrollTo(scrollX,scrollY); };
-    if(window.visualViewport){
-      window.visualViewport.addEventListener("scroll",counterScroll);
-    }
     return()=>{
       document.removeEventListener("touchmove",blockTouch);
-      if(window.visualViewport){
-        window.visualViewport.removeEventListener("scroll",counterScroll);
-      }
       document.documentElement.style.overflow=prevHtmlOverflow;
       document.documentElement.style.height=prevHtmlHeight;
       document.body.style.overflow=prevBodyOverflow;
@@ -844,7 +836,6 @@ function App(){
       document.body.style.top=prevBodyTop;
       document.body.style.left=prevBodyLeft;
       document.body.style.width=prevBodyWidth;
-      window.scrollTo(scrollX,scrollY);
     };
   },[quickOpen]);
   useEffect(()=>{if(!quickPid&&currentPid)setQuickPid(currentPid);},[currentPid]);
@@ -1239,7 +1230,7 @@ function App(){
       {quickOpen&&(<>
         {/* Modal covers 100% — no gaps, no see-through */}
         <div className="quick-modal-fullscreen" style={{
-          position:"fixed",top:0,left:0,width:"100%",height:"100%",
+          position:"fixed",top:0,left:0,width:"100%",height:quickVH,
           zIndex:300,background:T.surface,
           display:"flex",flexDirection:"column",overflow:"hidden",
         }}>
@@ -1326,11 +1317,11 @@ function App(){
               )}
               <div style={{fontSize:10,color:T.muted,letterSpacing:1.2,fontWeight:700,marginBottom:6}}>WHICH CARD?</div>
             </div>
-            {/* Only card list scrolls, max ~4 items */}
+            {/* Card list — scrollable, takes remaining space */}
             <div style={{
-              maxHeight:168,flexShrink:0,
+              flex:1,minHeight:0,
               overflowY:"auto",WebkitOverflowScrolling:"touch",overscrollBehavior:"contain",
-              padding:"0 18px",
+              padding:"0 18px 8px",
             }}>
               {data.tarjetas.length===0
                 ?<div style={{fontSize:12,color:T.muted,padding:"10px 12px",background:T.surface2,borderRadius:10}}>No cards found. Add one in Debts.</div>
@@ -1356,25 +1347,23 @@ function App(){
               }
             </div>
           </>)}
-        </div>
 
-        {/* ACTION BUTTON — fixed exactly at top of keyboard (quickVH = visible area height) */}
-        <div style={{
-          position:"fixed",
-          top:quickVH-66,
-          left:0,right:0,
-          zIndex:301,
-          padding:"10px 18px 12px",
-          background:T.surface,
-          borderTop:`1px solid ${T.border}`,
-        }}>
-          <button style={{
-            ...BTN,width:"100%",padding:"13px",
-            background:quickApplyTo==="card"?"rgba(236,72,153,0.85)":"#238636",
-            color:"#fff",fontSize:15,fontWeight:700,borderRadius:13,
-          }} onClick={addQuickExpense}>
-            {quickApplyTo==="card"?"🛒 Charge to Card":"✅ Add — Already Paid"}
-          </button>
+          {/* ACTION BUTTON — inside flex column, always pinned at bottom, moves with keyboard */}
+          <div style={{
+            flexShrink:0,
+            padding:"10px 18px 12px",
+            paddingBottom:"max(12px, env(safe-area-inset-bottom, 12px))",
+            background:T.surface,
+            borderTop:`1px solid ${T.border}`,
+          }}>
+            <button style={{
+              ...BTN,width:"100%",padding:"13px",
+              background:quickApplyTo==="card"?"rgba(236,72,153,0.85)":"#238636",
+              color:"#fff",fontSize:15,fontWeight:700,borderRadius:13,
+            }} onClick={addQuickExpense}>
+              {quickApplyTo==="card"?"🛒 Charge to Card":"✅ Add — Already Paid"}
+            </button>
+          </div>
         </div>
       </>)}
 
