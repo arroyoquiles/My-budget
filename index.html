@@ -1197,7 +1197,7 @@ function App(){
   const quickActionBg = quickApplyTo==="card" ? "rgba(236,72,153,0.85)" : "#238636";
 
   return(
-    <div ref={mainRef} onTouchStart={handleSwipeTouchStart} onTouchEnd={handleSwipeTouchEnd}
+    <div ref={mainRef}
       style={{minHeight:"100vh",background:T.bg,color:T.text,fontFamily:"-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif"}}>
       <style>{`
         @keyframes fadeUp{from{opacity:0;transform:translateY(8px);}to{opacity:1;transform:translateY(0);}}.anim{animation:fadeUp 0.22s ease;}
@@ -1848,8 +1848,8 @@ function App(){
               File: <strong style={{color:T.text}}>mybudget_backup.json</strong>
             </div>
             <div style={{display:"flex",gap:8,marginBottom:8}}>
-              <button style={{...BTN,flex:1,padding:"10px",background:T.surface2,color:T.muted,fontSize:12,border:`1px solid ${T.border}`}} onClick={exportData}>📥 Export Backup</button>
-              <label style={{flex:1}}><input type="file" accept=".json" onChange={importData} style={{display:"none"}}/><div style={{padding:"10px",background:T.surface2,color:T.muted,fontSize:12,border:`1px solid ${T.border}`,textAlign:"center",cursor:"pointer",borderRadius:10,fontWeight:600}}>📤 Import Backup</div></label>
+              <button style={{...BTN,flex:1,padding:"10px",background:T.surface2,color:T.muted,fontSize:12,border:`1px solid ${T.border}`,display:"flex",flexDirection:"column",alignItems:"center",gap:2}} onClick={exportData}><span>📥 Save Backup</span><span style={{fontSize:9,color:T.muted,fontWeight:400,opacity:0.75}}>Download a copy of your data</span></button>
+              <label style={{flex:1}}><input type="file" accept=".json" onChange={importData} style={{display:"none"}}/><div style={{padding:"10px",background:T.surface2,color:T.muted,fontSize:12,border:`1px solid ${T.border}`,textAlign:"center",cursor:"pointer",borderRadius:10,fontWeight:600,display:"flex",flexDirection:"column",alignItems:"center",gap:2}}><span>📤 Load Backup</span><span style={{fontSize:9,color:T.muted,fontWeight:400,opacity:0.75}}>Import a previously saved backup file</span></div></label>
             </div>
             <div style={{fontSize:10,color:T.muted}}>Import fully replaces current data. Export first to be safe.</div>
           </div>
