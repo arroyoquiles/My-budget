@@ -756,7 +756,6 @@ function App(){
   const [debtsFilter,setDebtsFilter]=useState("all");
   const [cardsCollapsed,setCardsCollapsed]=useState(false);
   const [loansCollapsed,setLoansCollapsed]=useState(false);
-  const [expandedDebtId,setExpandedDebtId]=useState(null);
   const toastRef=useRef();
   const swipeStart=useRef(null);
   const swipeFromContent=useRef(false);
@@ -1696,71 +1695,10 @@ function App(){
                 </div>
                 <div style={{flex:1,height:1,background:`linear-gradient(90deg,${T.border},transparent)`}}/>
               </button>
-              {!cardsCollapsed&&(()=>{
-                // ── TRUE APPLE WALLET STACK ──
-                // CARD_H: altura real de una tarjeta completa (aprox)
-                // PEEK: cuántos px de cada tarjeta quedan visibles antes de la siguiente
-                // El contenedor tiene altura fija = PEEK*(n-1) + CARD_H
-                const CARD_H = 190; // altura de tarjeta completa en px
-                const PEEK   = 64;  // solo se ve hasta el APR (~64px desde el top)
-                const n_     = visibleCards.length;
-                const containerH = n_===1 ? CARD_H : PEEK*(n_-1)+CARD_H;
-                const expandedCard = expandedDebtId ? visibleCards.find(d=>d.id===expandedDebtId) : null;
-                return(<>
-                  {/* Overlay oscuro cuando hay tarjeta expandida */}
-                  {expandedCard&&(
-                    <div onClick={()=>setExpandedDebtId(null)}
-                      style={{position:"fixed",inset:0,zIndex:199,background:"rgba(0,0,0,0.6)",WebkitTapHighlightColor:"transparent"}}/>
-                  )}
-                  {/* Stack container */}
-                  <div style={{position:"relative",height:containerH+"px",marginBottom:16}}>
-                    {visibleCards.map((d,si)=>{
-                      const globalIdx=allDebts.findIndex(x=>x.id===d.id&&x.tipo===d.tipo);
-                      const isExp = expandedDebtId===d.id || addingDebt?.id===d.id;
-                      const stackTop = si*PEEK;
-                      return(
-                        <div key={d.id} style={{
-                          position:"absolute",
-                          left:0, right:0,
-                          top: isExp ? 0 : stackTop,
-                          zIndex: isExp ? 200 : si+1,
-                          transition:"top 0.35s cubic-bezier(0.4,0,0.2,1)",
-                          // Cuando expandida: fixed sobre todo
-                          ...(isExp ? {
-                            position:"fixed",
-                            top:"50%",
-                            left:"12px",
-                            right:"12px",
-                            transform:"translateY(-50%)",
-                            zIndex:200,
-                            transition:"none",
-                          } : {}),
-                          filter: si>0&&!isExp ? "drop-shadow(0 -6px 12px rgba(0,0,0,0.6))" : "none",
-                          cursor: isExp?"default":"pointer",
-                          WebkitTapHighlightColor:"transparent",
-                        }}
-                        onClick={()=>{ if(!isExp) setExpandedDebtId(d.id); }}
-                        >
-                          <div onClick={e=>e.stopPropagation()}>
-                            <DebtCard key={d.id} debt={d} idx={globalIdx} isFirst={globalIdx===0} tipo="card"
-                              accion={accion} setAccion={setAccion} montoAccion={montoAccion} setMontoAccion={setMontoAccion}
-                              onApply={applyAccion} onUpdate={updateTarjeta} onRemove={removeTarjeta}
-                              isAdding={addingDebt?.id===d.id} setAddingDebt={setAddingDebt}
-                              onTogglePriority={togglePriorityCard} T={T}/>
-                            {isExp&&!addingDebt&&(
-                              <div style={{display:"flex",justifyContent:"center",marginTop:6}}>
-                                <button style={{...BTN,padding:"5px 28px",fontSize:11,background:"rgba(255,255,255,0.08)",color:T.muted,border:`1px solid ${T.border}`,borderRadius:20}}
-                                  onClick={e=>{e.stopPropagation();setExpandedDebtId(null);}}>✕ cerrar</button>
-                              </div>
-                            )}
-                          </div>
-                        </div>
-                      );
-                    })}
-                  </div>
-                  {(debtsFilter==="all"||debtsFilter==="cards")&&(<button style={{...BTN,width:"100%",marginBottom:24,padding:"10px",background:"transparent",color:"#ec4899",fontSize:12,border:`1.5px dashed rgba(236,72,153,0.3)`}} onClick={addCard}>+ Add Card</button>)}
-                </>);
-              })()}
+              {!cardsCollapsed&&(<>
+                {visibleCards.map((d)=>{const globalIdx=allDebts.findIndex(x=>x.id===d.id&&x.tipo===d.tipo);return(<DebtCard key={d.id} debt={d} idx={globalIdx} isFirst={globalIdx===0} tipo="card" accion={accion} setAccion={setAccion} montoAccion={montoAccion} setMontoAccion={setMontoAccion} onApply={applyAccion} onUpdate={updateTarjeta} onRemove={removeTarjeta} isAdding={addingDebt?.id===d.id} setAddingDebt={setAddingDebt} onTogglePriority={togglePriorityCard} T={T}/>);})}
+                {(debtsFilter==="all"||debtsFilter==="cards")&&(<button style={{...BTN,width:"100%",marginBottom:24,padding:"10px",background:"transparent",color:"#ec4899",fontSize:12,border:`1.5px dashed rgba(236,72,153,0.3)`}} onClick={addCard}>+ Add Card</button>)}
+              </>)}
             </>)}
             {visibleLoans.length>0&&(<>
               <button style={{...BTN,width:"100%",display:"flex",alignItems:"center",gap:0,marginBottom:loansCollapsed?8:10,background:"transparent",border:"none",padding:0,borderRadius:0}} onClick={()=>setLoansCollapsed(c=>!c)}>
@@ -1772,64 +1710,10 @@ function App(){
                 </div>
                 <div style={{flex:1,height:1,background:`linear-gradient(90deg,${T.border},transparent)`}}/>
               </button>
-              {!loansCollapsed&&(()=>{
-                const CARD_H = 190;
-                const PEEK   = 64;
-                const n_     = visibleLoans.length;
-                const containerH = n_===1 ? CARD_H : PEEK*(n_-1)+CARD_H;
-                const expandedCard = expandedDebtId ? visibleLoans.find(d=>d.id===expandedDebtId) : null;
-                return(<>
-                  {expandedCard&&(
-                    <div onClick={()=>setExpandedDebtId(null)}
-                      style={{position:"fixed",inset:0,zIndex:199,background:"rgba(0,0,0,0.6)",WebkitTapHighlightColor:"transparent"}}/>
-                  )}
-                  <div style={{position:"relative",height:containerH+"px",marginBottom:16}}>
-                    {visibleLoans.map((d,si)=>{
-                      const globalIdx=allDebts.findIndex(x=>x.id===d.id&&x.tipo===d.tipo);
-                      const isExp = expandedDebtId===d.id || addingDebt?.id===d.id;
-                      const stackTop = si*PEEK;
-                      return(
-                        <div key={d.id} style={{
-                          position:"absolute",
-                          left:0, right:0,
-                          top: isExp ? 0 : stackTop,
-                          zIndex: isExp ? 200 : si+1,
-                          transition:"top 0.35s cubic-bezier(0.4,0,0.2,1)",
-                          ...(isExp ? {
-                            position:"fixed",
-                            top:"50%",
-                            left:"12px",
-                            right:"12px",
-                            transform:"translateY(-50%)",
-                            zIndex:200,
-                            transition:"none",
-                          } : {}),
-                          filter: si>0&&!isExp ? "drop-shadow(0 -6px 12px rgba(0,0,0,0.6))" : "none",
-                          cursor: isExp?"default":"pointer",
-                          WebkitTapHighlightColor:"transparent",
-                        }}
-                        onClick={()=>{ if(!isExp) setExpandedDebtId(d.id); }}
-                        >
-                          <div onClick={e=>e.stopPropagation()}>
-                            <DebtCard key={d.id} debt={d} idx={globalIdx} isFirst={globalIdx===0} tipo="loan"
-                              accion={accion} setAccion={setAccion} montoAccion={montoAccion} setMontoAccion={setMontoAccion}
-                              onApply={applyAccion} onUpdate={updateLoan} onRemove={removeLoan}
-                              isAdding={addingDebt?.id===d.id} setAddingDebt={setAddingDebt}
-                              onTogglePriority={togglePriorityLoan} T={T}/>
-                            {isExp&&!addingDebt&&(
-                              <div style={{display:"flex",justifyContent:"center",marginTop:6}}>
-                                <button style={{...BTN,padding:"5px 28px",fontSize:11,background:"rgba(255,255,255,0.08)",color:T.muted,border:`1px solid ${T.border}`,borderRadius:20}}
-                                  onClick={e=>{e.stopPropagation();setExpandedDebtId(null);}}>✕ cerrar</button>
-                              </div>
-                            )}
-                          </div>
-                        </div>
-                      );
-                    })}
-                  </div>
-                  {(debtsFilter==="all"||debtsFilter==="loans")&&(<button style={{...BTN,width:"100%",marginBottom:24,padding:"10px",background:"transparent",color:"#f97316",fontSize:12,border:`1.5px dashed rgba(249,115,22,0.3)`}} onClick={addLoan}>+ Add Loan</button>)}
-                </>);
-              })()}
+              {!loansCollapsed&&(<>
+                {visibleLoans.map((d)=>{const globalIdx=allDebts.findIndex(x=>x.id===d.id&&x.tipo===d.tipo);return(<DebtCard key={d.id} debt={d} idx={globalIdx} isFirst={globalIdx===0} tipo="loan" accion={accion} setAccion={setAccion} montoAccion={montoAccion} setMontoAccion={setMontoAccion} onApply={applyAccion} onUpdate={updateLoan} onRemove={removeLoan} isAdding={addingDebt?.id===d.id} setAddingDebt={setAddingDebt} onTogglePriority={togglePriorityLoan} T={T}/>);})}
+                {(debtsFilter==="all"||debtsFilter==="loans")&&(<button style={{...BTN,width:"100%",marginBottom:24,padding:"10px",background:"transparent",color:"#f97316",fontSize:12,border:`1.5px dashed rgba(249,115,22,0.3)`}} onClick={addLoan}>+ Add Loan</button>)}
+              </>)}
             </>)}
             {(debtsFilter==="all"||debtsFilter==="cards")&&cards.length===0&&(<button style={{...BTN,width:"100%",marginBottom:12,padding:"11px",background:"transparent",color:T.accent,fontSize:12,border:`1.5px dashed ${T.border}`}} onClick={addCard}>+ Add Card</button>)}
             {(debtsFilter==="all"||debtsFilter==="loans")&&loans.length===0&&(<button style={{...BTN,width:"100%",marginBottom:12,padding:"11px",background:"transparent",color:"#f97316",fontSize:12,border:`1.5px dashed ${T.border}`}} onClick={addLoan}>+ Add Loan</button>)}
