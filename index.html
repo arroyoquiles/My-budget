@@ -963,27 +963,34 @@ function App(){
   const quickAmtInputRef=useRef(null);
   const quickNoteInputRef=useRef(null);
   const [quickVH,setQuickVH]=useState(()=>window.visualViewport?window.visualViewport.height:window.innerHeight);
+  const [quickVTop,setQuickVTop]=useState(0);
   useEffect(()=>{
     if(!quickOpen){
+      setQuickVH(window.visualViewport?window.visualViewport.height:window.innerHeight);
+      setQuickVTop(0);
       return;
     }
     const update=()=>{
       const vv=window.visualViewport;
       if(vv){
         setQuickVH(vv.height);
+        setQuickVTop(vv.offsetTop);
       } else {
         setQuickVH(window.innerHeight);
+        setQuickVTop(0);
       }
     };
     update();
     if(window.visualViewport){
       window.visualViewport.addEventListener("resize",update);
+      window.visualViewport.addEventListener("scroll",update);
     } else {
       window.addEventListener("resize",update);
     }
     return()=>{
       if(window.visualViewport){
         window.visualViewport.removeEventListener("resize",update);
+        window.visualViewport.removeEventListener("scroll",update);
       } else {
         window.removeEventListener("resize",update);
       }
@@ -1274,7 +1281,7 @@ function App(){
           className="quick-modal-fullscreen"
           style={{
             position:"fixed",
-            top:0,
+            top:quickVTop,
             left:0,
             width:"100vw",
             height:quickVH,
