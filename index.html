@@ -489,7 +489,7 @@ const GastoItem=memo(({item,pid,editId,setEditId,tarjetas,onCycle,onLongPress,on
       </div>
     </div>
   );
-});const DebtCard=memo(({debt,idx,isFirst,tipo,accion,setAccion,montoAccion,setMontoAccion,onApply,onUpdate,onRemove,isAdding,setAddingDebt,onTogglePriority,onCollapse,resetToken,T})=>{
+});const DebtCard=memo(({debt,idx,isFirst,tipo,accion,setAccion,montoAccion,setMontoAccion,onApply,onUpdate,onRemove,isAdding,setAddingDebt,onTogglePriority,onCollapse,resetToken,clipH,T})=>{
   const [editing,setEditing]=useState(false);
   const [longPressMenu,setLongPressMenu]=useState(false);
   const [savedSnapshot,setSavedSnapshot]=useState(null);
@@ -553,7 +553,7 @@ const GastoItem=memo(({item,pid,editId,setEditId,tarjetas,onCycle,onLongPress,on
   const saveEditing=()=>{setEditing(false);setSavedSnapshot(null);};
   return(
     <div
-      style={{...CARD,padding:"12px 14px",marginBottom:9,borderColor:isFirst?"#d29922":showEdit?"rgba(88,166,255,0.5)":debt.priority?"rgba(245,158,11,0.35)":T.border,transition:"border-color 0.2s",userSelect:"none",WebkitUserSelect:"none",WebkitTouchCallout:"none"}}
+      style={{...CARD,padding:"12px 14px",marginBottom:9,overflow:"hidden",borderColor:isFirst?"#d29922":showEdit?"rgba(88,166,255,0.5)":debt.priority?"rgba(245,158,11,0.35)":T.border,transition:"border-color 0.2s",userSelect:"none",WebkitUserSelect:"none",WebkitTouchCallout:"none",...(clipH!=null?{boxSizing:"border-box",height:clipH,maxHeight:clipH,minHeight:clipH,marginBottom:0}:{})}}
       onTouchStart={hLPStart}
       onTouchMove={hLPMove}
       onTouchEnd={hLPEnd}
@@ -1816,15 +1816,12 @@ function App(){
                       const isNewDraft = d.id===newCardDraftId;
                       const isAdding_ = isNewDraft && !!addingDebt && addingDebt.id===d.id;
                       const isExpanded = expandedCardId===d.id;
-                      // Prev card being expanded changes stacking
-                      const prevIsExpanded = stackIdx>0 && expandedCardId===visibleCards[stackIdx-1]?.id;
-                      // z-index: expanded card on top; card immediately above expanded must stay visible above it
-                      const nextIsExpanded = stackIdx < visibleCards.length-1 && expandedCardId===visibleCards[stackIdx+1]?.id;
-                      const zIndex = isExpanded ? 100 : nextIsExpanded ? 101 : (stackIdx + 1);
+                      // z-index: expanded card above all; non-expanded use natural stack order
+                      const zIndex = isExpanded ? 100 : (stackIdx + 1);
 
-                      // Overlap logic: apply negative marginTop only between two consecutive collapsed cards
-                      // If this card is expanded, no overlap needed
-                      // If previous card is expanded, give some normal spacing
+                      // Overlap: card immediately after an expanded card uses small positive margin
+                      // so it sits cleanly below the expanded card without cutting into it.
+                      // All other collapsed cards keep the normal negative overlap.
                       const marginTop = isFirst_ ? 0 : -STACK_OVERLAP;
 
                       const handleExpand=(e)=>{
@@ -1855,26 +1852,25 @@ function App(){
                         }
                       };
 
+                      // Collapsed cards always clip at the fixed preview height.
+                      // Expanded card passes null so DebtCard renders full natural height.
+                      const clipH = isExpanded ? null : STACK_VISIBLE_H;
+
                       return(
                         <div
                           key={d.id}
                           ref={isNewDraft ? newCardRef : null}
                           style={{position:"relative",marginTop,zIndex}}
                         >
-                          {/* Viewport clips to fixed height when stacked; full height when expanded */}
+                          {/* Click target for collapsed cards; expanded card handles its own taps */}
                           <div
                             style={{
-                              overflow:isExpanded?"visible":"hidden",
-                              height:isExpanded?"auto":STACK_VISIBLE_H,
                               borderRadius:14,
                               cursor:isExpanded?"default":"pointer",
-                              background:isExpanded?T.surface:"transparent",
-                              // Prevent text selection highlight on long press
                               userSelect:"none",
                               WebkitUserSelect:"none",
                               WebkitTouchCallout:"none",
-                              // Ensure expanded card is not clipped by parent
-                              isolation:isExpanded?"isolate":"auto",
+                              isolation:"isolate",
                             }}
                             onClick={!isExpanded ? handleExpand : undefined}
                             onContextMenu={e=>e.preventDefault()}
@@ -1907,6 +1903,7 @@ function App(){
                               onTogglePriority={togglePriorityCard}
                               onCollapse={isExpanded?handleExpand:null}
                               resetToken={resetTokens[d.id]}
+                              clipH={clipH}
                               T={T}
                             />
                           </div>
