@@ -378,11 +378,11 @@ const getUtilColor=(pct)=>{
   return"#3fb950";
 };
 const getUtilLabel=(pct)=>{
-  if(pct>=100)return"🔴 Maxed";
-  if(pct>=75) return"🔴 Risk";
-  if(pct>=50) return"🟠 High";
-  if(pct>=30) return"🟡 Acceptable";
-  return"🟢 Healthy";
+  if(pct>=100)return"🔴";
+  if(pct>=75) return"🔴";
+  if(pct>=50) return"🟠";
+  if(pct>=30) return"🟡";
+  return"🟢";
 };
 
 const LimitBar=memo(({balance,limite,T})=>{
@@ -532,7 +532,6 @@ const GastoItem=memo(({item,pid,editId,setEditId,tarjetas,onCycle,onLongPress,on
           ?<input style={{...INP,fontWeight:700,fontSize:14,background:"transparent",border:"none",borderBottom:`1.5px solid ${T.accent}`,borderRadius:0,padding:"2px 0",flex:1,userSelect:"text",WebkitUserSelect:"text"}} value={debt.nombre} onChange={e=>onUpdate(debt.id,"nombre",e.target.value)} autoFocus={editing&&!isAdding}/>
           :<span style={{flex:1,fontWeight:700,fontSize:14,color:T.text,minWidth:0,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{debt.nombre}</span>
         }
-        {isFirst&&!showEdit&&<span style={{fontSize:9,fontWeight:700,color:"#d29922",background:"rgba(210,153,34,0.13)",border:"1px solid rgba(210,153,34,0.28)",borderRadius:5,padding:"1px 5px",flexShrink:0}}>🎯</span>}
         <span style={{fontFamily:"monospace",fontWeight:800,fontSize:tipo==="card"?18:16,color:balanceColor,flexShrink:0,letterSpacing:-0.3}}>{fmt(n(debt.balance))}</span>
         <button style={{...BTN,background:"transparent",color:debt.priority?"#f59e0b":T.muted,padding:"2px 3px",fontSize:14,border:"none",opacity:debt.priority?1:0.35,flexShrink:0,transition:"opacity 0.15s"}} onClick={()=>onTogglePriority(debt.id)}>⭐</button>
       </div>
@@ -626,9 +625,7 @@ const GastoItem=memo(({item,pid,editId,setEditId,tarjetas,onCycle,onLongPress,on
 
         {/* Cutoff row (cards only) */}
         {tipo==="card"&&fcd&&(<div style={{display:"flex",alignItems:"center",gap:6,marginBottom:3}}>
-          <span style={{fontSize:10,color:T.muted}}>✂️ Cutoff {fmd(fcd)}</span>
-          <span style={{fontSize:10,color:T.muted}}>({getDU(debt.fechaCorte)}d left)</span>
-          <span style={{marginLeft:"auto",fontSize:10,color:"#d29922"}}>~{fmt((n(debt.interes)/100/12)*n(debt.balance))}/mo</span>
+          <span style={{fontSize:10,color:T.muted}}>✂️ Cutoff {fmd(fcd)} · {getDU(debt.fechaCorte)}d</span>
         </div>)}
 
         {/* Loan secondary row: APR */}
@@ -700,6 +697,8 @@ function App(){
   const [montoAccion,setMontoAccion]=useState("");
   const [alertDim,setAlertDim]=useState(false);
   const [addingDebt,setAddingDebt]=useState(null);
+  const [sortStrategy,setSortStrategy]=useState(()=>localStorage.getItem("debtSortStrategy")||null);
+  const [sortMenuOpen,setSortMenuOpen]=useState(false);
   const [quickOpen,setQuickOpen]=useState(false);
   const [quickNote,setQuickNote]=useState("");
   const [quickAmt,setQuickAmt]=useState("");
@@ -907,6 +906,7 @@ function App(){
   const addLoan=useCallback(()=>{const id=Date.now();setData(p=>({...p,loans:[...(p.loans||[]),{id,nombre:"New Loan",balance:0,original:0,minimo:0,interes:0,fechaPago:"",historial:[],tipo:"loan",priority:false}]}));setAddingDebt({id,tipo:"loan"});},[]);
   const togglePriorityCard=useCallback(id=>setData(p=>({...p,tarjetas:p.tarjetas.map(t=>t.id===id?{...t,priority:!t.priority}:t)})),[]);
   const togglePriorityLoan=useCallback(id=>setData(p=>({...p,loans:(p.loans||[]).map(l=>l.id===id?{...l,priority:!l.priority}:l)})),[]);
+  useEffect(()=>{if(sortStrategy===null)localStorage.removeItem("debtSortStrategy");else localStorage.setItem("debtSortStrategy",sortStrategy);},[sortStrategy]);
 
   const addQuickExpenseToCheck=()=>{
     const m=parseFloat(quickAmt);if(!m||m<=0||!quickNote.trim())return toast_("Add name and amount","err");
@@ -1533,10 +1533,14 @@ function App(){
                   </div>
                   <span style={{fontFamily:"monospace",fontWeight:800,fontSize:13,color:remaining>=0?"#3fb950":"#f85149"}}>{fmt(remaining)}<span style={{fontSize:9,color:T.muted,fontWeight:400}}> left</span></span>
                 </div>
-                <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:6,marginBottom:8}}>
+                <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:6,marginBottom:8}}>
                   <div style={{background:T.surface2,borderRadius:8,padding:"6px 8px"}}>
                     <div style={{fontSize:9,color:T.muted,marginBottom:2}}>Assigned</div>
                     <div style={{fontFamily:"monospace",fontWeight:700,fontSize:12,color:"#f85149"}}>{fmt(assigned)}</div>
+                  </div>
+                  <div style={{background:T.surface2,borderRadius:8,padding:"6px 8px"}}>
+                    <div style={{fontSize:9,color:T.muted,marginBottom:2}}>Reserved</div>
+                    <div style={{fontFamily:"monospace",fontWeight:700,fontSize:12,color:"#d29922"}}>{fmt(reserved)}</div>
                   </div>
                   <div style={{background:T.surface2,borderRadius:8,padding:"6px 8px"}}>
                     <div style={{fontSize:9,color:T.muted,marginBottom:2}}>Remaining</div>
@@ -1642,20 +1646,27 @@ function App(){
           const cards=allDebts.filter(d=>d.tipo==="card");
           const loans=allDebts.filter(d=>d.tipo==="loan");
           const priorityDebts=allDebts.filter(d=>d.priority);
-          const avalancheTarget=allDebts[0];
           const totalCards=data.tarjetas.reduce((s,t)=>s+n(t.balance),0);
           const totalLoans=(data.loans||[]).reduce((s,l)=>s+n(l.balance),0);
           const totalPriority=priorityDebts.reduce((s,d)=>s+n(d.balance),0);
+          // Sorted debts for isFirst computation (visual order only)
+          const sortedAllDebts=sortStrategy==="apr"
+            ?[...allDebts].sort((a,b)=>n(b.interes)-n(a.interes))
+            :sortStrategy==="balance"
+            ?[...allDebts].sort((a,b)=>n(a.balance)-n(b.balance))
+            :allDebts;
+          const firstDebtId=sortStrategy?sortedAllDebts.find(d=>n(d.balance)>0)?.id??null:null;
           const visibleCards=debtsFilter==="all"||debtsFilter==="cards"?cards:debtsFilter==="priority"?cards.filter(d=>d.priority):[];
           const visibleLoans=debtsFilter==="all"||debtsFilter==="loans"?loans:debtsFilter==="priority"?loans.filter(d=>d.priority):[];
           const filterBtns=[{id:"all",label:"All"},{id:"cards",label:"💳 Cards"},{id:"loans",label:"🏦 Loans"},{id:"priority",label:"⭐ Priority"}];
+          const sortLabels={apr:"APR",balance:"SMALL"};
           return(<div className="anim">
             {/* Filter selector */}
             <div style={{display:"flex",gap:5,marginBottom:12,background:T.surface2,borderRadius:11,padding:3}}>
               {filterBtns.map(f=>(<button key={f.id} style={{...BTN,flex:1,padding:"7px 4px",fontSize:11,borderRadius:9,background:debtsFilter===f.id?T.bg:"transparent",color:debtsFilter===f.id?T.accent:T.muted,border:debtsFilter===f.id?`1px solid ${T.accent}`:"1px solid transparent",transition:"all 0.15s"}} onClick={()=>setDebtsFilter(f.id)}>{f.label}</button>))}
             </div>
             {/* Compact dynamic totals */}
-            <div style={{display:"flex",gap:6,marginBottom:14,flexWrap:"wrap"}}>
+            <div style={{display:"flex",gap:6,marginBottom:14,flexWrap:"wrap",alignItems:"center"}}>
               {(debtsFilter==="all"||debtsFilter==="cards")&&totalCards>0&&(<div style={{display:"flex",alignItems:"center",gap:5,padding:"5px 10px",borderRadius:9,background:"rgba(236,72,153,0.07)",border:"1px solid rgba(236,72,153,0.2)"}}>
                 <span style={{fontSize:10,color:T.muted}}>💳 Cards</span>
                 <span style={{fontFamily:"monospace",fontWeight:700,color:"#ec4899",fontSize:12}}>{fmt(totalCards)}</span>
@@ -1672,14 +1683,18 @@ function App(){
                 <span style={{fontSize:10,color:T.muted}}>⭐ Priority</span>
                 <span style={{fontFamily:"monospace",fontWeight:700,color:"#f59e0b",fontSize:12}}>{fmt(totalPriority)}</span>
               </div>)}
-            </div>
-            {debtsFilter==="all"&&(<div style={{display:"flex",alignItems:"center",gap:10,marginBottom:14,padding:"8px 12px",borderRadius:9,background:T.surface2,border:`1px solid ${T.border}`}}>
-              <span style={{fontSize:12,flexShrink:0}}>🎯</span>
-              <div style={{minWidth:0}}>
-                <div style={{fontSize:11,fontWeight:700,color:"#d29922"}}>Avalanche focus → {avalancheTarget?.nombre}</div>
-                <div style={{fontSize:10,color:T.muted,marginTop:1}}>Highest APR: {avalancheTarget?.interes}%</div>
+              {/* Sort strategy toggle */}
+              <div style={{marginLeft:"auto",position:"relative"}}>
+                <button style={{...BTN,width:52,height:26,padding:0,borderRadius:8,background:sortStrategy?`rgba(88,166,255,0.12)`:"transparent",color:sortStrategy?T.accent:T.muted,border:`1px solid ${sortStrategy?T.accent:T.border}`,fontSize:10,fontWeight:700,display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0}} onClick={()=>setSortMenuOpen(o=>!o)}>
+                  {sortStrategy?<span>{sortLabels[sortStrategy]}</span>:<span style={{fontSize:11}}>⇅</span>}
+                </button>
+                {sortMenuOpen&&(<div style={{position:"absolute",right:0,top:"calc(100% + 4px)",zIndex:50,background:T.surface,border:`1px solid ${T.border}`,borderRadius:9,overflow:"hidden",minWidth:72,boxShadow:"0 4px 16px rgba(0,0,0,0.35)"}}>
+                  {[{v:null,l:"OFF"},{v:"apr",l:"APR"},{v:"balance",l:"SMALL"}].map(({v,l})=>(
+                    <button key={l} style={{...BTN,width:"100%",padding:"7px 12px",fontSize:11,borderRadius:0,background:sortStrategy===v?"rgba(88,166,255,0.1)":"transparent",color:sortStrategy===v?T.accent:T.muted,border:"none",fontWeight:sortStrategy===v?700:400,textAlign:"left"}} onClick={()=>{setSortStrategy(v);setSortMenuOpen(false);}}>{l}</button>
+                  ))}
+                </div>)}
               </div>
-            </div>)}
+            </div>
             {debtsFilter==="priority"&&priorityDebts.length===0&&(<div style={{...mkCARD(T),padding:"28px 20px",textAlign:"center",marginBottom:12}}>
               <div style={{fontSize:28,marginBottom:8}}>⭐</div>
               <div style={{fontWeight:700,marginBottom:4,color:T.text}}>No priority debts</div>
@@ -1696,7 +1711,7 @@ function App(){
                 <div style={{flex:1,height:1,background:`linear-gradient(90deg,${T.border},transparent)`}}/>
               </button>
               {!cardsCollapsed&&(<>
-                {visibleCards.map((d)=>{const globalIdx=allDebts.findIndex(x=>x.id===d.id&&x.tipo===d.tipo);return(<DebtCard key={d.id} debt={d} idx={globalIdx} isFirst={globalIdx===0} tipo="card" accion={accion} setAccion={setAccion} montoAccion={montoAccion} setMontoAccion={setMontoAccion} onApply={applyAccion} onUpdate={updateTarjeta} onRemove={removeTarjeta} isAdding={addingDebt?.id===d.id} setAddingDebt={setAddingDebt} onTogglePriority={togglePriorityCard} T={T}/>);})}
+                {visibleCards.map((d)=>{const globalIdx=allDebts.findIndex(x=>x.id===d.id&&x.tipo===d.tipo);const isFirst=!!sortStrategy&&d.id===firstDebtId;return(<DebtCard key={d.id} debt={d} idx={globalIdx} isFirst={isFirst} tipo="card" accion={accion} setAccion={setAccion} montoAccion={montoAccion} setMontoAccion={setMontoAccion} onApply={applyAccion} onUpdate={updateTarjeta} onRemove={removeTarjeta} isAdding={addingDebt?.id===d.id} setAddingDebt={setAddingDebt} onTogglePriority={togglePriorityCard} T={T}/>);})}
                 {(debtsFilter==="all"||debtsFilter==="cards")&&(<button style={{...BTN,width:"100%",marginBottom:24,padding:"10px",background:"transparent",color:"#ec4899",fontSize:12,border:`1.5px dashed rgba(236,72,153,0.3)`}} onClick={addCard}>+ Add Card</button>)}
               </>)}
             </>)}
@@ -1711,7 +1726,7 @@ function App(){
                 <div style={{flex:1,height:1,background:`linear-gradient(90deg,${T.border},transparent)`}}/>
               </button>
               {!loansCollapsed&&(<>
-                {visibleLoans.map((d)=>{const globalIdx=allDebts.findIndex(x=>x.id===d.id&&x.tipo===d.tipo);return(<DebtCard key={d.id} debt={d} idx={globalIdx} isFirst={globalIdx===0} tipo="loan" accion={accion} setAccion={setAccion} montoAccion={montoAccion} setMontoAccion={setMontoAccion} onApply={applyAccion} onUpdate={updateLoan} onRemove={removeLoan} isAdding={addingDebt?.id===d.id} setAddingDebt={setAddingDebt} onTogglePriority={togglePriorityLoan} T={T}/>);})}
+                {visibleLoans.map((d)=>{const globalIdx=allDebts.findIndex(x=>x.id===d.id&&x.tipo===d.tipo);const isFirst=!!sortStrategy&&d.id===firstDebtId;return(<DebtCard key={d.id} debt={d} idx={globalIdx} isFirst={isFirst} tipo="loan" accion={accion} setAccion={setAccion} montoAccion={montoAccion} setMontoAccion={setMontoAccion} onApply={applyAccion} onUpdate={updateLoan} onRemove={removeLoan} isAdding={addingDebt?.id===d.id} setAddingDebt={setAddingDebt} onTogglePriority={togglePriorityLoan} T={T}/>);})}
                 {(debtsFilter==="all"||debtsFilter==="loans")&&(<button style={{...BTN,width:"100%",marginBottom:24,padding:"10px",background:"transparent",color:"#f97316",fontSize:12,border:`1.5px dashed rgba(249,115,22,0.3)`}} onClick={addLoan}>+ Add Loan</button>)}
               </>)}
             </>)}
