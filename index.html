@@ -1816,13 +1816,16 @@ function App(){
                       const isNewDraft = d.id===newCardDraftId;
                       const isAdding_ = isNewDraft && !!addingDebt && addingDebt.id===d.id;
                       const isExpanded = expandedCardId===d.id;
+                      const prevIsExpanded = stackIdx > 0 && expandedCardId === visibleCards[stackIdx - 1]?.id;
                       // z-index: expanded card above all; non-expanded use natural stack order
-                      const zIndex = isExpanded ? 100 : (stackIdx + 1);
+                      const zIndex = isExpanded ? 100 : prevIsExpanded ? 99 : (stackIdx + 1);
 
-                      // Overlap: card immediately after an expanded card uses small positive margin
-                      // so it sits cleanly below the expanded card without cutting into it.
-                      // All other collapsed cards keep the normal negative overlap.
-                      const marginTop = isFirst_ ? 0 : -STACK_OVERLAP;
+                      const marginTop =
+                        isFirst_
+                          ? 0
+                          : prevIsExpanded
+                            ? -12
+                            : -STACK_OVERLAP;
 
                       const handleExpand=(e)=>{
                         if(e&&e.stopPropagation)e.stopPropagation();
@@ -1854,7 +1857,10 @@ function App(){
 
                       // Collapsed cards always clip at the fixed preview height.
                       // Expanded card passes null so DebtCard renders full natural height.
-                      const clipH = isExpanded ? null : STACK_VISIBLE_H;
+                      const prevCard = visibleCards[stackIdx - 1];
+                      const isBelowExpanded = prevCard && expandedCardId === prevCard.id;
+                      const exposedH = isExpanded ? null : isBelowExpanded ? STACK_VISIBLE_H - STACK_OVERLAP : STACK_VISIBLE_H;
+                      const clipH = exposedH;
 
                       return(
                         <div
