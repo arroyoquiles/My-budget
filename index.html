@@ -811,6 +811,7 @@ function App(){
   const [cardsCollapsed,setCardsCollapsed]=useState(false);
   const [loansCollapsed,setLoansCollapsed]=useState(false);
   const [expandedCardId,setExpandedCardId]=useState(null);
+  const [expandedCardHeight,setExpandedCardHeight]=useState(320);
   // resetTokens: maps card id -> counter; bumping collapses internal card UI
   const [resetTokens,setResetTokens]=useState({});
   const bumpReset=(id)=>setResetTokens(p=>({...p,[id]:(p[id]||0)+1}));
@@ -1804,83 +1805,83 @@ function App(){
                 </div>
               )}
               {!cardsCollapsed&&visibleCards.length>0&&(()=>{
-                const STACK_VISIBLE_H = 90;
-                const STACK_OVERLAP   = 50;
-                const totalCards_=visibleCards.length;
+                const HEADER_H = 48;
+                const OVERLAP  = 14;
+                const GAP      = 10;
+                const expandedIdx = visibleCards.findIndex(c => c.id === expandedCardId);
+
                 return(
-                  <div style={{position:"relative",marginBottom:56,overflow:"visible"}}>
+                  <div style={{marginBottom:16}}>
                     {visibleCards.map((d, stackIdx)=>{
                       const globalIdx=allDebts.findIndex(x=>x.id===d.id&&x.tipo===d.tipo);
-                      const isFirst_=stackIdx===0;
                       const isPriorityFirst=!!sortStrategy&&d.id===firstDebtId;
                       const isNewDraft = d.id===newCardDraftId;
                       const isAdding_ = isNewDraft && !!addingDebt && addingDebt.id===d.id;
                       const isExpanded = expandedCardId===d.id;
-                      const prevIsExpanded = stackIdx > 0 && expandedCardId === visibleCards[stackIdx - 1]?.id;
-                      // z-index: expanded card above all; non-expanded use natural stack order
-                      const zIndex = isExpanded ? 9999 : stackIdx + 1;
+                      const isFirstAfterExpanded = expandedIdx >= 0 && stackIdx === expandedIdx + 1;
 
-                      const marginTop =
-                        isFirst_
-                          ? 0
-                          : prevIsExpanded
-                            ? -12
-                            : -STACK_OVERLAP;
+                      // Expanded card floats above everything. All others: card 1 on top (highest z).
+                      const zIndex = isExpanded
+                        ? visibleCards.length + 10
+                        : (visibleCards.length - stackIdx);
+
+                      // Expanded card gets a gap above AND below (it floats between two stacks)
+                      const marginTop = stackIdx === 0
+                        ? 0
+                        : isExpanded
+                          ? GAP
+                          : isFirstAfterExpanded
+                            ? GAP
+                            : -OVERLAP;
+
+                      // Opacity: non-focused cards dim when any card is expanded
+                      const opacity = 1;
+                      const transition = "filter 0.2s ease, box-shadow 0.2s ease, transform 0.2s ease";
+                      const filter = (expandedIdx >= 0 && !isExpanded) ? "blur(1.5px) brightness(0.6)" : "none";
+                      const transform = isExpanded ? "scale(1.02)" : "none";
 
                       const handleExpand=(e)=>{
                         if(e&&e.stopPropagation)e.stopPropagation();
                         setSortMenuOpen(false);
                         if(isExpanded){
-                          // Same card tapped — collapse
                           if(!isNewDraft) bumpReset(d.id);
                           setExpandedCardId(null);
                           setAccion(null);setMontoAccion("");
-                          // If collapsing draft, clear addingDebt but preserve draft id for later re-open
                           if(isNewDraft) setAddingDebt(null);
                         } else {
-                          // Expand this card, collapse previous
                           setExpandedCardId(prev=>{
                             if(prev && prev!==d.id){
                               bumpReset(prev);
-                              // If the previously expanded card was the new draft, suspend its addingDebt state
                               if(prev===newCardDraftId) setAddingDebt(null);
                             }
                             return d.id;
                           });
                           setAccion(null);setMontoAccion("");
-                          // Restore addingDebt if re-opening paused draft
                           if(isNewDraft && (!addingDebt || addingDebt.id!==d.id)){
                             setAddingDebt({id:d.id,tipo:"card"});
                           }
                         }
                       };
 
-                      // Collapsed cards always clip at the fixed preview height.
-                      // Expanded card passes null so DebtCard renders full natural height.
-                      const prevCard = visibleCards[stackIdx - 1];
-                      const isDirectlyBelowExpanded = prevCard && expandedCardId === prevCard.id;
-                      const exposedH =
-                        isExpanded
-                          ? null
-                          : isDirectlyBelowExpanded
-                            ? STACK_VISIBLE_H - STACK_OVERLAP
-                            : STACK_VISIBLE_H;
-                      const clipH = exposedH;
+                      const clipH = isExpanded ? null : HEADER_H;
 
                       return(
                         <div
                           key={d.id}
                           ref={isNewDraft ? newCardRef : null}
-                          style={{position:"relative",marginTop,zIndex,isolation:"isolate"}}
+                          style={{position:"relative",marginTop,zIndex,isolation:"isolate",opacity,transition,filter,transform,
+                            ...(isExpanded?{boxShadow:"0 8px 32px rgba(0,0,0,0.7)",borderRadius:14}:{})
+                          }}
                         >
-                          {/* Click target for collapsed cards; expanded card handles its own taps */}
                           <div
                             style={{
                               borderRadius:14,
+                              overflow:"hidden",
                               cursor:isExpanded?"default":"pointer",
                               userSelect:"none",
                               WebkitUserSelect:"none",
                               WebkitTouchCallout:"none",
+                              ...(clipH!=null?{height:clipH,maxHeight:clipH}:{}),
                             }}
                             onClick={!isExpanded ? handleExpand : undefined}
                             onContextMenu={e=>e.preventDefault()}
@@ -1905,7 +1906,6 @@ function App(){
                               setAddingDebt={(v)=>{
                                 setAddingDebt(v);
                                 if(!v){
-                                  // Done Adding — clear draft tracking, collapse
                                   setNewCardDraftId(null);
                                   setExpandedCardId(null);
                                 }
