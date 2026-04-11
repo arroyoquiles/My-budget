@@ -1769,7 +1769,7 @@ function App(){
                 <span style={{fontFamily:"monospace",fontWeight:700,color:"#f85149",fontSize:12}}>{fmt(totalDebt)}</span>
               </div>)}
               {/* Sort strategy toggle */}
-              <div style={{marginLeft:"auto",position:"relative",zIndex:200}}>
+              <div style={{marginLeft:"auto",position:"relative",zIndex:200,isolation:"isolate"}}>
                 {sortMenuOpen&&<div style={{position:"fixed",inset:0,zIndex:198}} onClick={()=>setSortMenuOpen(false)}/>}
                 <button style={{...BTN,width:52,height:26,padding:0,borderRadius:8,background:sortStrategy?`rgba(88,166,255,0.12)`:"transparent",color:sortStrategy?T.accent:T.muted,border:`1px solid ${sortStrategy?T.accent:T.border}`,fontSize:10,fontWeight:700,display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0,position:"relative",zIndex:199}} onClick={()=>setSortMenuOpen(o=>!o)}>
                   {sortStrategy?<span>{sortLabels[sortStrategy]}</span>:<span style={{fontSize:11}}>⇅</span>}
@@ -1818,8 +1818,9 @@ function App(){
                       const isExpanded = expandedCardId===d.id;
                       // Prev card being expanded changes stacking
                       const prevIsExpanded = stackIdx>0 && expandedCardId===visibleCards[stackIdx-1]?.id;
-                      // z-index: expanded card on top, cards after expanded get a boost to clear correctly
-                      const zIndex = isExpanded ? 100 : (stackIdx + 1);
+                      // z-index: expanded card on top; card immediately above expanded must stay visible above it
+                      const nextIsExpanded = stackIdx < visibleCards.length-1 && expandedCardId===visibleCards[stackIdx+1]?.id;
+                      const zIndex = isExpanded ? 100 : nextIsExpanded ? 101 : (stackIdx + 1);
 
                       // Overlap logic: apply negative marginTop only between two consecutive collapsed cards
                       // If this card is expanded, no overlap needed
