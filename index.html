@@ -553,7 +553,7 @@ const GastoItem=memo(({item,pid,editId,setEditId,tarjetas,onCycle,onLongPress,on
   const saveEditing=()=>{setEditing(false);setSavedSnapshot(null);};
   return(
     <div
-      style={{...CARD,padding:"12px 14px",marginBottom:9,overflow:"hidden",borderColor:isFirst?"#d29922":showEdit?"rgba(88,166,255,0.5)":debt.priority?"rgba(245,158,11,0.35)":T.border,transition:"border-color 0.2s",userSelect:"none",WebkitUserSelect:"none",WebkitTouchCallout:"none",...(clipH!=null?{boxSizing:"border-box",height:clipH,maxHeight:clipH,minHeight:clipH,marginBottom:0}:{})}}
+      style={{...CARD,padding:"12px 14px",marginBottom:9,overflow:"hidden",borderColor:isFirst?"#d29922":showEdit?"rgba(88,166,255,0.5)":debt.priority?"rgba(245,158,11,0.35)":T.border,transition:"border-color 0.2s",userSelect:"none",WebkitUserSelect:"none",WebkitTouchCallout:"none",...(clipH!=null?{boxSizing:"border-box",height:clipH,maxHeight:clipH,minHeight:clipH,marginBottom:0,clipPath:"inset(0 round 16px)"}:{clipPath:"none"})}}
       onTouchStart={hLPStart}
       onTouchMove={hLPMove}
       onTouchEnd={hLPEnd}
@@ -1818,7 +1818,7 @@ function App(){
                       const isExpanded = expandedCardId===d.id;
                       const prevIsExpanded = stackIdx > 0 && expandedCardId === visibleCards[stackIdx - 1]?.id;
                       // z-index: expanded card above all; non-expanded use natural stack order
-                      const zIndex = isExpanded ? 100 : prevIsExpanded ? 99 : (stackIdx + 1);
+                      const zIndex = isExpanded ? 9999 : stackIdx + 1;
 
                       const marginTop =
                         isFirst_
@@ -1858,15 +1858,20 @@ function App(){
                       // Collapsed cards always clip at the fixed preview height.
                       // Expanded card passes null so DebtCard renders full natural height.
                       const prevCard = visibleCards[stackIdx - 1];
-                      const isBelowExpanded = prevCard && expandedCardId === prevCard.id;
-                      const exposedH = isExpanded ? null : isBelowExpanded ? STACK_VISIBLE_H - STACK_OVERLAP : STACK_VISIBLE_H;
+                      const isDirectlyBelowExpanded = prevCard && expandedCardId === prevCard.id;
+                      const exposedH =
+                        isExpanded
+                          ? null
+                          : isDirectlyBelowExpanded
+                            ? STACK_VISIBLE_H - STACK_OVERLAP
+                            : STACK_VISIBLE_H;
                       const clipH = exposedH;
 
                       return(
                         <div
                           key={d.id}
                           ref={isNewDraft ? newCardRef : null}
-                          style={{position:"relative",marginTop,zIndex}}
+                          style={{position:"relative",marginTop,zIndex,isolation:"isolate"}}
                         >
                           {/* Click target for collapsed cards; expanded card handles its own taps */}
                           <div
@@ -1876,7 +1881,6 @@ function App(){
                               userSelect:"none",
                               WebkitUserSelect:"none",
                               WebkitTouchCallout:"none",
-                              isolation:"isolate",
                             }}
                             onClick={!isExpanded ? handleExpand : undefined}
                             onContextMenu={e=>e.preventDefault()}
