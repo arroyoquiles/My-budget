@@ -1808,7 +1808,7 @@ function App(){
                 const STACK_OVERLAP   = 50;
                 const totalCards_=visibleCards.length;
                 return(
-                  <div style={{position:"relative",marginBottom:32,overflow:"visible"}}>
+                  <div style={{position:"relative",marginBottom:56,overflow:"visible"}}>
                     {visibleCards.map((d, stackIdx)=>{
                       const globalIdx=allDebts.findIndex(x=>x.id===d.id&&x.tipo===d.tipo);
                       const isFirst_=stackIdx===0;
@@ -1824,7 +1824,7 @@ function App(){
                       // Overlap logic: apply negative marginTop only between two consecutive collapsed cards
                       // If this card is expanded, no overlap needed
                       // If previous card is expanded, give some normal spacing
-                      const marginTop = isFirst_ ? 0 : (prevIsExpanded ? 8 : (isExpanded ? 8 : -STACK_OVERLAP));
+                      const marginTop = isFirst_ ? 0 : -STACK_OVERLAP;
 
                       const handleExpand=(e)=>{
                         if(e&&e.stopPropagation)e.stopPropagation();
@@ -1858,7 +1858,7 @@ function App(){
                         <div
                           key={d.id}
                           ref={isNewDraft ? newCardRef : null}
-                          style={{position:"relative",marginTop,zIndex,transition:"margin-top 0.2s"}}
+                          style={{position:"relative",marginTop,zIndex}}
                         >
                           {/* Viewport clips to fixed height when stacked; full height when expanded */}
                           <div
