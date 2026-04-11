@@ -489,7 +489,7 @@ const GastoItem=memo(({item,pid,editId,setEditId,tarjetas,onCycle,onLongPress,on
       </div>
     </div>
   );
-});const DebtCard=memo(({debt,idx,isFirst,tipo,accion,setAccion,montoAccion,setMontoAccion,onApply,onUpdate,onRemove,isAdding,setAddingDebt,onTogglePriority,resetToken,T})=>{
+});const DebtCard=memo(({debt,idx,isFirst,tipo,accion,setAccion,montoAccion,setMontoAccion,onApply,onUpdate,onRemove,isAdding,setAddingDebt,onTogglePriority,onCollapse,resetToken,T})=>{
   const [editing,setEditing]=useState(false);
   const [longPressMenu,setLongPressMenu]=useState(false);
   const [savedSnapshot,setSavedSnapshot]=useState(null);
@@ -518,14 +518,31 @@ const GastoItem=memo(({item,pid,editId,setEditId,tarjetas,onCycle,onLongPress,on
   const balanceColor=tipo==="card"?(CC[debt.nombre]?.color||vcStyle?.color||"#ec4899"):"#f85149";
   const lpTimer=useRef(null);
   const lpFired=useRef(false);
+  const lpStartPos=useRef(null);
   // Long press on the whole card surface (not just title)
   const hLPStart=(e)=>{
-    // Don't initiate long press from interactive children (buttons, inputs)
+    // Don't initiate long press from interactive children (buttons, inputs, select)
     if(e.target.closest('button,input,select,textarea'))return;
     lpFired.current=false;
-    lpTimer.current=setTimeout(()=>{lpFired.current=true;setLongPressMenu(true);},500);
+    const touch=e.touches?e.touches[0]:e;
+    lpStartPos.current={x:touch.clientX,y:touch.clientY};
+    clearTimeout(lpTimer.current);
+    lpTimer.current=setTimeout(()=>{
+      lpFired.current=true;
+      setLongPressMenu(true);
+      // Vibrate if available for tactile feedback
+      if(navigator.vibrate)navigator.vibrate(30);
+    },520);
   };
-  const hLPEnd=()=>{clearTimeout(lpTimer.current);};
+  const hLPMove=(e)=>{
+    if(!lpStartPos.current)return;
+    const touch=e.touches?e.touches[0]:e;
+    const dx=Math.abs(touch.clientX-lpStartPos.current.x);
+    const dy=Math.abs(touch.clientY-lpStartPos.current.y);
+    // Cancel long press if finger moved more than 8px
+    if(dx>8||dy>8){clearTimeout(lpTimer.current);lpStartPos.current=null;}
+  };
+  const hLPEnd=()=>{clearTimeout(lpTimer.current);lpStartPos.current=null;};
   const startEditing=()=>{setSavedSnapshot({...debt});setEditing(true);setLongPressMenu(false);};
   const cancelEditing=()=>{
     if(savedSnapshot){
@@ -538,27 +555,39 @@ const GastoItem=memo(({item,pid,editId,setEditId,tarjetas,onCycle,onLongPress,on
     <div
       style={{...CARD,padding:"12px 14px",marginBottom:9,borderColor:isFirst?"#d29922":showEdit?"rgba(88,166,255,0.5)":debt.priority?"rgba(245,158,11,0.35)":T.border,transition:"border-color 0.2s",userSelect:"none",WebkitUserSelect:"none",WebkitTouchCallout:"none"}}
       onTouchStart={hLPStart}
+      onTouchMove={hLPMove}
       onTouchEnd={hLPEnd}
-      onTouchMove={hLPEnd}
+      onTouchCancel={hLPEnd}
       onMouseDown={hLPStart}
+      onMouseMove={hLPMove}
       onMouseUp={hLPEnd}
       onContextMenu={e=>e.preventDefault()}
     >
 
       {/* ── Header: icon · name · balance · star ── */}
-      <div style={{display:"flex",alignItems:"center",gap:7,marginBottom:6,userSelect:"none",WebkitUserSelect:"none",pointerEvents:"none"}}>
-        <span style={{fontSize:15,flexShrink:0}}>{debtIcon}</span>
+      {/* When expanded, tapping the header area (not star/button) collapses the card */}
+      <div
+        style={{display:"flex",alignItems:"center",gap:7,marginBottom:6,userSelect:"none",WebkitUserSelect:"none",WebkitTouchCallout:"none",cursor:onCollapse&&!showEdit?"pointer":"default"}}
+        onClick={e=>{
+          // Only collapse if tapping non-interactive area in header
+          if(onCollapse&&!showEdit&&!e.target.closest('button,input,select,textarea')){
+            onCollapse(e);
+          }
+        }}
+      >
+        <span style={{fontSize:15,flexShrink:0,pointerEvents:"none"}}>{debtIcon}</span>
         {showEdit
-          ?<input style={{...INP,fontWeight:700,fontSize:14,background:"transparent",border:"none",borderBottom:`1.5px solid ${T.accent}`,borderRadius:0,padding:"2px 0",flex:1,userSelect:"text",WebkitUserSelect:"text",pointerEvents:"auto"}} value={debt.nombre} onChange={e=>onUpdate(debt.id,"nombre",e.target.value)} autoFocus={editing&&!isAdding} onMouseDown={e=>e.stopPropagation()} onTouchStart={e=>e.stopPropagation()}/>
-          :<span style={{flex:1,fontWeight:700,fontSize:14,color:T.text,minWidth:0,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{debt.nombre}</span>
+          ?<input style={{...INP,fontWeight:700,fontSize:14,background:"transparent",border:"none",borderBottom:`1.5px solid ${T.accent}`,borderRadius:0,padding:"2px 0",flex:1,userSelect:"text",WebkitUserSelect:"text"}} value={debt.nombre} onChange={e=>onUpdate(debt.id,"nombre",e.target.value)} autoFocus={editing&&!isAdding} onMouseDown={e=>e.stopPropagation()} onTouchStart={e=>e.stopPropagation()}/>
+          :<span style={{flex:1,fontWeight:700,fontSize:14,color:T.text,minWidth:0,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap",pointerEvents:"none"}}>{debt.nombre}</span>
         }
-        <span style={{fontFamily:"monospace",fontWeight:800,fontSize:tipo==="card"?18:16,color:balanceColor,flexShrink:0,letterSpacing:-0.3}}>{fmt(n(debt.balance))}</span>
-        {/* Star: pointer-events auto so it captures tap independently */}
+        <span style={{fontFamily:"monospace",fontWeight:800,fontSize:tipo==="card"?18:16,color:balanceColor,flexShrink:0,letterSpacing:-0.3,pointerEvents:"none"}}>{fmt(n(debt.balance))}</span>
+        {/* Star: fully isolated tap — stops propagation so it never triggers long press or expand */}
         <button
-          style={{...BTN,background:"transparent",color:debt.priority?"#f59e0b":T.muted,padding:"2px 3px",fontSize:14,border:"none",opacity:debt.priority?1:0.35,flexShrink:0,transition:"opacity 0.15s",pointerEvents:"auto"}}
-          onMouseDown={e=>{e.stopPropagation();clearTimeout(lpTimer.current);}}
-          onTouchStart={e=>{e.stopPropagation();clearTimeout(lpTimer.current);}}
-          onClick={e=>{e.stopPropagation();onTogglePriority(debt.id);}}
+          style={{...BTN,background:"transparent",color:debt.priority?"#f59e0b":T.muted,padding:"4px 5px",fontSize:14,border:"none",opacity:debt.priority?1:0.4,flexShrink:0,transition:"opacity 0.15s",minWidth:28,minHeight:28,display:"flex",alignItems:"center",justifyContent:"center"}}
+          onMouseDown={e=>{e.stopPropagation();e.preventDefault();clearTimeout(lpTimer.current);lpStartPos.current=null;}}
+          onTouchStart={e=>{e.stopPropagation();clearTimeout(lpTimer.current);lpStartPos.current=null;}}
+          onTouchEnd={e=>{e.stopPropagation();}}
+          onClick={e=>{e.stopPropagation();e.preventDefault();onTogglePriority(debt.id);}}
         >⭐</button>
       </div>
 
@@ -959,6 +988,7 @@ function App(){
   const togglePriorityCard=useCallback(id=>setData(p=>({...p,tarjetas:p.tarjetas.map(t=>t.id===id?{...t,priority:!t.priority}:t)})),[]);
   const togglePriorityLoan=useCallback(id=>setData(p=>({...p,loans:(p.loans||[]).map(l=>l.id===id?{...l,priority:!l.priority}:l)})),[]);
   useEffect(()=>{if(sortMenuOpen)setSortMenuOpen(false);},[expandedCardId]);
+  useEffect(()=>{if(!sortMenuOpen)return;const onScroll=()=>setSortMenuOpen(false);window.addEventListener("scroll",onScroll,{passive:true});return()=>window.removeEventListener("scroll",onScroll);},[sortMenuOpen]);
   useEffect(()=>{if(sortStrategy===null)localStorage.removeItem("debtSortStrategy");else localStorage.setItem("debtSortStrategy",sortStrategy);},[sortStrategy]);
 
   const addQuickExpenseToCheck=()=>{
@@ -1517,7 +1547,7 @@ function App(){
           </div>)}
         </div>
         <div ref={tabBarRef} className="tabs">
-          {TABS.map(t=>(<button key={t.id} style={{...BTN,padding:"7px 11px",fontSize:10,whiteSpace:"nowrap",flexShrink:0,background:tab===t.id?T.accent:T.surface2,color:tab===t.id?(theme==="dark"?"#0d1117":"#fff"):T.muted,border:`1px solid ${tab===t.id?T.accent:t.urgent?"#f85149":t.hasActive?"#3fb950":T.border}`,position:"relative"}} onClick={()=>setTab(t.id)}>
+          {TABS.map(t=>(<button key={t.id} style={{...BTN,padding:"7px 11px",fontSize:10,whiteSpace:"nowrap",flexShrink:0,background:tab===t.id?T.accent:T.surface2,color:tab===t.id?(theme==="dark"?"#0d1117":"#fff"):T.muted,border:`1px solid ${tab===t.id?T.accent:t.urgent?"#f85149":t.hasActive?"#3fb950":T.border}`,position:"relative"}} onClick={()=>{setTab(t.id);setSortMenuOpen(false);}}>
             <span>{t.icon} {t.label}</span>
             {t.urgent&&tab!==t.id&&<span style={{position:"absolute",top:-3,right:-3,width:8,height:8,borderRadius:"50%",background:"#f85149",border:"2px solid "+T.bg}}/>}
           </button>))}
@@ -1702,25 +1732,23 @@ function App(){
           const totalCards=data.tarjetas.reduce((s,t)=>s+n(t.balance),0);
           const totalLoans=(data.loans||[]).reduce((s,l)=>s+n(l.balance),0);
           const totalPriority=priorityDebts.reduce((s,d)=>s+n(d.balance),0);
-          // Sorted debts — priority sort puts starred cards first within each group
+          // Sorted debts — starred cards always appear first within credit cards section
           const sortCards=(arr)=>{
-            if(sortStrategy==="priority") return [...arr].sort((a,b)=>(b.priority?1:0)-(a.priority?1:0));
-            if(sortStrategy==="apr")     return [...arr].sort((a,b)=>n(b.interes)-n(a.interes));
-            if(sortStrategy==="balance") return [...arr].sort((a,b)=>n(a.balance)-n(b.balance));
-            return arr;
+            if(sortStrategy==="apr")     return [...arr].sort((a,b)=>(b.priority?1:0)-(a.priority?1:0)||n(b.interes)-n(a.interes));
+            if(sortStrategy==="balance") return [...arr].sort((a,b)=>(b.priority?1:0)-(a.priority?1:0)||n(a.balance)-n(b.balance));
+            // Default: starred first, preserve relative order otherwise
+            return [...arr].sort((a,b)=>(b.priority?1:0)-(a.priority?1:0));
           };
           const sortedAllDebts=sortStrategy==="apr"
             ?[...allDebts].sort((a,b)=>n(b.interes)-n(a.interes))
             :sortStrategy==="balance"
             ?[...allDebts].sort((a,b)=>n(a.balance)-n(b.balance))
-            :sortStrategy==="priority"
-            ?[...allDebts].sort((a,b)=>(b.priority?1:0)-(a.priority?1:0))
             :allDebts;
           const firstDebtId=sortStrategy?sortedAllDebts.find(d=>n(d.balance)>0)?.id??null:null;
           const visibleCards=sortCards(debtsFilter==="all"||debtsFilter==="cards"?cards:debtsFilter==="loans"?[]:cards);
           const visibleLoans=debtsFilter==="all"||debtsFilter==="loans"?loans:debtsFilter==="cards"?[]:loans;
           const filterBtns=[{id:"all",label:"All"},{id:"cards",label:"💳 Cards"},{id:"loans",label:"🏦 Loans"}];
-          const sortLabels={apr:"APR",balance:"SMALL",priority:"⭐"};
+          const sortLabels={apr:"APR",balance:"SMALL"};
           return(<div className="anim">
             {/* Filter selector */}
             <div style={{display:"flex",gap:5,marginBottom:12,background:T.surface2,borderRadius:11,padding:3}}>
@@ -1741,12 +1769,13 @@ function App(){
                 <span style={{fontFamily:"monospace",fontWeight:700,color:"#f85149",fontSize:12}}>{fmt(totalDebt)}</span>
               </div>)}
               {/* Sort strategy toggle */}
-              <div style={{marginLeft:"auto",position:"relative"}}>
-                <button style={{...BTN,width:52,height:26,padding:0,borderRadius:8,background:sortStrategy?`rgba(88,166,255,0.12)`:"transparent",color:sortStrategy?T.accent:T.muted,border:`1px solid ${sortStrategy?T.accent:T.border}`,fontSize:10,fontWeight:700,display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0}} onClick={()=>setSortMenuOpen(o=>!o)}>
+              <div style={{marginLeft:"auto",position:"relative",zIndex:200}}>
+                {sortMenuOpen&&<div style={{position:"fixed",inset:0,zIndex:198}} onClick={()=>setSortMenuOpen(false)}/>}
+                <button style={{...BTN,width:52,height:26,padding:0,borderRadius:8,background:sortStrategy?`rgba(88,166,255,0.12)`:"transparent",color:sortStrategy?T.accent:T.muted,border:`1px solid ${sortStrategy?T.accent:T.border}`,fontSize:10,fontWeight:700,display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0,position:"relative",zIndex:199}} onClick={()=>setSortMenuOpen(o=>!o)}>
                   {sortStrategy?<span>{sortLabels[sortStrategy]}</span>:<span style={{fontSize:11}}>⇅</span>}
                 </button>
-                {sortMenuOpen&&(<div style={{position:"absolute",right:0,top:"calc(100% + 4px)",zIndex:50,background:T.surface,border:`1px solid ${T.border}`,borderRadius:9,overflow:"hidden",minWidth:72,boxShadow:"0 4px 16px rgba(0,0,0,0.35)"}}>
-                  {[{v:null,l:"OFF"},{v:"priority",l:"⭐"},{v:"apr",l:"APR"},{v:"balance",l:"SMALL"}].map(({v,l})=>(
+                {sortMenuOpen&&(<div style={{position:"absolute",right:0,top:"calc(100% + 4px)",zIndex:9999,background:T.surface,border:`1px solid ${T.border}`,borderRadius:9,overflow:"hidden",minWidth:72,boxShadow:"0 8px 24px rgba(0,0,0,0.5)"}}>
+                  {[{v:null,l:"OFF"},{v:"apr",l:"APR"},{v:"balance",l:"SMALL"}].map(({v,l})=>(
                     <button key={l} style={{...BTN,width:"100%",padding:"7px 12px",fontSize:11,borderRadius:0,background:sortStrategy===v?"rgba(88,166,255,0.1)":"transparent",color:sortStrategy===v?T.accent:T.muted,border:"none",fontWeight:sortStrategy===v?700:400,textAlign:"left"}} onClick={()=>{setSortStrategy(v);setSortMenuOpen(false);}}>{l}</button>
                   ))}
                 </div>)}
@@ -1777,8 +1806,9 @@ function App(){
               {!cardsCollapsed&&visibleCards.length>0&&(()=>{
                 const STACK_VISIBLE_H = 90;
                 const STACK_OVERLAP   = 50;
+                const totalCards_=visibleCards.length;
                 return(
-                  <div style={{position:"relative",marginBottom:24}}>
+                  <div style={{position:"relative",marginBottom:32,overflow:"visible"}}>
                     {visibleCards.map((d, stackIdx)=>{
                       const globalIdx=allDebts.findIndex(x=>x.id===d.id&&x.tipo===d.tipo);
                       const isFirst_=stackIdx===0;
@@ -1786,26 +1816,34 @@ function App(){
                       const isNewDraft = d.id===newCardDraftId;
                       const isAdding_ = isNewDraft && !!addingDebt && addingDebt.id===d.id;
                       const isExpanded = expandedCardId===d.id;
-                      const zIndex = isExpanded ? 100 : stackIdx + 1;
-
-                      // Overlap logic: only apply negative marginTop when BOTH this card
-                      // AND the previous card are collapsed. If previous card is expanded,
-                      // this card sits naturally below it with no overlap.
+                      // Prev card being expanded changes stacking
                       const prevIsExpanded = stackIdx>0 && expandedCardId===visibleCards[stackIdx-1]?.id;
-                      const marginTop = isFirst_ ? 0 : prevIsExpanded ? 8 : -STACK_OVERLAP;
+                      // z-index: expanded card on top, cards after expanded get a boost to clear correctly
+                      const zIndex = isExpanded ? 100 : (stackIdx + 1);
+
+                      // Overlap logic: apply negative marginTop only between two consecutive collapsed cards
+                      // If this card is expanded, no overlap needed
+                      // If previous card is expanded, give some normal spacing
+                      const marginTop = isFirst_ ? 0 : (prevIsExpanded ? 8 : (isExpanded ? 8 : -STACK_OVERLAP));
 
                       const handleExpand=(e)=>{
-                        e.stopPropagation();
+                        if(e&&e.stopPropagation)e.stopPropagation();
                         setSortMenuOpen(false);
                         if(isExpanded){
                           // Same card tapped — collapse
                           if(!isNewDraft) bumpReset(d.id);
                           setExpandedCardId(null);
                           setAccion(null);setMontoAccion("");
+                          // If collapsing draft, clear addingDebt but preserve draft id for later re-open
+                          if(isNewDraft) setAddingDebt(null);
                         } else {
                           // Expand this card, collapse previous
                           setExpandedCardId(prev=>{
-                            if(prev && prev!==d.id && prev!==newCardDraftId) bumpReset(prev);
+                            if(prev && prev!==d.id){
+                              bumpReset(prev);
+                              // If the previously expanded card was the new draft, suspend its addingDebt state
+                              if(prev===newCardDraftId) setAddingDebt(null);
+                            }
                             return d.id;
                           });
                           setAccion(null);setMontoAccion("");
@@ -1825,7 +1863,7 @@ function App(){
                           {/* Viewport clips to fixed height when stacked; full height when expanded */}
                           <div
                             style={{
-                              overflow:"hidden",
+                              overflow:isExpanded?"visible":"hidden",
                               height:isExpanded?"auto":STACK_VISIBLE_H,
                               borderRadius:14,
                               cursor:isExpanded?"default":"pointer",
@@ -1834,6 +1872,8 @@ function App(){
                               userSelect:"none",
                               WebkitUserSelect:"none",
                               WebkitTouchCallout:"none",
+                              // Ensure expanded card is not clipped by parent
+                              isolation:isExpanded?"isolate":"auto",
                             }}
                             onClick={!isExpanded ? handleExpand : undefined}
                             onContextMenu={e=>e.preventDefault()}
@@ -1863,19 +1903,12 @@ function App(){
                                   setExpandedCardId(null);
                                 }
                               }}
-                              onTogglePriority={isExpanded?togglePriorityCard:()=>{}}
+                              onTogglePriority={togglePriorityCard}
+                              onCollapse={isExpanded?handleExpand:null}
                               resetToken={resetTokens[d.id]}
                               T={T}
                             />
                           </div>
-                          {/* Invisible tap-to-collapse zone over the card header when expanded */}
-                          {isExpanded&&(
-                            <div
-                              style={{position:"absolute",top:0,left:0,right:0,height:44,cursor:"pointer",zIndex:2,userSelect:"none",WebkitUserSelect:"none"}}
-                              onClick={handleExpand}
-                              onContextMenu={e=>e.preventDefault()}
-                            />
-                          )}
                         </div>
                       );
                     })}
@@ -1884,7 +1917,7 @@ function App(){
               })()}
             </>)}
             {visibleLoans.length>0&&(<>
-              <button style={{...BTN,width:"100%",display:"flex",alignItems:"center",gap:0,marginBottom:loansCollapsed?8:10,background:"transparent",border:"none",padding:0,borderRadius:0}} onClick={()=>setLoansCollapsed(c=>!c)}>
+              <button style={{...BTN,width:"100%",display:"flex",alignItems:"center",gap:0,marginBottom:loansCollapsed?8:10,background:"transparent",border:"none",padding:0,borderRadius:0}} onClick={()=>{setLoansCollapsed(c=>!c);setSortMenuOpen(false);}}>
                 <div style={{flex:1,height:1,background:`linear-gradient(90deg,transparent,${T.border})`}}/>
                 <div style={{display:"flex",alignItems:"center",gap:6,padding:"5px 12px",borderRadius:20,background:"rgba(249,115,22,0.08)",border:"1px solid rgba(249,115,22,0.22)"}}>
                   <span style={{fontSize:13}}>{loansCollapsed?"▶":"▼"}</span>
