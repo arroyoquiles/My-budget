@@ -776,7 +776,7 @@ function App(){
   const [kbHeight,setKbHeight]=useState(0);
   const kbHeightRef=useRef(0);
   useEffect(()=>{
-    if(!moveOpen)return;
+    if(!moveOpen&&!quickOpen)return;
     const onResize=()=>{
       const visualH=window.visualViewport?window.visualViewport.height:window.innerHeight;
       const windowH=window.innerHeight;
@@ -795,7 +795,7 @@ function App(){
         window.visualViewport.removeEventListener("scroll",onResize);
       }
     };
-  },[moveOpen]);
+  },[moveOpen,quickOpen]);
   useEffect(()=>{
     if(moveOpen){
       scrollLockPos.current=window.scrollY||document.documentElement.scrollTop||0;
@@ -1329,14 +1329,14 @@ function App(){
             </div>
             <div style={{padding:"10px 16px 0"}}>
               <div style={{display:"flex",gap:6,background:T.surface2,borderRadius:11,padding:3}}>
-                <button style={{...BTN,flex:1,padding:"8px",fontSize:12,borderRadius:9,background:quickApplyTo==="check"?T.bg:"transparent",color:quickApplyTo==="check"?T.accent:T.muted,border:quickApplyTo==="check"?`1px solid ${T.accent}`:"1px solid transparent"}} onMouseDown={()=>{if(quickApplyTo!=="check"&&document.activeElement?.blur)document.activeElement.blur();}} onClick={()=>switchQuickApplyTo("check")}>💰 Check</button>
-                <button style={{...BTN,flex:1,padding:"8px",fontSize:12,borderRadius:9,background:quickApplyTo==="card"?T.bg:"transparent",color:quickApplyTo==="card"?"#ec4899":T.muted,border:quickApplyTo==="card"?"1px solid rgba(236,72,153,0.5)":"1px solid transparent"}} onMouseDown={()=>{if(quickApplyTo!=="card"&&document.activeElement?.blur)document.activeElement.blur();}} onClick={()=>switchQuickApplyTo("card")}>💳 Card</button>
+                <button style={{...BTN,flex:1,padding:"8px",fontSize:12,borderRadius:9,background:quickApplyTo==="check"?T.bg:"transparent",color:quickApplyTo==="check"?T.accent:T.muted,border:quickApplyTo==="check"?`1px solid ${T.accent}`:"1px solid transparent"}} onMouseDown={e=>e.preventDefault()} onClick={()=>{switchQuickApplyTo("check");requestAnimationFrame(()=>{const el=document.querySelector('[data-quick-check-amt]');if(el)el.focus({preventScroll:true});});}}>💰 Check</button>
+                <button style={{...BTN,flex:1,padding:"8px",fontSize:12,borderRadius:9,background:quickApplyTo==="card"?T.bg:"transparent",color:quickApplyTo==="card"?"#ec4899":T.muted,border:quickApplyTo==="card"?"1px solid rgba(236,72,153,0.5)":"1px solid transparent"}} onMouseDown={e=>e.preventDefault()} onClick={()=>{switchQuickApplyTo("card");requestAnimationFrame(()=>{if(window._quickCardAmtEl)window._quickCardAmtEl.focus({preventScroll:true});});}}>💳 Card</button>
               </div>
             </div>
             <div style={{padding:"10px 16px",paddingBottom:"max(16px,env(safe-area-inset-bottom,16px))",minHeight:280}}>
               {quickApplyTo==="check"&&(<>
                 <div style={{marginBottom:8}}><div style={{fontSize:9,color:T.muted,letterSpacing:1.2,fontWeight:700,marginBottom:4}}>WHAT WAS IT?</div><input style={{...INP}} value={quickNote} onChange={e=>setQuickNote(e.target.value)} placeholder="e.g. Walmart, gas..."/></div>
-                <div style={{marginBottom:8}}><div style={{fontSize:9,color:T.muted,letterSpacing:1.2,fontWeight:700,marginBottom:4}}>AMOUNT ($)</div><input style={{...INP,fontFamily:"monospace",fontWeight:700,fontSize:22}} type="number" inputMode="decimal" value={quickAmt} onChange={e=>setQuickAmt(e.target.value)} placeholder="0.00"/></div>
+                <div style={{marginBottom:8}}><div style={{fontSize:9,color:T.muted,letterSpacing:1.2,fontWeight:700,marginBottom:4}}>AMOUNT ($)</div><input data-quick-check-amt style={{...INP,fontFamily:"monospace",fontWeight:700,fontSize:22}} type="number" inputMode="decimal" value={quickAmt} onChange={e=>setQuickAmt(e.target.value)} placeholder="0.00"/></div>
                 <div style={{marginBottom:8}}><div style={{fontSize:9,color:T.muted,letterSpacing:1.2,fontWeight:700,marginBottom:4}}>DEDUCT FROM</div><div style={{display:"flex",gap:6}}>{monthPeriods.map(p=>(<button key={p.id} style={{...BTN,flex:1,padding:"8px",fontSize:12,background:quickPid===p.id?"rgba(88,166,255,0.15)":T.surface2,color:quickPid===p.id?T.accent:T.muted,border:`1px solid ${quickPid===p.id?T.accent:T.border}`}} onClick={()=>setQuickPid(p.id)}>{p.isCurrent?"💰":"📋"} {p.label}{p.isCurrent?" ✓":""}</button>))}</div></div>
                 <div style={{height:32,marginBottom:10,display:"flex",alignItems:"center"}}>{quickAmtNum>0&&quickPreviewCheck&&(<div style={{width:"100%",padding:"7px 11px",borderRadius:9,background:quickPreviewCheck.newLeftover>=0?"rgba(63,185,80,0.06)":"rgba(248,81,73,0.06)",border:`1px solid ${quickPreviewCheck.newLeftover>=0?"rgba(63,185,80,0.25)":"rgba(248,81,73,0.25)"}`}}><div style={{display:"flex",justifyContent:"space-between",fontSize:11}}><span style={{color:T.muted}}>Left over after this</span><span style={{fontFamily:"monospace",fontWeight:700,color:quickPreviewCheck.newLeftover>=0?"#3fb950":"#f85149"}}>{fmt(quickPreviewCheck.newLeftover)}</span></div></div>)}</div>
               </>)}
