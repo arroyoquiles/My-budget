@@ -304,7 +304,7 @@ const buildMonthPeriods=(anchor,freq)=>{
     isCurrent:"period_"+dateStr(pd)===curKey,
     isUpcoming:curIdx>=0?i===curIdx+1:i===0,
     isPast:curIdx>=0?i<curIdx:false,
-    statusLabel:"period_"+dateStr(pd)===curKey?"Current":(curIdx>=0&&i===curIdx+1?"Upcoming":null),
+    statusLabel:"period_"+dateStr(pd)===curKey?"Current":(curIdx>=0&&i<curIdx?"Cleared":(curIdx>=0&&i>curIdx?"Upcoming":i===0?"Upcoming":null)),
   }));
 };
 const migrate=raw=>{
@@ -1709,7 +1709,7 @@ function App(){
                 boxShadow:isActive&&isCur?"0 0 0 2px rgba(88,166,255,0.18)":"none",
                 transition:"all 0.15s",display:"flex",flexDirection:"column",alignItems:"center",gap:1}} onClick={()=>setActiveCheckPid(p.id)}>
                 <span style={{fontWeight:isActive?700:500}}>{p.label}</span>
-                {p.statusLabel&&<span style={{fontSize:8,fontWeight:700,letterSpacing:0.5,color:isActive?T.accent:p.statusLabel==="Current"?"#3fb950":"#d29922",lineHeight:1}}>{p.statusLabel.toUpperCase()}<span style={{fontWeight:400,letterSpacing:0,color:T.muted,marginLeft:3}}>· {pusedPct}%</span></span>}
+                {p.statusLabel&&<span style={{fontSize:8,fontWeight:700,letterSpacing:0.5,color:isActive?T.accent:p.statusLabel==="Current"?"#3fb950":p.statusLabel==="Cleared"?"#a78bfa":"#d29922",lineHeight:1}}>{p.statusLabel.toUpperCase()}<span style={{fontWeight:400,letterSpacing:0,color:T.muted,marginLeft:3}}>· {pusedPct}%</span></span>}
               </button>);
             })}
           </div>)}
