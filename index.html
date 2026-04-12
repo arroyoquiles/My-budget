@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no"/>
   <meta name="theme-color" content="#0b1220"/>
   <meta name="apple-mobile-web-app-capable" content="yes"/>
-  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent"/>
+  <meta name="apple-mobile-web-app-status-bar-style" content="black"/>
   <meta name="apple-mobile-web-app-title" content="My Budget"/>
   <title>My Budget</title>
   <script>
@@ -24,7 +24,7 @@
   <style>
     *{box-sizing:border-box;margin:0;padding:0;}
     html,body{height:100%;}
-    body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;-webkit-tap-highlight-color:transparent;overscroll-behavior:none;transition:background 0.2s,color 0.2s;-webkit-backdrop-filter:blur(0);}
+    body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;-webkit-tap-highlight-color:transparent;overscroll-behavior:none;transition:background 0.2s,color 0.2s;padding-top:env(safe-area-inset-top,0px);}
     body.dark{background:#080c14;color:#e6edf3;}
     body.light{background:#f0f4f8;color:#1c2128;}
     ::-webkit-scrollbar{width:3px;}::-webkit-scrollbar-thumb{background:#30363d;}
@@ -1329,15 +1329,19 @@ function App(){
         @keyframes slideInUp{from{opacity:0;transform:translateY(20px);}to{opacity:1;transform:translateY(0);}}
         @keyframes pulse{0%,100%{opacity:1;}50%{opacity:0.6;}}
         input[type=range]{width:100%;accent-color:#58a6ff;}
-        .c{max-width:500px;margin:0 auto;padding:14px 14px 120px;}
-        @media(min-width:768px){.c{max-width:640px;padding:22px 24px 130px;}}
-        @media(min-width:1024px){.c{max-width:760px;}}
+        .c{max-width:500px;margin:0 auto;padding:14px 14px 100px;}
+        @media(min-width:768px){.c{max-width:640px;padding:22px 24px 100px;}}
+        @media(min-width:1024px){.c{max-width:780px;}}
+        .nav-bar{position:fixed;bottom:0;left:0;right:0;z-index:190;}
+        .nav-bar-inner{max-width:500px;margin:0 auto;display:flex;align-items:stretch;}
+        @media(min-width:768px){.nav-bar-inner{max-width:640px;}}
+        @media(min-width:1024px){.nav-bar-inner{max-width:780px;}}
         .g2{display:grid;grid-template-columns:1fr 1fr;gap:10px;}
         .tabs{display:flex;gap:4px;overflow-x:auto;padding-bottom:2px;-webkit-overflow-scrolling:touch;scrollbar-width:none;margin-bottom:14px;}
         .tabs::-webkit-scrollbar{display:none;}
         .quick-modal-fullscreen{animation:slideInUp 0.22s ease;}
       `}</style>
-      {toast&&<div style={{position:"fixed",top:"max(16px, env(safe-area-inset-top, 16px))",left:"50%",transform:"translateX(-50%)",zIndex:9999,background:toast.type==="err"?"rgba(218,54,51,0.95)":"rgba(35,134,54,0.95)",color:"#fff",padding:"10px 20px",borderRadius:24,fontWeight:600,fontSize:13,boxShadow:"0 8px 32px rgba(0,0,0,0.4)",backdropFilter:"blur(8px)",border:`1px solid ${toast.type==="err"?"rgba(248,81,73,0.4)":"rgba(46,160,67,0.4)"}`,whiteSpace:"nowrap",animation:"slideInDown 0.2s ease"}}>{toast.msg}</div>}
+      {toast&&<div style={{position:"fixed",top:"max(16px, env(safe-area-inset-top, 16px))",left:"50%",transform:"translateX(-50%)",zIndex:9999,background:toast.type==="err"?"#da3633":"#238636",color:"#fff",padding:"10px 20px",borderRadius:24,fontWeight:600,fontSize:13,boxShadow:"0 8px 32px rgba(0,0,0,0.4)",border:`1px solid ${toast.type==="err"?"rgba(248,81,73,0.4)":"rgba(46,160,67,0.4)"}`,whiteSpace:"nowrap",animation:"slideInDown 0.2s ease"}}>{toast.msg}</div>}
       <style>{`@keyframes slideInDown{from{opacity:0;transform:translateX(-50%) translateY(-12px);}to{opacity:1;transform:translateX(-50%) translateY(0);}}`}</style>
       {urgentDebts.length>0&&!alertDim&&(
         <div style={{background:"linear-gradient(135deg,#f85149,#da3633)",padding:"12px 16px",position:"sticky",top:0,zIndex:100}}>
@@ -1350,12 +1354,12 @@ function App(){
           </div>
         </div>
       )}
-      <button style={{...BTN,position:"fixed",bottom:"max(90px, calc(78px + env(safe-area-inset-bottom)))",right:16,zIndex:200,height:44,paddingLeft:18,paddingRight:18,borderRadius:22,background:"linear-gradient(135deg,#2ea043,#238636)",color:"#fff",fontSize:14,fontWeight:700,boxShadow:"0 4px 24px rgba(35,134,54,0.6), 0 0 0 1px rgba(46,160,67,0.4)",display:"flex",alignItems:"center",gap:6,letterSpacing:0.3}} onClick={()=>setQuickOpen(true)}><span style={{fontSize:16}}>$</span>Quick +</button>
+      <button style={{...BTN,position:"fixed",bottom:"max(90px, calc(78px + env(safe-area-inset-bottom)))",right:"max(16px, calc(50% - 250px))",zIndex:200,height:44,paddingLeft:18,paddingRight:18,borderRadius:22,background:"linear-gradient(135deg,#2ea043,#238636)",color:"#fff",fontSize:14,fontWeight:700,boxShadow:"0 4px 24px rgba(35,134,54,0.6), 0 0 0 1px rgba(46,160,67,0.4)",display:"flex",alignItems:"center",gap:6,letterSpacing:0.3}} onClick={()=>setQuickOpen(true)}><span style={{fontSize:16}}>$</span>Quick +</button>
 
       {/* ── Quick Expense Modal ── */}
       {quickOpen&&(
-        <div style={{position:"fixed",inset:0,zIndex:300,background:"rgba(0,0,0,0.65)",backdropFilter:"blur(3px)",display:"flex",flexDirection:"column",justifyContent:"flex-end"}} onClick={e=>{if(e.target===e.currentTarget){if(document.activeElement?.blur)document.activeElement.blur();setTimeout(()=>setQuickOpen(false),50);}}}>
-          <div style={{width:"100%",maxWidth:500,margin:"0 auto",background:theme==="dark"?"rgba(22,27,34,0.85)":"rgba(255,255,255,0.85)",backdropFilter:"blur(24px) saturate(180%)",WebkitBackdropFilter:"blur(24px) saturate(180%)",borderRadius:"20px 20px 0 0",border:`1px solid ${theme==="dark"?"rgba(48,54,61,0.7)":"rgba(208,215,222,0.7)"}`,transform:`translateY(-${kbHeight}px)`,transition:"transform 0.15s ease-out"}}>
+        <div style={{position:"fixed",inset:0,zIndex:300,background:"rgba(0,0,0,0.72)",display:"flex",flexDirection:"column",justifyContent:"flex-end"}} onClick={e=>{if(e.target===e.currentTarget){if(document.activeElement?.blur)document.activeElement.blur();setTimeout(()=>setQuickOpen(false),50);}}}>
+          <div style={{width:"100%",maxWidth:500,margin:"0 auto",background:T.surface,borderRadius:"20px 20px 0 0",border:`1px solid ${T.border}`,transform:`translateY(-${kbHeight}px)`,transition:"transform 0.15s ease-out"}}>
             <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",padding:"13px 18px 11px",borderBottom:`1px solid ${T.border}`}}>
               <button style={{...BTN,background:"transparent",color:T.muted,fontSize:14,padding:"2px 6px"}} onClick={()=>{if(document.activeElement?.blur)document.activeElement.blur();setTimeout(()=>setQuickOpen(false),50);}}>✕</button>
               <div style={{fontSize:14,fontWeight:700}}>⚡ Quick Expense</div>
@@ -1407,7 +1411,7 @@ function App(){
         const selPot=POTS[moveTo];
         const selBal=n(pots[moveTo])||0;
         return(
-        <div style={{position:"fixed",inset:0,zIndex:300,background:"rgba(0,0,0,0.65)",backdropFilter:"blur(3px)",display:"flex",flexDirection:"column",justifyContent:"flex-end"}} onClick={e=>{if(e.target===e.currentTarget)setMoveOpen(false);}} onTouchMove={e=>e.preventDefault()} onTouchStart={e=>e.stopPropagation()}>          <div style={{width:"100%",maxWidth:500,margin:"0 auto",background:theme==="dark"?"rgba(22,27,34,0.85)":"rgba(255,255,255,0.85)",backdropFilter:"blur(24px) saturate(180%)",WebkitBackdropFilter:"blur(24px) saturate(180%)",borderRadius:"20px 20px 0 0",border:`1px solid ${theme==="dark"?"rgba(48,54,61,0.7)":"rgba(208,215,222,0.7)"}`,transform:`translateY(-${kbHeight}px)`,transition:"transform 0.0s",willChange:"transform"}}>
+        <div style={{position:"fixed",inset:0,zIndex:300,background:"rgba(0,0,0,0.72)",display:"flex",flexDirection:"column",justifyContent:"flex-end"}} onClick={e=>{if(e.target===e.currentTarget)setMoveOpen(false);}} onTouchMove={e=>e.preventDefault()} onTouchStart={e=>e.stopPropagation()}>          <div style={{width:"100%",maxWidth:500,margin:"0 auto",background:T.surface,borderRadius:"20px 20px 0 0",border:`1px solid ${T.border}`,transform:`translateY(-${kbHeight}px)`,transition:"transform 0.0s",willChange:"transform"}}>
             {/* Fixed header */}
             <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",padding:"16px 18px 12px",borderBottom:`1px solid ${T.border}`}}>
               <div style={{fontSize:14,fontWeight:700}}>💰 Pot Transaction</div>
@@ -1480,7 +1484,8 @@ function App(){
       </div>)}
       <div className="c">
         {/* Bottom Nav Bar */}
-        <div ref={tabBarRef} style={{position:"fixed",bottom:0,left:0,right:0,zIndex:190,background:theme==="dark"?"rgba(8,12,20,0.7)":"rgba(240,244,248,0.7)",backdropFilter:"saturate(200%) blur(28px)",WebkitBackdropFilter:"saturate(200%) blur(28px)",borderTop:`1px solid ${theme==="dark"?"rgba(36,48,72,0.8)":"rgba(208,215,222,0.6)"}`,paddingBottom:"max(12px, env(safe-area-inset-bottom, 12px))",display:"flex",alignItems:"stretch"}}>
+        <div ref={tabBarRef} className="nav-bar" style={{background:T.surface,borderTop:`1px solid ${T.border}`,paddingBottom:"max(12px, env(safe-area-inset-bottom, 12px))"}}>
+          <div className="nav-bar-inner">
           {TABS.map(t=>{
             const isActive=tab===t.id;
             const SVG_ICONS={
@@ -1501,12 +1506,13 @@ function App(){
               </button>
             );
           })}
+          </div>
         </div>
         <div style={{marginBottom:16,display:"flex",justifyContent:"space-between",alignItems:"center"}}>
           <div>
             <div style={{fontSize:26,fontWeight:800,letterSpacing:-0.8,background:"linear-gradient(135deg, #e6edf3 0%, #58a6ff 100%)",WebkitBackgroundClip:"text",WebkitTextFillColor:"transparent",backgroundClip:"text"}}>My Budget</div>
           </div>
-          {diasProx!==null&&(<div style={{background:"rgba(63,185,80,0.08)",backdropFilter:"blur(12px)",WebkitBackdropFilter:"blur(12px)",border:"1px solid rgba(63,185,80,0.25)",borderRadius:12,padding:"5px 10px",textAlign:"center",cursor:"pointer"}} onClick={()=>{if(currentPeriod){setActiveCheckPid(currentPeriod.id);setTab("paychecks");}}}>
+          {diasProx!==null&&(<div style={{background:"rgba(63,185,80,0.08)",border:"1px solid rgba(63,185,80,0.25)",borderRadius:10,padding:"5px 10px",textAlign:"center",cursor:"pointer"}} onClick={()=>{if(currentPeriod){setActiveCheckPid(currentPeriod.id);setTab("paychecks");}}}>
             <div style={{fontSize:9,color:T.muted}}>NEXT CHECK</div>
             <div style={{fontFamily:"monospace",fontWeight:800,color:diasProx===0?"#58a6ff":"#3fb950",fontSize:diasProx===0?10:14}}>{diasProx===0?"TODAY 🎉":`${diasProx}d`}</div>
             <div style={{fontSize:9,color:T.muted}}>{nextPayday?fmd(nextPayday):""}</div>
@@ -1770,7 +1776,7 @@ function App(){
                   const r=sortBtnRef.current?.getBoundingClientRect();
                   const top=r?r.bottom+4:120;
                   const right=r?window.innerWidth-r.right:16;
-                  return(<div style={{position:"fixed",right,top,zIndex:9999,background:theme==="dark"?"rgba(22,27,34,0.9)":"rgba(255,255,255,0.9)",backdropFilter:"blur(20px)",WebkitBackdropFilter:"blur(20px)",border:`1px solid ${theme==="dark"?"rgba(48,54,61,0.8)":"rgba(208,215,222,0.8)"}`,borderRadius:9,overflow:"hidden",width:80,boxShadow:"0 4px 20px rgba(0,0,0,0.3)"}}>
+                  return(<div style={{position:"fixed",right,top,zIndex:9999,background:T.surface,border:`1px solid ${T.border}`,borderRadius:9,overflow:"hidden",width:80,boxShadow:"0 4px 12px rgba(0,0,0,0.4)"}}>
                     {[{v:null,l:"OFF"},{v:"apr",l:"APR"},{v:"balance",l:"SMALL"}].map(({v,l})=>(
                       <button key={l} style={{...BTN,width:"100%",padding:"7px 12px",fontSize:11,borderRadius:0,background:sortStrategy===v?"rgba(88,166,255,0.1)":"transparent",color:sortStrategy===v?T.accent:T.muted,border:"none",fontWeight:sortStrategy===v?700:400,textAlign:"left"}} onClick={()=>{setSortStrategy(v);setSortMenuOpen(false);}}>{l}</button>
                     ))}
@@ -1782,7 +1788,7 @@ function App(){
               {/* Credit Cards section header with + button always on right */}
               <div style={{display:"flex",alignItems:"center",gap:0,marginBottom:cardsCollapsed?8:10,marginTop:4,filter:expandedLoanId?"blur(1.5px) brightness(0.6)":"none",transition:"filter 0.2s ease"}}>
                 <div style={{flex:1,height:1,background:`linear-gradient(90deg,transparent,${T.border})`}}/>
-                <button style={{...BTN,display:"flex",alignItems:"center",gap:6,padding:"5px 12px",borderRadius:20,background:"rgba(236,72,153,0.1)",backdropFilter:"saturate(200%) blur(20px)",WebkitBackdropFilter:"saturate(200%) blur(20px)",border:"1px solid rgba(236,72,153,0.25)"}} onClick={()=>{setCardsCollapsed(c=>!c);setExpandedCardId(prev=>{if(prev){bumpReset(prev);}return null;});setAccion(null);setMontoAccion("");setSortMenuOpen(false);}}>
+                <button style={{...BTN,display:"flex",alignItems:"center",gap:6,padding:"5px 12px",borderRadius:20,background:"rgba(236,72,153,0.08)",border:"1px solid rgba(236,72,153,0.22)"}} onClick={()=>{setCardsCollapsed(c=>!c);setExpandedCardId(prev=>{if(prev){bumpReset(prev);}return null;});setAccion(null);setMontoAccion("");setSortMenuOpen(false);}}>
                   <span style={{fontSize:13}}>{cardsCollapsed?"▶":"▼"}</span>
                   <span style={{fontSize:11,fontWeight:700,color:"#ec4899",letterSpacing:0.5}}>💳 Credit Cards</span>
                   <span style={{fontSize:10,color:"rgba(236,72,153,0.7)",fontWeight:500}}>{visibleCards.length} card{visibleCards.length!==1?"s":""} · {fmt(visibleCards.reduce((s,d)=>s+n(d.balance),0))}</span>
@@ -1936,7 +1942,7 @@ function App(){
                 transition:"filter 0.2s ease",
               }}>
                 <div style={{flex:1,height:1,background:`linear-gradient(90deg,transparent,${T.border})`}}/>
-                <button style={{...BTN,display:"flex",alignItems:"center",gap:6,padding:"5px 12px",borderRadius:20,background:"rgba(249,115,22,0.1)",backdropFilter:"saturate(200%) blur(20px)",WebkitBackdropFilter:"saturate(200%) blur(20px)",border:"1px solid rgba(249,115,22,0.25)"}} onClick={()=>{setLoansCollapsed(c=>!c);setSortMenuOpen(false);}}>
+                <button style={{...BTN,display:"flex",alignItems:"center",gap:6,padding:"5px 12px",borderRadius:20,background:"rgba(249,115,22,0.08)",border:"1px solid rgba(249,115,22,0.22)"}} onClick={()=>{setLoansCollapsed(c=>!c);setSortMenuOpen(false);}}>
                   <span style={{fontSize:13}}>{loansCollapsed?"▶":"▼"}</span>
                   <span style={{fontSize:11,fontWeight:700,color:"#f97316",letterSpacing:0.5}}>{visibleLoans.length===1?getLoanIcon(visibleLoans[0].nombre):"🏦"} Loans</span>
                   <span style={{fontSize:10,color:"rgba(249,115,22,0.7)",fontWeight:500}}>{visibleLoans.length} loan{visibleLoans.length!==1?"s":""} · {fmt(visibleLoans.reduce((s,d)=>s+n(d.balance),0))}</span>
