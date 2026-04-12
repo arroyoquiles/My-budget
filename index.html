@@ -797,20 +797,33 @@ function App(){
     };
   },[moveOpen,quickOpen]);
   useEffect(()=>{
-    if(moveOpen){
-      scrollLockPos.current=window.scrollY||document.documentElement.scrollTop||0;
-      document.body.style.position="fixed";
-      document.body.style.top=`-${scrollLockPos.current}px`;
-      document.body.style.width="100%";
-      document.body.style.overflowY="scroll";
-    } else {
-      document.body.style.position="";
-      document.body.style.top="";
-      document.body.style.width="";
-      document.body.style.overflowY="";
-      window.scrollTo(0,scrollLockPos.current);
+    if(!moveOpen)return;
+    const scrollX=window.scrollX||0;
+    const scrollY=window.scrollY||document.documentElement.scrollTop||0;
+    const prev={bo:document.body.style.overflow,bp:document.body.style.position,bt:document.body.style.top,bl:document.body.style.left,bw:document.body.style.width,bsy:document.body.style.overflowY,ho:document.documentElement.style.overflow,hh:document.documentElement.style.height};
+    document.documentElement.style.overflow="hidden";
+    document.documentElement.style.height="100%";
+    document.body.style.overflow="hidden";
+    document.body.style.overflowY="hidden";
+    document.body.style.position="fixed";
+    document.body.style.top=`-${scrollY}px`;
+    document.body.style.left=`-${scrollX}px`;
+    document.body.style.width="100%";
+    const blockTouch=(e)=>{let el=e.target;while(el&&el!==document.body){const st=window.getComputedStyle(el);if(st.overflowY==="auto"||st.overflowY==="scroll")return;el=el.parentElement;}e.preventDefault();};
+    document.addEventListener("touchmove",blockTouch,{passive:false});
+    return()=>{
+      document.removeEventListener("touchmove",blockTouch);
+      document.documentElement.style.overflow=prev.ho;
+      document.documentElement.style.height=prev.hh;
+      document.body.style.overflow=prev.bo;
+      document.body.style.overflowY=prev.bsy;
+      document.body.style.position=prev.bp;
+      document.body.style.top=prev.bt;
+      document.body.style.left=prev.bl;
+      document.body.style.width=prev.bw;
+      window.scrollTo(scrollX,scrollY);
       setKbHeight(0);
-    }
+    };
   },[moveOpen]);
   const [snapDetail,setSnapDetail]=useState(null);
   const [resetConfirm,setResetConfirm]=useState(null);
@@ -908,32 +921,6 @@ function App(){
       document.body.style.width=prevBodyWidth;
     };
   },[quickOpen]);
-  useEffect(()=>{
-    if(!moveOpen)return;
-    const scrollX=window.scrollX||window.pageXOffset||0;
-    const scrollY=window.scrollY||window.pageYOffset||0;
-    const prev={bo:document.body.style.overflow,bp:document.body.style.position,bt:document.body.style.top,bl:document.body.style.left,bw:document.body.style.width,ho:document.documentElement.style.overflow,hh:document.documentElement.style.height};
-    document.documentElement.style.overflow="hidden";
-    document.documentElement.style.height="100%";
-    document.body.style.overflow="hidden";
-    document.body.style.position="fixed";
-    document.body.style.top=`-${scrollY}px`;
-    document.body.style.left=`-${scrollX}px`;
-    document.body.style.width="100%";
-    const blockTouch=(e)=>{let el=e.target;while(el&&el!==document.body){const st=window.getComputedStyle(el);if(st.overflowY==="auto"||st.overflowY==="scroll")return;el=el.parentElement;}e.preventDefault();};
-    document.addEventListener("touchmove",blockTouch,{passive:false});
-    return()=>{
-      document.removeEventListener("touchmove",blockTouch);
-      document.documentElement.style.overflow=prev.ho;
-      document.documentElement.style.height=prev.hh;
-      document.body.style.overflow=prev.bo;
-      document.body.style.position=prev.bp;
-      document.body.style.top=prev.bt;
-      document.body.style.left=prev.bl;
-      document.body.style.width=prev.bw;
-      window.scrollTo(scrollX,scrollY);
-    };
-  },[moveOpen]);
   useEffect(()=>{if(!quickPid&&currentPid)setQuickPid(currentPid);},[currentPid]);
   useEffect(()=>{if(currentPid&&!activeCheckPid)setActiveCheckPid(currentPid);},[currentPid]);
   useEffect(()=>{if(tab==="paychecks"&&!activeCheckPid&&monthPeriods.length>0){const cur=monthPeriods.find(p=>p.isCurrent)||monthPeriods[0];setActiveCheckPid(cur.id);}},[tab]);
@@ -1360,22 +1347,22 @@ function App(){
               </div>
             </div>
             <div style={{padding:"10px 16px",paddingBottom:"max(16px,env(safe-area-inset-bottom,16px))"}}>
-              {/* CHECK MODE — always rendered, hidden when not active */}
-              <div style={{display:quickApplyTo==="check"?"block":"none"}}>
-                <div style={{marginBottom:8}}><div style={{fontSize:9,color:T.muted,letterSpacing:1.2,fontWeight:700,marginBottom:4}}>WHAT WAS IT?</div><input style={{...INP}} value={quickNote} onChange={e=>setQuickNote(e.target.value)} placeholder="e.g. Walmart, gas..."/></div>
-                <div style={{marginBottom:8}}><div style={{fontSize:9,color:T.muted,letterSpacing:1.2,fontWeight:700,marginBottom:4}}>AMOUNT ($)</div><input data-quick-check-amt style={{...INP,fontFamily:"monospace",fontWeight:700,fontSize:22}} type="number" inputMode="decimal" value={quickAmt} onChange={e=>setQuickAmt(e.target.value)} placeholder="0.00"/></div>
-                <div style={{marginBottom:8}}><div style={{fontSize:9,color:T.muted,letterSpacing:1.2,fontWeight:700,marginBottom:4}}>DEDUCT FROM</div><div style={{display:"flex",gap:6}}>{monthPeriods.map(p=>(<button key={p.id} style={{...BTN,flex:1,padding:"8px",fontSize:12,background:quickPid===p.id?"rgba(88,166,255,0.15)":T.surface2,color:quickPid===p.id?T.accent:T.muted,border:`1px solid ${quickPid===p.id?T.accent:T.border}`}} onClick={()=>setQuickPid(p.id)}>{p.isCurrent?"💰":"📋"} {p.label}{p.isCurrent?" ✓":""}</button>))}</div></div>
-                <div style={{height:32,marginBottom:10,display:"flex",alignItems:"center"}}>{quickAmtNum>0&&quickPreviewCheck&&(<div style={{width:"100%",padding:"7px 11px",borderRadius:9,background:quickPreviewCheck.newLeftover>=0?"rgba(63,185,80,0.06)":"rgba(248,81,73,0.06)",border:`1px solid ${quickPreviewCheck.newLeftover>=0?"rgba(63,185,80,0.25)":"rgba(248,81,73,0.25)"}`}}><div style={{display:"flex",justifyContent:"space-between",fontSize:11}}><span style={{color:T.muted}}>Left over after this</span><span style={{fontFamily:"monospace",fontWeight:700,color:quickPreviewCheck.newLeftover>=0?"#3fb950":"#f85149"}}>{fmt(quickPreviewCheck.newLeftover)}</span></div></div>)}</div>
-                {/* Spacer to match card mode height */}
-                <div style={{height:57}}/>
-              </div>
-              {/* CARD MODE — always rendered, hidden when not active */}
-              <div style={{display:quickApplyTo==="card"?"block":"none"}}>
-                <div style={{marginBottom:8}}><div style={{fontSize:9,color:T.muted,letterSpacing:1.2,fontWeight:700,marginBottom:4}}>AMOUNT ($)</div><input ref={el=>{window._quickCardAmtEl=el;}} style={{...INP,fontFamily:"monospace",fontWeight:700,fontSize:22}} type="number" inputMode="decimal" value={quickAmt} onChange={e=>setQuickAmt(e.target.value)} placeholder="0.00"/></div>
-                <div style={{height:32,display:"flex",alignItems:"center",marginBottom:8}}>{quickAmtNum>0&&quickPreviewCard&&(<div style={{width:"100%",padding:"7px 11px",borderRadius:9,background:"rgba(236,72,153,0.07)",border:"1px solid rgba(236,72,153,0.2)"}}><div style={{display:"flex",justifyContent:"space-between",fontSize:11}}><span style={{color:T.muted}}>New balance</span><span style={{fontFamily:"monospace",fontWeight:700,color:"#ec4899"}}>{fmt(quickPreviewCard.newBalance)}{quickPreviewCard.pct!==null&&<span style={{fontSize:10,color:quickPreviewCard.pct>=90?"#f85149":quickPreviewCard.pct>=70?"#d29922":T.muted,marginLeft:5}}>{quickPreviewCard.pct}%</span>}</span></div></div>)}</div>
-                <div style={{fontSize:9,color:T.muted,letterSpacing:1.2,fontWeight:700,marginBottom:4}}>WHICH CARD?</div>
-                <div style={{display:"flex",flexDirection:"column",gap:4,height:160,overflowY:"auto",WebkitOverflowScrolling:"touch",marginBottom:10}}>
-                  {data.tarjetas.length===0?<div style={{fontSize:12,color:T.muted,padding:"8px 10px",background:T.surface2,borderRadius:9}}>No cards. Add one in Debts.</div>:data.tarjetas.map(t=>{const tc=CC[t.nombre]||null;const dot=tc?.dot||t._vc?.dot||"💳";const cardColor=tc?.color||t._vc?.color||"#ec4899";const cardBorder=tc?.border||t._vc?.border||"rgba(236,72,153,0.4)";const isSelected=quickCardId===String(t.id);return(<button key={t.id} style={{...BTN,padding:"8px 12px",fontSize:13,textAlign:"left",background:isSelected?"rgba(236,72,153,0.1)":T.surface2,color:isSelected?cardColor:T.text,border:`1px solid ${isSelected?cardBorder:T.border}`,display:"flex",alignItems:"center",gap:8,borderRadius:9,flexShrink:0}} onMouseDown={e=>e.preventDefault()} onClick={()=>setQuickCardId(String(t.id))}><span style={{fontSize:14,flexShrink:0}}>{dot}</span><span style={{fontWeight:600,fontSize:13}}>{t.nombre}</span></button>);})}
+              <div style={{height:286,position:"relative"}}>
+                {/* CHECK MODE */}
+                <div style={{display:quickApplyTo==="check"?"block":"none"}}>
+                  <div style={{marginBottom:8}}><div style={{fontSize:9,color:T.muted,letterSpacing:1.2,fontWeight:700,marginBottom:4}}>WHAT WAS IT?</div><input style={{...INP}} value={quickNote} onChange={e=>setQuickNote(e.target.value)} placeholder="e.g. Walmart, gas..."/></div>
+                  <div style={{marginBottom:8}}><div style={{fontSize:9,color:T.muted,letterSpacing:1.2,fontWeight:700,marginBottom:4}}>AMOUNT ($)</div><input data-quick-check-amt style={{...INP,fontFamily:"monospace",fontWeight:700,fontSize:22}} type="number" inputMode="decimal" value={quickAmt} onChange={e=>setQuickAmt(e.target.value)} placeholder="0.00"/></div>
+                  <div style={{marginBottom:8}}><div style={{fontSize:9,color:T.muted,letterSpacing:1.2,fontWeight:700,marginBottom:4}}>DEDUCT FROM</div><div style={{display:"flex",gap:6}}>{monthPeriods.map(p=>(<button key={p.id} style={{...BTN,flex:1,padding:"8px",fontSize:12,background:quickPid===p.id?"rgba(88,166,255,0.15)":T.surface2,color:quickPid===p.id?T.accent:T.muted,border:`1px solid ${quickPid===p.id?T.accent:T.border}`}} onClick={()=>setQuickPid(p.id)}>{p.isCurrent?"💰":"📋"} {p.label}{p.isCurrent?" ✓":""}</button>))}</div></div>
+                  <div style={{height:32,display:"flex",alignItems:"center"}}>{quickAmtNum>0&&quickPreviewCheck&&(<div style={{width:"100%",padding:"7px 11px",borderRadius:9,background:quickPreviewCheck.newLeftover>=0?"rgba(63,185,80,0.06)":"rgba(248,81,73,0.06)",border:`1px solid ${quickPreviewCheck.newLeftover>=0?"rgba(63,185,80,0.25)":"rgba(248,81,73,0.25)"}`}}><div style={{display:"flex",justifyContent:"space-between",fontSize:11}}><span style={{color:T.muted}}>Left over after this</span><span style={{fontFamily:"monospace",fontWeight:700,color:quickPreviewCheck.newLeftover>=0?"#3fb950":"#f85149"}}>{fmt(quickPreviewCheck.newLeftover)}</span></div></div>)}</div>
+                </div>
+                {/* CARD MODE */}
+                <div style={{display:quickApplyTo==="card"?"block":"none"}}>
+                  <div style={{marginBottom:8}}><div style={{fontSize:9,color:T.muted,letterSpacing:1.2,fontWeight:700,marginBottom:4}}>AMOUNT ($)</div><input ref={el=>{window._quickCardAmtEl=el;}} style={{...INP,fontFamily:"monospace",fontWeight:700,fontSize:22}} type="number" inputMode="decimal" value={quickAmt} onChange={e=>setQuickAmt(e.target.value)} placeholder="0.00"/></div>
+                  <div style={{height:32,display:"flex",alignItems:"center",marginBottom:8}}>{quickAmtNum>0&&quickPreviewCard&&(<div style={{width:"100%",padding:"7px 11px",borderRadius:9,background:"rgba(236,72,153,0.07)",border:"1px solid rgba(236,72,153,0.2)"}}><div style={{display:"flex",justifyContent:"space-between",fontSize:11}}><span style={{color:T.muted}}>New balance</span><span style={{fontFamily:"monospace",fontWeight:700,color:"#ec4899"}}>{fmt(quickPreviewCard.newBalance)}{quickPreviewCard.pct!==null&&<span style={{fontSize:10,color:quickPreviewCard.pct>=90?"#f85149":quickPreviewCard.pct>=70?"#d29922":T.muted,marginLeft:5}}>{quickPreviewCard.pct}%</span>}</span></div></div>)}</div>
+                  <div style={{fontSize:9,color:T.muted,letterSpacing:1.2,fontWeight:700,marginBottom:4}}>WHICH CARD?</div>
+                  <div style={{display:"flex",flexDirection:"column",gap:4,height:160,overflowY:"auto",WebkitOverflowScrolling:"touch"}}>
+                    {data.tarjetas.length===0?<div style={{fontSize:12,color:T.muted,padding:"8px 10px",background:T.surface2,borderRadius:9}}>No cards. Add one in Debts.</div>:data.tarjetas.map(t=>{const tc=CC[t.nombre]||null;const dot=tc?.dot||t._vc?.dot||"💳";const cardColor=tc?.color||t._vc?.color||"#ec4899";const cardBorder=tc?.border||t._vc?.border||"rgba(236,72,153,0.4)";const isSelected=quickCardId===String(t.id);return(<button key={t.id} style={{...BTN,padding:"8px 12px",fontSize:13,textAlign:"left",background:isSelected?"rgba(236,72,153,0.1)":T.surface2,color:isSelected?cardColor:T.text,border:`1px solid ${isSelected?cardBorder:T.border}`,display:"flex",alignItems:"center",gap:8,borderRadius:9,flexShrink:0}} onMouseDown={e=>e.preventDefault()} onClick={()=>setQuickCardId(String(t.id))}><span style={{fontSize:14,flexShrink:0}}>{dot}</span><span style={{fontWeight:600,fontSize:13}}>{t.nombre}</span></button>);})}
+                  </div>
                 </div>
               </div>
               <button style={{...BTN,width:"100%",padding:"13px",background:quickApplyTo==="card"?"rgba(236,72,153,0.85)":"#238636",color:"#fff",fontSize:15,fontWeight:700,borderRadius:11}} onClick={addQuickExpense}>{quickApplyTo==="card"?"🛒 Charge to Card":"✅ Add — Already Paid"}</button>
