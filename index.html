@@ -479,7 +479,7 @@ const GastoItem=memo(({item,pid,editId,setEditId,tarjetas,onCycle,onLongPress,on
       )}
       {showDueDay&&(
         <div style={{marginBottom:12}}>
-          <div style={{fontSize:10,color:T.muted,marginBottom:5}}>DUE DAY (optional){item.destino==="credit_card"&&item.tarjetaRef&&getCardDueDay(item.tarjetaRef)&&(<span style={{marginLeft:6,color:"#58a6ff",fontSize:9}}>← auto-filled from card</span>)}</div>
+          <div style={{fontSize:10,color:T.muted,marginBottom:5}}>DUE DAY (optional){item.destino==="credit_card"&&item.tarjetaRef&&getCardDueDay(item.tarjetaRef)&&(<span style={{marginLeft:6,color:T.accent,fontSize:9}}>← auto-filled from card</span>)}</div>
           <input style={INP} type="number" inputMode="numeric" placeholder="e.g. 7" value={item.diaPago||""} onChange={e=>onUpdate(item.id,"diaPago",e.target.value?parseInt(e.target.value):null)}/>
         </div>
       )}
@@ -537,9 +537,9 @@ const GastoItem=memo(({item,pid,editId,setEditId,tarjetas,onCycle,onLongPress,on
   const newFields=tipo==="card"?fields:[["BALANCE","balance"],["ORIGINAL","original"],["MONTHLY","minimo"],["APR (%)","interes"]];
   const dpLabel=dp===0?"TODAY":dp===null?null:`${dp}d`;
   const showEdit=editing||isAdding;
-  const dueBg=dp<=0?"rgba(88,166,255,0.1)":dp<=5?"rgba(248,81,73,0.1)":"rgba(63,185,80,0.07)";
-  const dueBorder=dp<=0?"rgba(88,166,255,0.3)":dp<=5?"rgba(248,81,73,0.3)":"rgba(63,185,80,0.2)";
-  const dueColor=dp<=0?"#58a6ff":dp<=5?"#f85149":"#3fb950";
+  const dueBg=dp<=0?`${T.accent}1a`:dp<=5?"rgba(248,81,73,0.1)":"rgba(63,185,80,0.07)";
+  const dueBorder=dp<=0?`${T.accent}4d`:dp<=5?"rgba(248,81,73,0.3)":"rgba(63,185,80,0.2)";
+  const dueColor=dp<=0?T.accent:dp<=5?"#f85149":"#3fb950";
   const vcStyle=tipo==="card"&&debt._vc?debt._vc:null;
   const debtIcon=tipo==="card"?(CC[debt.nombre]?.dot||vcStyle?.dot||"💳"):getLoanIcon(debt.nombre);
   const cardUtilPct=tipo==="card"&&n(debt.limite)>0?Math.min(100,Math.round((n(debt.balance)/n(debt.limite))*100)):0;
@@ -583,7 +583,7 @@ const GastoItem=memo(({item,pid,editId,setEditId,tarjetas,onCycle,onLongPress,on
   const saveEditing=()=>{setEditing(false);setSavedSnapshot(null);};
   return(
     <div
-      style={{...CARD,padding:"12px 14px",marginBottom:9,overflow:"hidden",borderColor:isFirst?"#d29922":showEdit?"rgba(88,166,255,0.5)":debt.priority?"rgba(245,158,11,0.35)":T.border,transition:"border-color 0.2s",userSelect:"none",WebkitUserSelect:"none",WebkitTouchCallout:"none",...(clipH!=null?{boxSizing:"border-box",height:clipH,maxHeight:clipH,minHeight:clipH,marginBottom:0,clipPath:"inset(0 round 16px)"}:{clipPath:"none"})}}
+      style={{...CARD,padding:"12px 14px",marginBottom:9,overflow:"hidden",borderColor:isFirst?"#d29922":showEdit?`${T.accent}80`:debt.priority?"rgba(245,158,11,0.35)":T.border,transition:"border-color 0.2s",userSelect:"none",WebkitUserSelect:"none",WebkitTouchCallout:"none",...(clipH!=null?{boxSizing:"border-box",height:clipH,maxHeight:clipH,minHeight:clipH,marginBottom:0,clipPath:"inset(0 round 16px)"}:{clipPath:"none"})}}
       onTouchStart={hLPStart}
       onTouchMove={hLPMove}
       onTouchEnd={hLPEnd}
@@ -627,7 +627,7 @@ const GastoItem=memo(({item,pid,editId,setEditId,tarjetas,onCycle,onLongPress,on
       {/* ── Long-press action menu ── */}
       {longPressMenu&&!isAdding&&(<div style={{display:"flex",gap:8,marginBottom:8,padding:"8px 10px",borderRadius:9,background:T.surface2,border:`1px solid ${T.border}`,alignItems:"center"}} onMouseDown={e=>e.stopPropagation()} onTouchStart={e=>e.stopPropagation()}>
         <span style={{fontSize:10,color:T.muted,flex:1}}>Options:</span>
-        <button style={{...BTN,padding:"5px 12px",fontSize:11,background:"rgba(88,166,255,0.08)",color:T.accent,border:`1px solid rgba(88,166,255,0.3)`,borderRadius:7}} onMouseDown={e=>e.stopPropagation()} onTouchStart={e=>e.stopPropagation()} onClick={startEditing}>✏️ Edit</button>
+        <button style={{...BTN,padding:"5px 12px",fontSize:11,background:`${T.accent}14`,color:T.accent,border:`1px solid ${T.accent}4d`,borderRadius:7}} onMouseDown={e=>e.stopPropagation()} onTouchStart={e=>e.stopPropagation()} onClick={startEditing}>✏️ Edit</button>
         <button style={{...BTN,padding:"5px 12px",fontSize:11,background:"rgba(248,81,73,0.08)",color:"#f85149",border:"1px solid rgba(248,81,73,0.25)",borderRadius:7}} onMouseDown={e=>e.stopPropagation()} onTouchStart={e=>e.stopPropagation()} onClick={()=>{if(window.confirm("Delete this debt?"))onRemove(debt.id);setLongPressMenu(false);}}>🗑 Delete</button>
         <button style={{...BTN,padding:"5px 8px",fontSize:11,background:"transparent",color:T.muted,border:`1px solid ${T.border}`,borderRadius:7}} onMouseDown={e=>e.stopPropagation()} onTouchStart={e=>e.stopPropagation()} onClick={()=>setLongPressMenu(false)}>✕</button>
       </div>)}
@@ -1385,7 +1385,7 @@ function App(){
                 <div style={{display:quickApplyTo==="check"?"block":"none"}}>
                   <div style={{marginBottom:8}}><div style={{fontSize:9,color:T.muted,letterSpacing:1.2,fontWeight:700,marginBottom:4}}>WHAT WAS IT?</div><input style={{...INP}} value={quickNote} onChange={e=>setQuickNote(e.target.value)} placeholder="e.g. Walmart, gas..."/></div>
                   <div style={{marginBottom:8}}><div style={{fontSize:9,color:T.muted,letterSpacing:1.2,fontWeight:700,marginBottom:4}}>AMOUNT ($)</div><input data-quick-check-amt style={{...INP,fontFamily:"monospace",fontWeight:700,fontSize:22}} type="number" inputMode="decimal" value={quickAmt} onChange={e=>setQuickAmt(e.target.value)} placeholder="0.00"/></div>
-                  <div style={{marginBottom:8}}><div style={{fontSize:9,color:T.muted,letterSpacing:1.2,fontWeight:700,marginBottom:4}}>DEDUCT FROM</div><div style={{display:"flex",gap:6}}>{monthPeriods.map(p=>(<button key={p.id} style={{...BTN,flex:1,padding:"8px",fontSize:12,background:quickPid===p.id?"rgba(88,166,255,0.15)":T.surface2,color:quickPid===p.id?T.accent:T.muted,border:`1px solid ${quickPid===p.id?T.accent:T.border}`}} onClick={()=>setQuickPid(p.id)}>{p.isCurrent?"💰":"📋"} {p.label}{p.isCurrent?" ✓":""}</button>))}</div></div>
+                  <div style={{marginBottom:8}}><div style={{fontSize:9,color:T.muted,letterSpacing:1.2,fontWeight:700,marginBottom:4}}>DEDUCT FROM</div><div style={{display:"flex",gap:6}}>{monthPeriods.map(p=>(<button key={p.id} style={{...BTN,flex:1,padding:"8px",fontSize:12,background:quickPid===p.id?`${T.accent}26`:T.surface2,color:quickPid===p.id?T.accent:T.muted,border:`1px solid ${quickPid===p.id?T.accent:T.border}`}} onClick={()=>setQuickPid(p.id)}>{p.isCurrent?"💰":"📋"} {p.label}{p.isCurrent?" ✓":""}</button>))}</div></div>
                   <div style={{height:32,display:"flex",alignItems:"center"}}>{quickAmtNum>0&&quickPreviewCheck&&(<div style={{width:"100%",padding:"7px 11px",borderRadius:9,background:quickPreviewCheck.newLeftover>=0?"rgba(63,185,80,0.06)":"rgba(248,81,73,0.06)",border:`1px solid ${quickPreviewCheck.newLeftover>=0?"rgba(63,185,80,0.25)":"rgba(248,81,73,0.25)"}`}}><div style={{display:"flex",justifyContent:"space-between",fontSize:11}}><span style={{color:T.muted}}>Left over after this</span><span style={{fontFamily:"monospace",fontWeight:700,color:quickPreviewCheck.newLeftover>=0?"#3fb950":"#f85149"}}>{fmt(quickPreviewCheck.newLeftover)}</span></div></div>)}</div>
                 </div>
                 {/* CARD MODE */}
@@ -1497,7 +1497,7 @@ function App(){
           </div>
           {diasProx!==null&&(<div style={{background:"rgba(63,185,80,0.08)",border:"1px solid rgba(63,185,80,0.25)",borderRadius:10,padding:"5px 10px",textAlign:"center",cursor:"pointer"}} onClick={()=>{if(currentPeriod){setActiveCheckPid(currentPeriod.id);setTab("paychecks");}}}>
             <div style={{fontSize:9,color:T.muted}}>NEXT CHECK</div>
-            <div style={{fontFamily:"monospace",fontWeight:800,color:diasProx===0?"#58a6ff":"#3fb950",fontSize:diasProx===0?10:14}}>{diasProx===0?"TODAY 🎉":`${diasProx}d`}</div>
+            <div style={{fontFamily:"monospace",fontWeight:800,color:diasProx===0?T.accent:"#3fb950",fontSize:diasProx===0?10:14}}>{diasProx===0?"TODAY 🎉":`${diasProx}d`}</div>
             <div style={{fontSize:9,color:T.muted}}>{nextPayday?fmd(nextPayday):""}</div>
           </div>)}
         </div>
@@ -1616,7 +1616,7 @@ function App(){
               <div style={{fontSize:9,color:T.muted}}>{monthPeriods.length} check{monthPeriods.length!==1?"s":""} · {monthPeriods.map(p=>fmt(getPeriodAmount(p.id))).join(" + ")}</div>
             </div>);
           })()}
-          {snapReminder&&(<div style={{background:snapReminder.type==="warn"?"rgba(210,153,34,0.08)":"rgba(88,166,255,0.05)",border:`1px solid ${snapReminder.type==="warn"?"rgba(210,153,34,0.25)":"rgba(88,166,255,0.15)"}`,borderRadius:11,padding:"9px 13px",marginBottom:12,display:"flex",alignItems:"center",gap:8}}>
+          {snapReminder&&(<div style={{background:snapReminder.type==="warn"?"rgba(210,153,34,0.08)":`${T.accent}0d`,border:`1px solid ${snapReminder.type==="warn"?"rgba(210,153,34,0.25)":T.accent+"28"}`,borderRadius:11,padding:"9px 13px",marginBottom:12,display:"flex",alignItems:"center",gap:8}}>
             <span style={{fontSize:14}}>{snapReminder.type==="warn"?"⚠️":"💡"}</span>
             <span style={{fontSize:11,color:snapReminder.type==="warn"?"#d29922":T.muted,flex:1}}>{snapReminder.msg}</span>
             <button style={{...BTN,padding:"3px 9px",background:T.surface2,color:T.muted,fontSize:10,border:`1px solid ${T.border}`,flexShrink:0}} onClick={()=>setTab("settings")}>Settings</button>
@@ -1627,13 +1627,13 @@ function App(){
               const dias=Math.ceil((pd-today)/86400000);
               return(<div key={i} style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"7px 0",borderBottom:i<3?`1px solid ${T.border}`:"none"}}>
                 <div>
-                  <div style={{fontSize:12,fontWeight:600,color:dias===0?"#58a6ff":i===0?"#3fb950":T.text}}>
+                  <div style={{fontSize:12,fontWeight:600,color:dias===0?T.accent:i===0?"#3fb950":T.text}}>
                     {dias===0?"Today — Payday! 🎉":i===0?`Next check (${fmd(pd)})`:fmd(pd)}
                     {i===0&&dias>0&&<span style={{fontSize:9,color:"#3fb950",marginLeft:5,fontWeight:700}}>← next</span>}
                   </div>
                   <div style={{fontSize:10,color:T.muted,marginTop:1}}>{pd.toLocaleDateString("en-US",{weekday:"short",month:"short",day:"numeric"})}</div>
                 </div>
-                <div style={{fontFamily:"monospace",fontWeight:800,color:dias===0?"#58a6ff":i===0?"#3fb950":T.muted,fontSize:14}}>{dias===0?"Today":dias+"d"}</div>
+                <div style={{fontFamily:"monospace",fontWeight:800,color:dias===0?T.accent:i===0?"#3fb950":T.muted,fontSize:14}}>{dias===0?"Today":dias+"d"}</div>
               </div>);
             })}
           </div>)}
@@ -1759,8 +1759,8 @@ function App(){
               return(<button key={p.id} style={{...BTN,flex:1,padding:"8px 6px",fontSize:11,borderRadius:9,
                 background:isActive?T.bg:"transparent",
                 color:isActive?T.accent:T.muted,
-                border:isActive?(isCur?`2px solid ${T.accent}`:`1px solid ${T.accent}`):(isCur?"1px solid rgba(88,166,255,0.35)":"1px solid transparent"),
-                boxShadow:isActive&&isCur?"0 0 0 2px rgba(88,166,255,0.18)":"none",
+                border:isActive?(isCur?`2px solid ${T.accent}`:`1px solid ${T.accent}`):(isCur?`1px solid ${T.accent}59`:"1px solid transparent"),
+                boxShadow:isActive&&isCur?`0 0 0 2px ${T.accent}2e`:"none",
                 transition:"all 0.15s",display:"flex",flexDirection:"column",alignItems:"center",gap:1}} onClick={()=>setActiveCheckPid(p.id)}>
                 <span style={{fontWeight:isActive?700:500}}>{p.label}</span>
                 {p.statusLabel&&<span style={{fontSize:8,fontWeight:700,letterSpacing:0.5,color:isActive?T.accent:p.statusLabel==="Current"?"#3fb950":p.statusLabel==="Cleared"?"#a78bfa":"#d29922",lineHeight:1}}>{p.statusLabel.toUpperCase()}<span style={{fontWeight:400,letterSpacing:0,color:T.muted,marginLeft:3}}>· {pusedPct}%</span></span>}
@@ -1819,7 +1819,7 @@ function App(){
               {/* Sort strategy toggle */}
               <div style={{marginLeft:"auto",position:"relative"}}>
                 {sortMenuOpen&&<div style={{position:"fixed",inset:0,zIndex:9998}} onClick={()=>setSortMenuOpen(false)}/>}
-                <button ref={sortBtnRef} style={{...BTN,width:52,height:26,padding:0,borderRadius:8,background:sortStrategy?`rgba(88,166,255,0.12)`:"transparent",color:sortStrategy?T.accent:T.muted,border:`1px solid ${sortStrategy?T.accent:T.border}`,fontSize:10,fontWeight:700,display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0}} onClick={()=>setSortMenuOpen(o=>!o)}>
+                <button ref={sortBtnRef} style={{...BTN,width:52,height:26,padding:0,borderRadius:8,background:sortStrategy?`${T.accent}1f`:"transparent",color:sortStrategy?T.accent:T.muted,border:`1px solid ${sortStrategy?T.accent:T.border}`,fontSize:10,fontWeight:700,display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0}} onClick={()=>setSortMenuOpen(o=>!o)}>
                   {sortStrategy?<span>{sortLabels[sortStrategy]}</span>:<span style={{fontSize:11}}>⇅</span>}
                 </button>
                 {sortMenuOpen&&(()=>{
@@ -1828,7 +1828,7 @@ function App(){
                   const right=r?window.innerWidth-r.right:16;
                   return(<div style={{position:"fixed",right,top,zIndex:9999,background:T.surface,border:`1px solid ${T.border}`,borderRadius:9,overflow:"hidden",width:80,boxShadow:"0 4px 12px rgba(0,0,0,0.4)"}}>
                     {[{v:null,l:"OFF"},{v:"apr",l:"APR"},{v:"balance",l:"SMALL"}].map(({v,l})=>(
-                      <button key={l} style={{...BTN,width:"100%",padding:"7px 12px",fontSize:11,borderRadius:0,background:sortStrategy===v?"rgba(88,166,255,0.1)":"transparent",color:sortStrategy===v?T.accent:T.muted,border:"none",fontWeight:sortStrategy===v?700:400,textAlign:"left"}} onClick={()=>{setSortStrategy(v);setSortMenuOpen(false);}}>{l}</button>
+                      <button key={l} style={{...BTN,width:"100%",padding:"7px 12px",fontSize:11,borderRadius:0,background:sortStrategy===v?`${T.accent}1a`:"transparent",color:sortStrategy===v?T.accent:T.muted,border:"none",fontWeight:sortStrategy===v?700:400,textAlign:"left"}} onClick={()=>{setSortStrategy(v);setSortMenuOpen(false);}}>{l}</button>
                     ))}
                   </div>);
                 })()}
@@ -2132,7 +2132,7 @@ function App(){
                 <div style={{fontSize:9,color:T.muted,fontWeight:700,letterSpacing:1,marginBottom:8}}>THIS MONTH</div>
                 {Object.entries(monthEvents).sort(([a],[b])=>+a-+b).map(([day,evts])=>(
                   <div key={day} style={{display:"flex",alignItems:"flex-start",gap:8,marginBottom:6}}>
-                    <div style={{minWidth:22,fontSize:10,fontWeight:700,color:+day===hoy.getDate()?"#58a6ff":T.muted,flexShrink:0,paddingTop:1}}>{day}</div>
+                    <div style={{minWidth:22,fontSize:10,fontWeight:700,color:+day===hoy.getDate()?T.accent:T.muted,flexShrink:0,paddingTop:1}}>{day}</div>
                     <div style={{flex:1,display:"flex",flexDirection:"column",gap:2}}>
                       {evts.map((ev,i)=>(<div key={i} style={{display:"flex",alignItems:"center",gap:5}}><div style={{width:4,height:4,borderRadius:"50%",background:ev.dotColor,flexShrink:0}}/><span style={{fontSize:10,color:T.muted,fontWeight:400}}>{ev.label}</span></div>))}
                     </div>
