@@ -1340,6 +1340,8 @@ function App(){
                 <div style={{marginBottom:8}}><div style={{fontSize:9,color:T.muted,letterSpacing:1.2,fontWeight:700,marginBottom:4}}>AMOUNT ($)</div><input data-quick-check-amt style={{...INP,fontFamily:"monospace",fontWeight:700,fontSize:22}} type="number" inputMode="decimal" value={quickAmt} onChange={e=>setQuickAmt(e.target.value)} placeholder="0.00"/></div>
                 <div style={{marginBottom:8}}><div style={{fontSize:9,color:T.muted,letterSpacing:1.2,fontWeight:700,marginBottom:4}}>DEDUCT FROM</div><div style={{display:"flex",gap:6}}>{monthPeriods.map(p=>(<button key={p.id} style={{...BTN,flex:1,padding:"8px",fontSize:12,background:quickPid===p.id?"rgba(88,166,255,0.15)":T.surface2,color:quickPid===p.id?T.accent:T.muted,border:`1px solid ${quickPid===p.id?T.accent:T.border}`}} onClick={()=>setQuickPid(p.id)}>{p.isCurrent?"💰":"📋"} {p.label}{p.isCurrent?" ✓":""}</button>))}</div></div>
                 <div style={{height:32,marginBottom:10,display:"flex",alignItems:"center"}}>{quickAmtNum>0&&quickPreviewCheck&&(<div style={{width:"100%",padding:"7px 11px",borderRadius:9,background:quickPreviewCheck.newLeftover>=0?"rgba(63,185,80,0.06)":"rgba(248,81,73,0.06)",border:`1px solid ${quickPreviewCheck.newLeftover>=0?"rgba(63,185,80,0.25)":"rgba(248,81,73,0.25)"}`}}><div style={{display:"flex",justifyContent:"space-between",fontSize:11}}><span style={{color:T.muted}}>Left over after this</span><span style={{fontFamily:"monospace",fontWeight:700,color:quickPreviewCheck.newLeftover>=0?"#3fb950":"#f85149"}}>{fmt(quickPreviewCheck.newLeftover)}</span></div></div>)}</div>
+                {/* Spacer to match card mode height */}
+                <div style={{height:65}}/>
               </div>
               {/* CARD MODE — always rendered, hidden when not active */}
               <div style={{display:quickApplyTo==="card"?"block":"none"}}>
@@ -1359,8 +1361,7 @@ function App(){
         const selPot=POTS[moveTo];
         const selBal=n(pots[moveTo])||0;
         return(
-        <div style={{position:"fixed",inset:0,zIndex:300,background:"rgba(0,0,0,0.72)",display:"flex",flexDirection:"column",justifyContent:"flex-end"}} onClick={e=>{if(e.target===e.currentTarget)setMoveOpen(false);}}>
-          <div style={{width:"100%",maxWidth:500,margin:"0 auto",background:T.surface,borderRadius:"20px 20px 0 0",border:`1px solid ${T.border}`,transform:`translateY(-${kbHeight}px)`,transition:"transform 0.0s",willChange:"transform"}}>
+        <div style={{position:"fixed",inset:0,zIndex:300,background:"rgba(0,0,0,0.65)",backdropFilter:"blur(3px)",display:"flex",flexDirection:"column",justifyContent:"flex-end"}} onClick={e=>{if(e.target===e.currentTarget)setMoveOpen(false);}} onTouchMove={e=>e.stopPropagation()}>          <div style={{width:"100%",maxWidth:500,margin:"0 auto",background:T.surface,borderRadius:"20px 20px 0 0",border:`1px solid ${T.border}`,transform:`translateY(-${kbHeight}px)`,transition:"transform 0.0s",willChange:"transform"}}>
             {/* Fixed header */}
             <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",padding:"16px 18px 12px",borderBottom:`1px solid ${T.border}`}}>
               <div style={{fontSize:14,fontWeight:700}}>💰 Pot Transaction</div>
