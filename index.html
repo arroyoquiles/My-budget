@@ -303,6 +303,7 @@ const buildMonthPeriods=(anchor,freq)=>{
     num:i+1,
     isCurrent:"period_"+dateStr(pd)===curKey,
     isUpcoming:curIdx>=0?i===curIdx+1:i===0,
+    isPast:curIdx>=0?i<curIdx:false,
     statusLabel:"period_"+dateStr(pd)===curKey?"Current":(curIdx>=0&&i===curIdx+1?"Upcoming":null),
   }));
 };
@@ -1256,12 +1257,15 @@ function App(){
       {/* Summary card with donut ring */}
       <div style={{...CARD,padding:"14px 16px",marginBottom:12,borderColor:done?"#2ea043":T.border}}>
         <div style={{display:"flex",alignItems:"center",gap:14,marginBottom:12}}>
-          {/* Donut ring */}
+          {/* Donut — red=assigned, green=remaining */}
           <div style={{flexShrink:0,position:"relative",width:56,height:56}}>
             <svg width="56" height="56" viewBox="0 0 56 56">
               <circle cx="28" cy="28" r="22" fill="none" stroke={T.surface2} strokeWidth="7"/>
-              <circle cx="28" cy="28" r="22" fill="none" stroke={done?"#2ea043":remColor} strokeWidth="7"
-                strokeDasharray={`${amt>0?Math.max(0,Math.min(138.2,(sob/amt)*138.2)):0} 138.2`}
+              <circle cx="28" cy="28" r="22" fill="none" stroke="#f85149" strokeWidth="7"
+                strokeDasharray={`${amt>0?Math.min(138.2,Math.round((total/amt)*138.2)):0} 138.2`}
+                strokeLinecap="round" transform="rotate(-90 28 28)"/>
+              <circle cx="28" cy="28" r="22" fill="none" stroke={remColor} strokeWidth="7"
+                strokeDasharray={`${amt>0?Math.max(0,Math.round((sob/amt)*138.2)):0} 138.2`}
                 strokeLinecap="round" transform={`rotate(${amt>0?(total/amt)*360-90:-90} 28 28)`}/>
             </svg>
             <div style={{position:"absolute",inset:0,display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center"}}>
@@ -1285,9 +1289,10 @@ function App(){
             </div>
           </div>
         </div>
-        <div style={{height:5,background:T.surface2,borderRadius:8,overflow:"hidden",display:"flex",marginBottom:5}}>
-          <div style={{width:`${total>0?Math.round((paid/total)*100):0}%`,background:"#2ea043",transition:"width 0.5s"}}/>
-          <div style={{width:`${total>0?Math.round((reserved/total)*100):0}%`,background:"#d29922",transition:"width 0.5s"}}/>
+        {/* Bar: green=paid, yellow=reserved */}
+        <div style={{height:6,borderRadius:8,overflow:"hidden",marginBottom:5,background:"#1a2236",position:"relative"}}>
+          <div style={{position:"absolute",left:0,top:0,height:"100%",width:`${amt>0?Math.min(100,Math.round(((paid+reserved)/amt)*100)):0}%`,background:"#d29922"}}/>
+          <div style={{position:"absolute",left:0,top:0,height:"100%",width:`${amt>0?Math.min(100,Math.round((paid/amt)*100)):0}%`,background:"#2ea043"}}/>
         </div>
         <div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}>
           <div style={{fontSize:10,color:done?"#3fb950":T.muted}}>{done?"✅ All paid!":`${fmt(paid)} paid · ${fmt(reserved)} reserved`}</div>
@@ -1590,14 +1595,18 @@ function App(){
               const sob=periodAmt-total;
               const assigned=total;
               const remaining=periodAmt-total;
-              return(<div key={p.id} style={{paddingBottom:pi<monthPeriods.length-1?12:0,marginBottom:pi<monthPeriods.length-1?12:0,borderBottom:pi<monthPeriods.length-1?`1px solid ${T.border}`:"none",
-                ...(p.isCurrent?{background:"rgba(88,166,255,0.04)",borderRadius:10,padding:"10px",margin:"-10px",marginBottom:pi<monthPeriods.length-1?2:"-10px",border:"1px solid rgba(88,166,255,0.15)"}:{})
+              return(<div key={p.id} style={{paddingBottom:pi<monthPeriods.length-1?12:0,marginBottom:pi<monthPeriods.length-1?12:0,
+                ...(p.isCurrent?{background:"rgba(88,166,255,0.05)",borderRadius:10,padding:"10px",border:"1px solid rgba(88,166,255,0.25)",boxShadow:"0 4px 18px rgba(88,166,255,0.1), 0 1px 4px rgba(0,0,0,0.3)"}:{})
               }}>
                 <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:7}}>
                   <div style={{display:"flex",alignItems:"center",gap:6}}>
-                    <span style={{fontSize:12,fontWeight:700,color:T.text}}>{p.label}</span>
+                    <span style={{fontSize:12,fontWeight:700,color:p.isCurrent?T.text:T.muted}}>{p.label}</span>
                     <span style={{fontFamily:"monospace",fontWeight:700,fontSize:12,color:T.muted}}>{fmt(periodAmt)}</span>
-                    <span style={{fontSize:9,fontWeight:700,padding:"1px 6px",borderRadius:5,background:p.isCurrent?"rgba(63,185,80,0.12)":"rgba(210,153,34,0.1)",color:p.isCurrent?"#3fb950":"#d29922",border:`1px solid ${p.isCurrent?"rgba(63,185,80,0.3)":"rgba(210,153,34,0.3)"}`}}>{p.isCurrent?"ACTIVE":"UPCOMING"}</span>
+                    <span style={{fontSize:9,fontWeight:700,padding:"1px 6px",borderRadius:5,
+                      background:p.isCurrent?"rgba(63,185,80,0.12)":p.isPast?"rgba(139,92,246,0.1)":"rgba(210,153,34,0.1)",
+                      color:p.isCurrent?"#3fb950":p.isPast?"#a78bfa":"#d29922",
+                      border:`1px solid ${p.isCurrent?"rgba(63,185,80,0.3)":p.isPast?"rgba(139,92,246,0.3)":"rgba(210,153,34,0.3)"}`
+                    }}>{p.isCurrent?"ACTIVE":p.isPast?"CLEARED":"UPCOMING"}</span>
                   </div>
                   <span style={{fontFamily:"monospace",fontWeight:800,fontSize:13,color:remaining>=0?"#3fb950":"#f85149"}}>{fmt(remaining)}<span style={{fontSize:9,color:T.muted,fontWeight:400}}> left</span></span>
                 </div>
