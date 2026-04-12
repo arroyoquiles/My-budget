@@ -1329,8 +1329,8 @@ function App(){
         @keyframes slideInUp{from{opacity:0;transform:translateY(20px);}to{opacity:1;transform:translateY(0);}}
         @keyframes pulse{0%,100%{opacity:1;}50%{opacity:0.6;}}
         input[type=range]{width:100%;accent-color:#58a6ff;}
-        .c{max-width:500px;margin:0 auto;padding:14px 14px 90px;}
-        @media(min-width:768px){.c{max-width:640px;padding:22px 24px 100px;}}
+        .c{max-width:500px;margin:0 auto;padding:14px 14px 120px;}
+        @media(min-width:768px){.c{max-width:640px;padding:22px 24px 130px;}}
         @media(min-width:1024px){.c{max-width:760px;}}
         .g2{display:grid;grid-template-columns:1fr 1fr;gap:10px;}
         .tabs{display:flex;gap:4px;overflow-x:auto;padding-bottom:2px;-webkit-overflow-scrolling:touch;scrollbar-width:none;margin-bottom:14px;}
@@ -1479,17 +1479,7 @@ function App(){
         </div>
       </div>)}
       <div className="c">
-        <div style={{marginBottom:16,display:"flex",justifyContent:"space-between",alignItems:"center"}}>
-          <div>
-            <div style={{fontSize:26,fontWeight:800,letterSpacing:-0.8,background:"linear-gradient(135deg, #e6edf3 0%, #58a6ff 100%)",WebkitBackgroundClip:"text",WebkitTextFillColor:"transparent",backgroundClip:"text"}}>My Budget</div>
-          </div>
-          {diasProx!==null&&(<div style={{background:"rgba(63,185,80,0.08)",backdropFilter:"blur(12px)",WebkitBackdropFilter:"blur(12px)",border:"1px solid rgba(63,185,80,0.25)",borderRadius:12,padding:"5px 10px",textAlign:"center",cursor:"pointer"}} onClick={()=>{if(currentPeriod){setActiveCheckPid(currentPeriod.id);setTab("paychecks");}}}>
-            <div style={{fontSize:9,color:T.muted}}>NEXT CHECK</div>
-            <div style={{fontFamily:"monospace",fontWeight:800,color:diasProx===0?"#58a6ff":"#3fb950",fontSize:diasProx===0?10:14}}>{diasProx===0?"TODAY 🎉":`${diasProx}d`}</div>
-            <div style={{fontSize:9,color:T.muted}}>{nextPayday?fmd(nextPayday):""}</div>
-          </div>)}
-        </div>
-        {/* Bottom Nav Bar — fixed, replaces horizontal tabs */}
+        {/* Bottom Nav Bar */}
         <div ref={tabBarRef} style={{position:"fixed",bottom:0,left:0,right:0,zIndex:190,background:theme==="dark"?"rgba(8,12,20,0.7)":"rgba(240,244,248,0.7)",backdropFilter:"saturate(200%) blur(28px)",WebkitBackdropFilter:"saturate(200%) blur(28px)",borderTop:`1px solid ${theme==="dark"?"rgba(36,48,72,0.8)":"rgba(208,215,222,0.6)"}`,paddingBottom:"max(12px, env(safe-area-inset-bottom, 12px))",display:"flex",alignItems:"stretch"}}>
           {TABS.map(t=>{
             const isActive=tab===t.id;
@@ -1512,6 +1502,17 @@ function App(){
             );
           })}
         </div>
+        <div style={{marginBottom:16,display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+          <div>
+            <div style={{fontSize:26,fontWeight:800,letterSpacing:-0.8,background:"linear-gradient(135deg, #e6edf3 0%, #58a6ff 100%)",WebkitBackgroundClip:"text",WebkitTextFillColor:"transparent",backgroundClip:"text"}}>My Budget</div>
+          </div>
+          {diasProx!==null&&(<div style={{background:"rgba(63,185,80,0.08)",backdropFilter:"blur(12px)",WebkitBackdropFilter:"blur(12px)",border:"1px solid rgba(63,185,80,0.25)",borderRadius:12,padding:"5px 10px",textAlign:"center",cursor:"pointer"}} onClick={()=>{if(currentPeriod){setActiveCheckPid(currentPeriod.id);setTab("paychecks");}}}>
+            <div style={{fontSize:9,color:T.muted}}>NEXT CHECK</div>
+            <div style={{fontFamily:"monospace",fontWeight:800,color:diasProx===0?"#58a6ff":"#3fb950",fontSize:diasProx===0?10:14}}>{diasProx===0?"TODAY 🎉":`${diasProx}d`}</div>
+            <div style={{fontSize:9,color:T.muted}}>{nextPayday?fmd(nextPayday):""}</div>
+          </div>)}
+        </div>
+        </div>
         {tab==="overview"&&(<div className="anim">
           {(()=>{
             const remaining=totalMonthlyIncome-totalMonthlyExp;
@@ -1525,7 +1526,6 @@ function App(){
                   <svg width="72" height="72" viewBox="0 0 72 72">
                     <circle cx="36" cy="36" r="28" fill="none" stroke={T.surface2} strokeWidth="8"/>
                     <circle cx="36" cy="36" r="28" fill="none" stroke={totalMonthlyIncome>0?"#f85149":"#30363d"} strokeWidth="8"
-                      strokeDasharray={`${totalMonthlyIncome>0?Math.min(100,Math.round((totalMonthlyExp/totalMonthlyIncome)*100)):0} * 1.759 ${175.9}`}
                       strokeDasharray={`${totalMonthlyIncome>0?Math.min(175.9,(totalMonthlyExp/totalMonthlyIncome)*175.9):0} ${175.9}`}
                       strokeLinecap="round" transform="rotate(-90 36 36)"/>
                     <circle cx="36" cy="36" r="28" fill="none" stroke={remColor} strokeWidth="8"
@@ -2157,7 +2157,6 @@ function App(){
           </div>
         </div>)}
       </div>
-    </div>
   );
 }
 ReactDOM.createRoot(document.getElementById("root")).render(<App/>);
