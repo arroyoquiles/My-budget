@@ -350,7 +350,7 @@ const migrate=raw=>{
     proximoCobro:anchor,
     payFreq:freq,
     theme:raw.theme||"dark",
-    checkAmount:n(raw.checkAmount||raw.c1||raw.c2||raw.check1||raw.check2||raw.cheque1||raw.cheque2||1520),
+    checkAmount:n(raw.checkAmount||raw.c1||raw.c2||raw.check1||raw.check2||raw.cheque1||raw.cheque2)||0,
     periods,
     tarjetas:(raw.tarjetas||[]).map(t=>({...t,fechaPago:t.fechaPago||"",fechaCorte:t.fechaCorte||"",historial:t.historial||[],tipo:"card"})),
     loans:(raw.loans||DD.loans).map(l=>({...l,tipo:"loan"})),
@@ -1230,10 +1230,11 @@ function App(){
     const remColor=getRemainingColor(sob);
     return(<div className="anim">
       {/* Compact header: Active badge + Payday inline */}
-      <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:12}}>
-        {isCurrent&&<div style={{background:"rgba(88,166,255,0.1)",border:"1px solid rgba(88,166,255,0.3)",borderRadius:10,padding:"6px 12px",fontSize:11,color:"#58a6ff",fontWeight:600,flexShrink:0}}>✓ Active</div>}
-        {payday&&<div style={{fontSize:11,color:pdDays===0?"#58a6ff":"#3fb950",fontWeight:600}}>📅 {fmd(payday)}{pdDays===0?" 🎉":pdDays>0?<span style={{fontSize:10,color:T.muted,fontWeight:400}}> · {pdDays}d</span>:""}</div>}
-      </div>
+      {(isCurrent||payday)&&<div style={{display:"flex",alignItems:"center",gap:8,marginBottom:12,padding:"8px 12px",background:"rgba(88,166,255,0.06)",borderRadius:10,border:"1px solid rgba(88,166,255,0.15)"}}>
+        {isCurrent&&<span style={{fontSize:11,color:"#58a6ff",fontWeight:700}}>✓ Active</span>}
+        {isCurrent&&payday&&<span style={{color:"rgba(88,166,255,0.3)",fontSize:12}}>·</span>}
+        {payday&&<span style={{fontSize:11,color:pdDays===0?"#58a6ff":"#3fb950",fontWeight:600}}>📅 {fmd(payday)}{pdDays===0?" 🎉":`  ${pdDays}d away`}</span>}
+      </div>}
 
       {/* Amount card */}
       <div style={{...CARD,padding:"13px 16px",marginBottom:12,borderColor:T.accent}}>
@@ -1589,7 +1590,9 @@ function App(){
               const sob=periodAmt-total;
               const assigned=total;
               const remaining=periodAmt-total;
-              return(<div key={p.id} style={{paddingBottom:pi<monthPeriods.length-1?12:0,marginBottom:pi<monthPeriods.length-1?12:0,borderBottom:pi<monthPeriods.length-1?`1px solid ${T.border}`:"none"}}>
+              return(<div key={p.id} style={{paddingBottom:pi<monthPeriods.length-1?12:0,marginBottom:pi<monthPeriods.length-1?12:0,borderBottom:pi<monthPeriods.length-1?`1px solid ${T.border}`:"none",
+                ...(p.isCurrent?{background:"rgba(88,166,255,0.04)",borderRadius:10,padding:"10px",margin:"-10px",marginBottom:pi<monthPeriods.length-1?2:"-10px",border:"1px solid rgba(88,166,255,0.15)"}:{})
+              }}>
                 <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:7}}>
                   <div style={{display:"flex",alignItems:"center",gap:6}}>
                     <span style={{fontSize:12,fontWeight:700,color:T.text}}>{p.label}</span>
@@ -1859,9 +1862,14 @@ function App(){
                           style={{position:"relative",marginTop,zIndex,isolation:"isolate",opacity,transition,filter,transform,
                             ...(isExpanded?{boxShadow:"0 8px 32px rgba(0,0,0,0.7)",borderRadius:14}:{})
                           }}
-                          onTouchStart={isExpanded?e=>{e.currentTarget._swipeY=e.touches[0].clientY;}:undefined}
+                          onTouchStart={isExpanded?e=>{
+                            if(e.target.closest('button,input,select,textarea'))return;
+                            e.currentTarget._swipeY=e.touches[0].clientY;
+                          }:undefined}
                           onTouchEnd={isExpanded?e=>{
+                            if(e.currentTarget._swipeY==null)return;
                             const dy=e.changedTouches[0].clientY-(e.currentTarget._swipeY||0);
+                            e.currentTarget._swipeY=null;
                             if(dy>60){haptic(20);handleExpand(e);}
                           }:undefined}
                         >
@@ -2113,7 +2121,7 @@ function App(){
             <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8,marginBottom:8}}>
               <div>
                 <div style={{fontSize:9,color:T.muted,marginBottom:4}}>AMOUNT ($)</div>
-                <input style={{...INP,fontSize:15,fontFamily:"monospace",fontWeight:700,padding:"8px 10px"}} type="number" inputMode="decimal" value={data.checkAmount||""} onChange={e=>setData(p=>({...p,checkAmount:parseFloat(e.target.value)||0}))} placeholder="1520"/>
+                <input style={{...INP,fontSize:15,fontFamily:"monospace",fontWeight:700,padding:"8px 10px"}} type="number" inputMode="decimal" value={data.checkAmount||""} onChange={e=>setData(p=>({...p,checkAmount:parseFloat(e.target.value)||0}))} placeholder="e.g. 1500"/>
               </div>
               <div>
                 <div style={{fontSize:9,color:T.muted,marginBottom:4}}>ANCHOR DATE</div>
