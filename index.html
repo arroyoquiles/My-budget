@@ -35,6 +35,13 @@
     body.copper{background:#130f08;color:#e6edf3;}
     body.teal{background:#08141a;color:#e6edf3;}
     body.gold{background:#14110a;color:#e6edf3;}
+    #splash{position:fixed;inset:0;z-index:9999;display:flex;align-items:center;justify-content:center;flex-direction:column;gap:16px;background:#080c14;transition:opacity 0.5s ease;}
+    #splash.hide{opacity:0;pointer-events:none;}
+    #splash svg{animation:splashPop 0.6s cubic-bezier(0.34,1.56,0.64,1) forwards;}
+    #splash .splash-title{font-family:-apple-system,sans-serif;font-size:28px;font-weight:800;background:linear-gradient(120deg,#e6edf3 0%,#e6edf3 50%,#58a6ff 100%);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;opacity:0;animation:splashFade 0.4s ease 0.4s forwards;}
+    #splash .splash-sub{font-family:-apple-system,sans-serif;font-size:11px;color:#8b949e;letter-spacing:2px;opacity:0;animation:splashFade 0.4s ease 0.6s forwards;}
+    @keyframes splashPop{0%{transform:scale(0.4);opacity:0;}100%{transform:scale(1);opacity:1;}}
+    @keyframes splashFade{0%{opacity:0;transform:translateY(6px);}100%{opacity:1;transform:translateY(0);}}
     ::-webkit-scrollbar{width:3px;}::-webkit-scrollbar-thumb{background:#30363d;}
     input[type=text],input[type=number],input[type=email],input[type=date],select,textarea{font-size:16px!important;-webkit-text-size-adjust:100%!important;}
     .expense-row{user-select:none;-webkit-user-select:none;-webkit-touch-callout:none;}
@@ -75,6 +82,19 @@
   </style>
 </head>
 <body class="dark">
+<div id="splash">
+  <svg width="96" height="96" viewBox="0 0 512 512" xmlns="http://www.w3.org/2000/svg">
+    <rect width="512" height="512" rx="100" fill="#0f1724"/>
+    <rect x="76" y="158" width="324" height="224" rx="30" fill="none" stroke="white" stroke-width="22"/>
+    <rect x="318" y="188" width="102" height="72" rx="18" fill="none" stroke="white" stroke-width="18"/>
+    <circle cx="371" cy="224" r="13" fill="white"/>
+    <line x1="156" y1="118" x2="206" y2="158" stroke="white" stroke-width="21" stroke-linecap="round"/>
+    <line x1="238" y1="106" x2="268" y2="158" stroke="white" stroke-width="21" stroke-linecap="round"/>
+    <text x="100" y="330" font-family="-apple-system,BlinkMacSystemFont,Helvetica,sans-serif" font-size="96" font-weight="700" fill="white">MB</text>
+  </svg>
+  <div class="splash-title">My Budget</div>
+  <div class="splash-sub">PERSONAL FINANCE</div>
+</div>
 <div id="root"></div>
 <script type="text/babel">
 const { useState, useEffect, useRef, useCallback, memo, useMemo } = React;
@@ -444,8 +464,25 @@ const GastoItem=memo(({item,pid,editId,setEditId,tarjetas,onCycle,onLongPress,on
   const INP=mkINP(T),BTN=mkBTN(),CARD=mkCARD(T);
   const pressTimer=useRef(null);
   const longPressed=useRef(false);
+  const [swipeX,setSwipeX]=useState(0);
+  const swipeStart=useRef(null);
+  const isSwiping=useRef(false);
   const hTS=()=>{longPressed.current=false;pressTimer.current=setTimeout(()=>{longPressed.current=true;onLongPress(item.id);},500);};
   const hTE=()=>clearTimeout(pressTimer.current);
+  const onSwipeStart=(e)=>{swipeStart.current=e.touches[0].clientX;isSwiping.current=false;};
+  const onSwipeMove=(e)=>{
+    if(swipeStart.current===null)return;
+    const dx=e.touches[0].clientX-swipeStart.current;
+    if(Math.abs(dx)>8){isSwiping.current=true;longPressed.current=true;}
+    if(isSwiping.current)setSwipeX(Math.max(-90,Math.min(60,dx)));
+  };
+  const onSwipeEnd=()=>{
+    if(!isSwiping.current){swipeStart.current=null;return;}
+    if(swipeX<-60){setSwipeX(-80);}
+    else if(swipeX>40){setEditId(item.id);setSwipeX(0);}
+    else{setSwipeX(0);}
+    swipeStart.current=null;isSwiping.current=false;
+  };
   const getCardDueDay=(cardName)=>{
     if(!cardName)return null;
     const card=tarjetas.find(t=>t.nombre===cardName);
@@ -494,8 +531,19 @@ const GastoItem=memo(({item,pid,editId,setEditId,tarjetas,onCycle,onLongPress,on
   const catIcon=getCatIcon(item.cat)||getCatIcon(item.destino)||"📌";
   const catColor=CATCOLORS[item.cat]||CATCOLORS[item.destino]||"#94a3b8";
   return(
-    <div className="expense-row" style={{marginBottom:7}}>
-      <div style={{display:"flex",alignItems:"center",gap:8,padding:"10px 11px",borderRadius:11,background:stBg,border:`1px solid ${stBorder}`,transition:"background 0.15s,border 0.15s"}}>
+    <div className="expense-row" style={{marginBottom:7,position:"relative",overflow:"hidden",borderRadius:11}}>
+      {/* Swipe actions revealed behind */}
+      <div style={{position:"absolute",inset:0,display:"flex",alignItems:"stretch",justifyContent:"flex-end",borderRadius:11,overflow:"hidden"}}>
+        <div style={{width:80,background:"rgba(248,81,73,0.9)",display:"flex",alignItems:"center",justifyContent:"center",fontSize:20,cursor:"pointer",flexShrink:0}}
+          onClick={()=>{haptic("delete");onRemove(item.id);}}>🗑</div>
+      </div>
+      <div style={{position:"absolute",inset:0,display:"flex",alignItems:"stretch",justifyContent:"flex-start",borderRadius:11,overflow:"hidden"}}>
+        <div style={{width:60,background:`${T.accent}dd`,display:"flex",alignItems:"center",justifyContent:"center",fontSize:18,cursor:"pointer",flexShrink:0}}
+          onClick={()=>{setSwipeX(0);setEditId(item.id);}}>✏️</div>
+      </div>
+      {/* Main row */}
+      <div onTouchStart={onSwipeStart} onTouchMove={onSwipeMove} onTouchEnd={onSwipeEnd}
+        style={{display:"flex",alignItems:"center",gap:8,padding:"10px 11px",borderRadius:11,background:stBg||T.surface,border:`1px solid ${stBorder}`,transition:isSwiping.current?"none":"transform 0.25s cubic-bezier(0.34,1.2,0.64,1)",transform:`translateX(${swipeX}px)`,willChange:"transform",position:"relative",zIndex:1}}>
         <div onTouchStart={touch.onTouchStart} onTouchMove={touch.onTouchMove} onTouchEnd={touch.onTouchEnd} style={{display:"flex",flexDirection:"column",gap:3,padding:"6px 5px",flexShrink:0,touchAction:"none",cursor:"grab"}}>
           {[0,1,2].map(l=><div key={l} style={{width:14,height:2,background:T.muted,borderRadius:2}}/>)}
         </div>
@@ -515,7 +563,6 @@ const GastoItem=memo(({item,pid,editId,setEditId,tarjetas,onCycle,onLongPress,on
           </div>
         </div>
         <div style={{fontFamily:"monospace",fontWeight:700,fontSize:13,color:item.state==="paid"?"#3fb950":item.state==="reserved"?"#d29922":dest.color||"#f85149",flexShrink:0}}>{fmt(item.monto)}</div>
-        <button style={{...mkBTN(),background:"transparent",color:T.muted,padding:"4px 5px",fontSize:13,flexShrink:0}} onClick={e=>{e.stopPropagation();setEditId(item.id);}}>✏️</button>
       </div>
     </div>
   );
@@ -523,6 +570,10 @@ const GastoItem=memo(({item,pid,editId,setEditId,tarjetas,onCycle,onLongPress,on
   const [editing,setEditing]=useState(false);
   const [longPressMenu,setLongPressMenu]=useState(false);
   const [savedSnapshot,setSavedSnapshot]=useState(null);
+  const [debtSwipeX,setDebtSwipeX]=useState(0);
+  const debtSwipeStart=useRef(null);
+  const debtIsSwiping=useRef(false);
+  const [deleteConfirm,setDeleteConfirm]=useState(false);
   // Reset all internal open UI whenever resetToken changes (card collapsed by external action)
   useEffect(()=>{
     if(resetToken===undefined)return;
@@ -551,28 +602,35 @@ const GastoItem=memo(({item,pid,editId,setEditId,tarjetas,onCycle,onLongPress,on
   const lpStartPos=useRef(null);
   // Long press on the whole card surface (not just title)
   const hLPStart=(e)=>{
-    // Don't initiate long press from interactive children (buttons, inputs, select)
     if(e.target.closest('button,input,select,textarea'))return;
     lpFired.current=false;
     const touch=e.touches?e.touches[0]:e;
     lpStartPos.current={x:touch.clientX,y:touch.clientY};
     clearTimeout(lpTimer.current);
-    lpTimer.current=setTimeout(()=>{
-      lpFired.current=true;
-      setLongPressMenu(true);
-      // Vibrate if available for tactile feedback
-      if(navigator.vibrate)navigator.vibrate(30);
-    },520);
+    lpTimer.current=setTimeout(()=>{lpFired.current=true;setLongPressMenu(true);haptic("double");},520);
   };
   const hLPMove=(e)=>{
     if(!lpStartPos.current)return;
     const touch=e.touches?e.touches[0]:e;
-    const dx=Math.abs(touch.clientX-lpStartPos.current.x);
+    const dx=touch.clientX-lpStartPos.current.x;
     const dy=Math.abs(touch.clientY-lpStartPos.current.y);
-    // Cancel long press if finger moved more than 8px
-    if(dx>8||dy>8){clearTimeout(lpTimer.current);lpStartPos.current=null;}
+    if(Math.abs(dx)>8||dy>8){
+      clearTimeout(lpTimer.current);lpStartPos.current=null;
+      if(!showEdit&&Math.abs(dx)>8&&dy<30){
+        debtIsSwiping.current=true;
+        setDebtSwipeX(Math.max(-90,Math.min(70,dx)));
+      }
+    }
   };
-  const hLPEnd=()=>{clearTimeout(lpTimer.current);lpStartPos.current=null;};
+  const hLPEnd=()=>{
+    clearTimeout(lpTimer.current);lpStartPos.current=null;
+    if(debtIsSwiping.current){
+      if(debtSwipeX<-60){setDebtSwipeX(-80);}
+      else if(debtSwipeX>40){startEditing();setDebtSwipeX(0);}
+      else{setDebtSwipeX(0);}
+      debtIsSwiping.current=false;
+    }
+  };
   const startEditing=()=>{setSavedSnapshot({...debt});setEditing(true);setLongPressMenu(false);};
   const cancelEditing=()=>{
     if(savedSnapshot){
@@ -582,8 +640,23 @@ const GastoItem=memo(({item,pid,editId,setEditId,tarjetas,onCycle,onLongPress,on
   };
   const saveEditing=()=>{setEditing(false);setSavedSnapshot(null);};
   return(
-    <div
-      style={{...CARD,padding:"12px 14px",marginBottom:9,overflow:"hidden",borderColor:isFirst?"#d29922":showEdit?`${T.accent}80`:debt.priority?"rgba(245,158,11,0.35)":T.border,transition:"border-color 0.2s",userSelect:"none",WebkitUserSelect:"none",WebkitTouchCallout:"none",...(clipH!=null?{boxSizing:"border-box",height:clipH,maxHeight:clipH,minHeight:clipH,marginBottom:0,clipPath:"inset(0 round 16px)"}:{clipPath:"none"})}}
+    <div style={{position:"relative",overflow:"hidden",borderRadius:14,marginBottom:9}}>
+      {/* Swipe actions behind */}
+      {!showEdit&&<div style={{position:"absolute",inset:0,display:"flex",alignItems:"stretch",borderRadius:14}}>
+        <div style={{width:70,background:`${T.accent}dd`,display:"flex",alignItems:"center",justifyContent:"center",fontSize:18,cursor:"pointer",borderRadius:"14px 0 0 14px"}}
+          onClick={()=>{setDebtSwipeX(0);startEditing();}}>✏️</div>
+        <div style={{flex:1}}/>
+        <div style={{width:90,background:"rgba(248,81,73,0.9)",display:"flex",alignItems:"center",justifyContent:"center",fontSize:18,cursor:"pointer",borderRadius:"0 14px 14px 0"}}
+          onClick={()=>{haptic("delete");setDeleteConfirm(true);setDebtSwipeX(0);}}>🗑</div>
+      </div>}
+      {/* Delete confirm overlay */}
+      {deleteConfirm&&(<div style={{position:"absolute",inset:0,zIndex:10,background:T.surface,borderRadius:14,display:"flex",alignItems:"center",justifyContent:"center",gap:10,padding:14,border:"1px solid rgba(248,81,73,0.3)"}}>
+        <span style={{fontSize:12,color:T.muted,flex:1}}>Delete {debt.nombre}?</span>
+        <button style={{...BTN,padding:"6px 14px",background:T.surface2,color:T.muted,fontSize:12,border:`1px solid ${T.border}`,borderRadius:8}} onClick={()=>setDeleteConfirm(false)}>Cancel</button>
+        <button style={{...BTN,padding:"6px 14px",background:"rgba(248,81,73,0.15)",color:"#f85149",fontSize:12,fontWeight:700,border:"1px solid rgba(248,81,73,0.3)",borderRadius:8}} onClick={()=>{onRemove(debt.id);}}>Delete</button>
+      </div>)}
+      <div
+        style={{...CARD,padding:"12px 14px",marginBottom:0,overflow:"hidden",borderColor:isFirst?"#d29922":showEdit?`${T.accent}80`:debt.priority?"rgba(245,158,11,0.35)":T.border,transition:debtIsSwiping.current?"none":"transform 0.25s cubic-bezier(0.34,1.2,0.64,1)",transform:`translateX(${debtSwipeX}px)`,userSelect:"none",WebkitUserSelect:"none",WebkitTouchCallout:"none",...(clipH!=null?{boxSizing:"border-box",height:clipH,maxHeight:clipH,minHeight:clipH,clipPath:"inset(0 round 16px)"}:{clipPath:"none"})}}
       onTouchStart={hLPStart}
       onTouchMove={hLPMove}
       onTouchEnd={hLPEnd}
@@ -624,12 +697,10 @@ const GastoItem=memo(({item,pid,editId,setEditId,tarjetas,onCycle,onLongPress,on
         >⭐</button>
       </div>
 
-      {/* ── Long-press action menu ── */}
-      {longPressMenu&&!isAdding&&(<div style={{display:"flex",gap:8,marginBottom:8,padding:"8px 10px",borderRadius:9,background:T.surface2,border:`1px solid ${T.border}`,alignItems:"center"}} onMouseDown={e=>e.stopPropagation()} onTouchStart={e=>e.stopPropagation()}>
-        <span style={{fontSize:10,color:T.muted,flex:1}}>Options:</span>
-        <button style={{...BTN,padding:"5px 12px",fontSize:11,background:`${T.accent}14`,color:T.accent,border:`1px solid ${T.accent}4d`,borderRadius:7}} onMouseDown={e=>e.stopPropagation()} onTouchStart={e=>e.stopPropagation()} onClick={startEditing}>✏️ Edit</button>
-        <button style={{...BTN,padding:"5px 12px",fontSize:11,background:"rgba(248,81,73,0.08)",color:"#f85149",border:"1px solid rgba(248,81,73,0.25)",borderRadius:7}} onMouseDown={e=>e.stopPropagation()} onTouchStart={e=>e.stopPropagation()} onClick={()=>{if(window.confirm("Delete this debt?"))onRemove(debt.id);setLongPressMenu(false);}}>🗑 Delete</button>
-        <button style={{...BTN,padding:"5px 8px",fontSize:11,background:"transparent",color:T.muted,border:`1px solid ${T.border}`,borderRadius:7}} onMouseDown={e=>e.stopPropagation()} onTouchStart={e=>e.stopPropagation()} onClick={()=>setLongPressMenu(false)}>✕</button>
+      {/* ── Swipe hint on long press ── */}
+      {longPressMenu&&!isAdding&&(<div style={{display:"flex",gap:8,marginBottom:8,padding:"6px 10px",borderRadius:9,background:T.surface2,border:`1px solid ${T.border}`,alignItems:"center",fontSize:10,color:T.muted}} onMouseDown={e=>e.stopPropagation()} onTouchStart={e=>e.stopPropagation()}>
+        <span style={{flex:1}}>← swipe right to edit · swipe left to delete →</span>
+        <button style={{...BTN,padding:"3px 8px",fontSize:10,background:"transparent",color:T.muted,border:`1px solid ${T.border}`,borderRadius:6}} onClick={()=>setLongPressMenu(false)}>✕</button>
       </div>)}
 
       {/* ── Edit fields ── */}
@@ -741,6 +812,7 @@ const GastoItem=memo(({item,pid,editId,setEditId,tarjetas,onCycle,onLongPress,on
             {tipo==="card"&&<button style={{...BTN,flex:1,padding:"8px",background:"rgba(248,81,73,0.07)",color:"#f85149",fontSize:12,border:"1px solid rgba(248,81,73,0.22)",fontWeight:600}} onMouseDown={e=>{e.stopPropagation();e.preventDefault();}} onClick={e=>{e.stopPropagation();setAccion({id:debt.id,tipo:"gasto"});setMontoAccion("");}}>🛒 Charge</button>}
           </div>)
       )}
+    </div>
     </div>
   );
 });
@@ -854,6 +926,8 @@ function App(){
   },[moveOpen]);
   const [snapDetail,setSnapDetail]=useState(null);
   const [resetConfirm,setResetConfirm]=useState(null);
+  const [resetAllConfirm,setResetAllConfirm]=useState(false);
+  const [gastoSearch,setGastoSearch]=useState({});
   const [debtsFilter,setDebtsFilter]=useState("all");
   const [cardsCollapsed,setCardsCollapsed]=useState(false);
   const [loansCollapsed,setLoansCollapsed]=useState(false);
@@ -876,8 +950,45 @@ function App(){
   const T=THEMES[theme];
   useEffect(()=>{document.body.className=theme;},[theme]);
   useEffect(()=>{localStorage.setItem(SK,JSON.stringify(data));},[data]);
-  const haptic=(ms=30)=>{try{if(navigator.vibrate)navigator.vibrate(ms);}catch{}};
-  const toast_=(msg,type="ok")=>{setToast({msg,type});haptic(type==="err"?[30,30,30]:20);clearTimeout(toastRef.current);toastRef.current=setTimeout(()=>setToast(null),2800);};
+  useEffect(()=>{
+    const splash=document.getElementById("splash");
+    if(splash){setTimeout(()=>{splash.classList.add("hide");setTimeout(()=>splash.remove(),500);},1600);}
+  },[]);
+  useEffect(()=>{
+    if(!("Notification" in window))return;
+    if(Notification.permission==="default"){setTimeout(()=>Notification.requestPermission(),3000);}
+    if(Notification.permission!=="granted")return;
+    const today=new Date();today.setHours(0,0,0,0);
+    const allDebts=[...(data.tarjetas||[]),...(data.loans||[])];
+    allDebts.forEach(d=>{
+      if(!d.fechaPago)return;
+      const day=parseInt(d.fechaPago);if(isNaN(day))return;
+      const due=new Date(today.getFullYear(),today.getMonth(),day);
+      if(due<today)due.setMonth(due.getMonth()+1);
+      const daysLeft=Math.round((due-today)/(1000*60*60*24));
+      if(daysLeft===3||daysLeft===1||daysLeft===0){
+        const key=`notif_${d.id}_${due.toISOString().slice(0,10)}`;
+        if(localStorage.getItem(key))return;
+        localStorage.setItem(key,"1");
+        const msg=daysLeft===0?`${d.nombre} payment is DUE TODAY!`:daysLeft===1?`${d.nombre} is due TOMORROW`:`${d.nombre} is due in ${daysLeft} days`;
+        new Notification("💳 My Budget",{body:msg,icon:"data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' rx='20' fill='%230f1724'/><text y='.9em' font-size='80'>💳</text></svg>"});
+      }
+    });
+  },[data.tarjetas,data.loans]);
+  const haptic=(pattern="light")=>{
+    try{if(!navigator.vibrate)return;
+      const patterns={
+        light:20, medium:40, heavy:80,
+        success:[30,50,80], error:[30,30,30,30,80],
+        double:[30,60,30], delete:[20,40,20,40,60],
+        pay:[50,30,100], reset:[40,60,40,60,40],
+        swipe:15, tap:10
+      };
+      const p=patterns[pattern]??pattern;
+      navigator.vibrate(p);
+    }catch{}
+  };
+  const toast_=(msg,type="ok")=>{setToast({msg,type});haptic(type==="err"?"error":"light");clearTimeout(toastRef.current);toastRef.current=setTimeout(()=>setToast(null),2800);};
   const INP=mkINP(T),BTN=mkBTN(),CARD=mkCARD(T);
   const freq=data.payFreq||"biweekly";
   const anchor=data.proximoCobro||"";
@@ -979,7 +1090,7 @@ function App(){
     const cur=(p.periods[pid]||{}).gastos||[];
     return{...p,periods:{...p.periods,[pid]:{...(p.periods[pid]||{}),gastos:fn(cur)}}};
   });
-  const cycleState=useCallback((pid,id)=>{haptic(20);updPeriodGastos(pid,g=>g.map(x=>x.id!==id?x:{...x,state:x.state==="paid"?"pending":"paid",pagado:x.state!=="paid"}));},[]);
+  const cycleState=useCallback((pid,id)=>{haptic("medium");updPeriodGastos(pid,g=>g.map(x=>x.id!==id?x:{...x,state:x.state==="paid"?"pending":"paid",pagado:x.state!=="paid"}));},[]);
   const setReserved=useCallback((pid,id)=>updPeriodGastos(pid,g=>g.map(x=>x.id!==id?x:{...x,state:x.state==="reserved"?"pending":"reserved",pagado:false})),[]);
   const updateGasto=useCallback((pid,id,f,v)=>updPeriodGastos(pid,g=>g.map(x=>x.id===id?{...x,[f]:v}:x)),[]);
   const batchUpdateGasto=useCallback((pid,id,fields)=>updPeriodGastos(pid,g=>g.map(x=>x.id===id?{...x,...fields}:x)),[]);
@@ -1317,7 +1428,23 @@ function App(){
         <div style={{fontSize:10,color:T.muted,marginTop:4}}>Tap ● = paid · Long press ◑ = reserved</div>
       </div>
       <DestinoSummary gastos={gastos} T={T}/>
-      {renderCheckTabGrouped(pid,gastos)}
+      {/* Search bar — only show if 4+ expenses */}
+      {gastos.length>=4&&(<div style={{marginBottom:8,position:"relative"}}>
+        <input style={{...INP,paddingLeft:32,fontSize:13}} placeholder="🔍 Search expenses..." value={gastoSearch[pid]||""} onChange={e=>setGastoSearch(p=>({...p,[pid]:e.target.value}))}/>
+        {gastoSearch[pid]&&<button style={{...BTN,position:"absolute",right:8,top:"50%",transform:"translateY(-50%)",background:"transparent",border:"none",color:T.muted,fontSize:13,padding:"2px 6px"}} onClick={()=>setGastoSearch(p=>({...p,[pid]:""}))} onMouseDown={e=>e.preventDefault()}>✕</button>}
+      </div>)}
+      {(()=>{
+        const q=(gastoSearch[pid]||"").toLowerCase().trim();
+        const filtered=q?gastos.filter(g=>(g.nombre||"").toLowerCase().includes(q)||(g.destino||"").toLowerCase().includes(q)):null;
+        if(filtered){
+          if(!filtered.length)return(<div style={{textAlign:"center",padding:"20px",color:T.muted,fontSize:12}}>No expenses match "{gastoSearch[pid]}"</div>);
+          return filtered.map(item=>(<GastoItem key={item.id} item={item} pid={pid} editId={editId} setEditId={(id)=>openEditId(id,gastos)} tarjetas={data.tarjetas}
+            onCycle={id=>cycleState(pid,id)} onLongPress={id=>setReserved(pid,id)}
+            onUpdate={(id,f,v)=>updateGasto(pid,id,f,v)} onBatchUpdate={(id,fields)=>batchUpdateGasto(pid,id,fields)}
+            onRemove={id=>removeGasto(pid,id)} touch={{onTouchStart:()=>{},onTouchMove:()=>{},onTouchEnd:()=>{}}} T={T}/>));
+        }
+        return renderCheckTabGrouped(pid,gastos);
+      })()}
       <button style={{...BTN,width:"100%",marginTop:2,marginBottom:8,padding:"11px",background:`${T.accent}14`,color:T.accent,fontSize:13,fontWeight:600,border:`1px solid ${T.accent}33`,borderRadius:10}} onClick={()=>addGasto(pid)}>+ Add Expense</button>
       <button style={{...BTN,width:"100%",padding:"8px",background:"transparent",color:T.muted,fontSize:11,border:"none",opacity:0.6}} onClick={()=>setResetConfirm({pid,label})}>🔄 New Cycle — Reset {label}</button>
     </div>);
@@ -1465,13 +1592,32 @@ function App(){
         </div>
         );
       })()}
-      {resetConfirm&&(<div style={{position:"fixed",inset:0,zIndex:400,background:"rgba(0,0,0,0.72)",display:"flex",alignItems:"center",justifyContent:"center",padding:16}} onClick={e=>{if(e.target===e.currentTarget)setResetConfirm(null);}}>
-        <div style={{width:"100%",maxWidth:340,background:T.surface,borderRadius:16,padding:"20px 18px",border:`1px solid ${T.border}`}}>
-          <div style={{fontSize:15,fontWeight:700,color:T.text,marginBottom:6}}>🔄 Reset this paycheck?</div>
-          <div style={{fontSize:12,color:T.muted,marginBottom:18,lineHeight:1.5}}>This will clear paid and reserved states for this check only.</div>
-          <div style={{display:"flex",gap:8}}>
-            <button style={{...BTN,flex:1,padding:"11px",background:T.surface2,color:T.muted,fontSize:13,border:`1px solid ${T.border}`}} onClick={()=>setResetConfirm(null)}>Cancel</button>
-            <button style={{...BTN,flex:1,padding:"11px",background:"rgba(248,81,73,0.12)",color:"#f85149",fontSize:13,fontWeight:700,border:"1px solid rgba(248,81,73,0.35)"}} onClick={()=>{resetCheck(resetConfirm.pid,resetConfirm.label);setResetConfirm(null);}}>Reset</button>
+      {resetConfirm&&(<div style={{position:"fixed",inset:0,zIndex:400,background:"rgba(0,0,0,0.8)",display:"flex",alignItems:"center",justifyContent:"center",padding:16}} onClick={e=>{if(e.target===e.currentTarget)setResetConfirm(null);}}>
+        <div style={{width:"100%",maxWidth:340,background:T.surface,borderRadius:20,padding:"24px 20px",border:`1px solid ${T.border}`,boxShadow:"0 20px 60px rgba(0,0,0,0.6)"}}>
+          <div style={{textAlign:"center",marginBottom:16}}>
+            <div style={{fontSize:36,marginBottom:10}}>🔄</div>
+            <div style={{fontSize:16,fontWeight:700,color:T.text,marginBottom:6}}>Reset {resetConfirm.label}?</div>
+            <div style={{fontSize:12,color:T.muted,lineHeight:1.6}}>This will clear all <strong style={{color:"#f85149"}}>paid</strong> and <strong style={{color:"#d29922"}}>reserved</strong> states for this paycheck. Your expense list stays intact.</div>
+          </div>
+          <div style={{display:"flex",gap:10}}>
+            <button style={{...BTN,flex:1,padding:"13px",background:T.surface2,color:T.muted,fontSize:14,borderRadius:12,border:`1px solid ${T.border}`}} onClick={()=>setResetConfirm(null)}>Cancel</button>
+            <button style={{...BTN,flex:1,padding:"13px",background:"rgba(248,81,73,0.15)",color:"#f85149",fontSize:14,fontWeight:700,borderRadius:12,border:"1px solid rgba(248,81,73,0.35)"}} onClick={()=>{haptic("reset");resetCheck(resetConfirm.pid,resetConfirm.label);setResetConfirm(null);}}>Reset</button>
+          </div>
+        </div>
+      </div>)}
+      {resetAllConfirm&&(<div style={{position:"fixed",inset:0,zIndex:500,background:"rgba(0,0,0,0.85)",display:"flex",alignItems:"center",justifyContent:"center",padding:16}} onClick={e=>{if(e.target===e.currentTarget)setResetAllConfirm(false);}}>
+        <div style={{width:"100%",maxWidth:340,background:T.surface,borderRadius:20,padding:"24px 20px",border:"1px solid rgba(248,81,73,0.3)",boxShadow:"0 20px 60px rgba(248,81,73,0.15)"}}>
+          <div style={{textAlign:"center",marginBottom:18}}>
+            <div style={{fontSize:40,marginBottom:10}}>⚠️</div>
+            <div style={{fontSize:16,fontWeight:700,color:"#f85149",marginBottom:8}}>Reset ALL Data?</div>
+            <div style={{fontSize:12,color:T.muted,lineHeight:1.7}}>This will permanently delete <strong style={{color:T.text}}>all your expenses, debts, settings and history</strong>. This cannot be undone.</div>
+          </div>
+          <div style={{background:"rgba(248,81,73,0.06)",border:"1px solid rgba(248,81,73,0.2)",borderRadius:10,padding:"10px 14px",marginBottom:16,fontSize:11,color:"#f85149",textAlign:"center",fontWeight:600}}>
+            💀 All data will be permanently lost
+          </div>
+          <div style={{display:"flex",gap:10}}>
+            <button style={{...BTN,flex:2,padding:"13px",background:T.surface2,color:T.text,fontSize:14,fontWeight:600,borderRadius:12,border:`1px solid ${T.border}`}} onClick={()=>setResetAllConfirm(false)}>Keep my data</button>
+            <button style={{...BTN,flex:1,padding:"13px",background:"rgba(248,81,73,0.2)",color:"#f85149",fontSize:13,fontWeight:700,borderRadius:12,border:"1px solid rgba(248,81,73,0.4)"}} onClick={()=>{haptic("error");localStorage.removeItem(SK);setData(migrate(DD));setTab("overview");setResetAllConfirm(false);toast_("🔄 App reset");}}>Reset</button>
           </div>
         </div>
       </div>)}
@@ -1519,7 +1665,7 @@ function App(){
             if(Math.abs(e.touches[0].clientX-d.startX)>8)d.active=true;
             if(!d.active)return;
             const idx=getIdx(e.touches[0].clientX,e.currentTarget);
-            if(TABS[idx]&&TABS[idx].id!==tab){setTab(TABS[idx].id);setSortMenuOpen(false);haptic(12);}
+            if(TABS[idx]&&TABS[idx].id!==tab){setTab(TABS[idx].id);setSortMenuOpen(false);haptic("swipe");}
           };
           const onTE=(e)=>{
             if(!dragRef.current.active){const idx=getIdx(e.changedTouches[0].clientX,e.currentTarget);if(TABS[idx]){setTab(TABS[idx].id);setSortMenuOpen(false);haptic();}}
@@ -1933,7 +2079,7 @@ function App(){
                             if(e.currentTarget._swipeY==null)return;
                             const dy=e.changedTouches[0].clientY-(e.currentTarget._swipeY||0);
                             e.currentTarget._swipeY=null;
-                            if(dy>60){haptic(20);handleExpand(e);}
+                            if(dy>60){haptic("medium");handleExpand(e);}
                           }:undefined}
                         >
                           <div
@@ -2242,7 +2388,7 @@ function App(){
           {/* 4. Danger zone */}
           <div style={{background:"rgba(248,81,73,0.04)",border:"1px solid rgba(248,81,73,0.2)",borderRadius:14,padding:"10px 14px"}}>
             <div style={{fontSize:10,color:"#f85149",letterSpacing:1.5,fontWeight:700,marginBottom:8}}>⚠️ DANGER ZONE</div>
-            <button style={{...BTN,width:"100%",padding:"10px",background:"rgba(248,81,73,0.1)",color:"#f85149",fontSize:13,border:"1px solid rgba(248,81,73,0.3)"}} onClick={()=>{if(window.confirm("Reset ALL data to defaults? Cannot be undone.")){localStorage.removeItem(SK);setData(migrate(DD));setTab("overview");toast_("🔄 App reset");}}}>🗑 Reset All Data</button>
+            <button style={{...BTN,width:"100%",padding:"10px",background:"rgba(248,81,73,0.1)",color:"#f85149",fontSize:13,border:"1px solid rgba(248,81,73,0.3)"}} onClick={()=>setResetAllConfirm(true)}>🗑 Reset All Data</button>
           </div>
         </div>)}
       </div>
