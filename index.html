@@ -553,7 +553,7 @@ const GastoItem=memo(({item,pid,editId,setEditId,tarjetas,onCycle,onLongPress,on
   const saveEditing=()=>{setEditing(false);setSavedSnapshot(null);};
   return(
     <div
-      style={{...CARD,padding:"12px 14px",marginBottom:9,overflow:"hidden",borderColor:isFirst?"#d29922":showEdit?"rgba(88,166,255,0.5)":debt.priority?"rgba(245,158,11,0.35)":T.border,transition:"border-color 0.2s",userSelect:"none",WebkitUserSelect:"none",WebkitTouchCallout:"none",...(clipH!=null?{boxSizing:"border-box",height:clipH,maxHeight:clipH,minHeight:clipH,marginBottom:0,clipPath:"inset(0 round 16px)"}:{clipPath:"none"})}}
+      style={{...CARD,padding:"12px 14px",marginBottom:9,overflow:"hidden",borderColor:isFirst?"#d29922":showEdit?"rgba(88,166,255,0.5)":debt.priority?"rgba(245,158,11,0.35)":T.border,transition:"border-color 0.2s",userSelect:"none",WebkitUserSelect:"none",WebkitTouchCallout:"none",...(clipH!=null?{boxSizing:"border-box",height:clipH,maxHeight:clipH,minHeight:clipH,marginBottom:0,clipPath:"inset(0 round 16px)",display:"flex",flexDirection:"column",justifyContent:"center",padding:"0 14px"}:{clipPath:"none"})}}
       onTouchStart={hLPStart}
       onTouchMove={hLPMove}
       onTouchEnd={hLPEnd}
@@ -1360,8 +1360,18 @@ function App(){
                   <div style={{marginBottom:8}}><div style={{fontSize:9,color:T.muted,letterSpacing:1.2,fontWeight:700,marginBottom:4}}>AMOUNT ($)</div><input ref={el=>{window._quickCardAmtEl=el;}} style={{...INP,fontFamily:"monospace",fontWeight:700,fontSize:22}} type="number" inputMode="decimal" value={quickAmt} onChange={e=>setQuickAmt(e.target.value)} placeholder="0.00"/></div>
                   <div style={{height:32,display:"flex",alignItems:"center",marginBottom:8}}>{quickAmtNum>0&&quickPreviewCard&&(<div style={{width:"100%",padding:"7px 11px",borderRadius:9,background:"rgba(236,72,153,0.07)",border:"1px solid rgba(236,72,153,0.2)"}}><div style={{display:"flex",justifyContent:"space-between",fontSize:11}}><span style={{color:T.muted}}>New balance</span><span style={{fontFamily:"monospace",fontWeight:700,color:"#ec4899"}}>{fmt(quickPreviewCard.newBalance)}{quickPreviewCard.pct!==null&&<span style={{fontSize:10,color:quickPreviewCard.pct>=90?"#f85149":quickPreviewCard.pct>=70?"#d29922":T.muted,marginLeft:5}}>{quickPreviewCard.pct}%</span>}</span></div></div>)}</div>
                   <div style={{fontSize:9,color:T.muted,letterSpacing:1.2,fontWeight:700,marginBottom:4}}>WHICH CARD?</div>
-                  <div style={{display:"flex",flexDirection:"column",gap:4,overflowY:data.tarjetas.length>4?"auto":"hidden",maxHeight:160,WebkitOverflowScrolling:"touch"}} onTouchMove={e=>{if(data.tarjetas.length>4)e.stopPropagation();else e.preventDefault();}}>
-                    {data.tarjetas.length===0?<div style={{fontSize:12,color:T.muted,padding:"8px 10px",background:T.surface2,borderRadius:9}}>No cards. Add one in Debts.</div>:data.tarjetas.map(t=>{const tc=CC[t.nombre]||null;const dot=tc?.dot||t._vc?.dot||"💳";const cardColor=tc?.color||t._vc?.color||"#ec4899";const cardBorder=tc?.border||t._vc?.border||"rgba(236,72,153,0.4)";const isSelected=quickCardId===String(t.id);return(<button key={t.id} style={{...BTN,padding:"8px 12px",fontSize:13,textAlign:"left",background:isSelected?"rgba(236,72,153,0.1)":T.surface2,color:isSelected?cardColor:T.text,border:`1px solid ${isSelected?cardBorder:T.border}`,display:"flex",alignItems:"center",gap:8,borderRadius:9,flexShrink:0}} onMouseDown={e=>e.preventDefault()} onClick={()=>setQuickCardId(String(t.id))}><span style={{fontSize:14,flexShrink:0}}>{dot}</span><span style={{fontWeight:600,fontSize:13}}>{t.nombre}</span></button>);})}
+                  <div style={{display:"flex",flexDirection:"column",gap:4,overflowY:"auto",maxHeight:160,WebkitOverflowScrolling:"touch"}}
+                    onTouchStart={e=>{e._startY=e.touches[0].clientY;}}
+                    onTouchMove={e=>{
+                      const el=e.currentTarget;
+                      const dy=e.touches[0].clientY-(e._startY||0);
+                      const atTop=el.scrollTop<=0;
+                      const atBot=el.scrollTop+el.clientHeight>=el.scrollHeight-1;
+                      const noScroll=el.scrollHeight<=el.clientHeight;
+                      if(noScroll||(atTop&&dy>0)||(atBot&&dy<0))e.preventDefault();
+                      else e.stopPropagation();
+                    }}
+                  >                    {data.tarjetas.length===0?<div style={{fontSize:12,color:T.muted,padding:"8px 10px",background:T.surface2,borderRadius:9}}>No cards. Add one in Debts.</div>:data.tarjetas.map(t=>{const tc=CC[t.nombre]||null;const dot=tc?.dot||t._vc?.dot||"💳";const cardColor=tc?.color||t._vc?.color||"#ec4899";const cardBorder=tc?.border||t._vc?.border||"rgba(236,72,153,0.4)";const isSelected=quickCardId===String(t.id);return(<button key={t.id} style={{...BTN,padding:"8px 12px",fontSize:13,textAlign:"left",background:isSelected?"rgba(236,72,153,0.1)":T.surface2,color:isSelected?cardColor:T.text,border:`1px solid ${isSelected?cardBorder:T.border}`,display:"flex",alignItems:"center",gap:8,borderRadius:9,flexShrink:0}} onMouseDown={e=>e.preventDefault()} onClick={()=>setQuickCardId(String(t.id))}><span style={{fontSize:14,flexShrink:0}}>{dot}</span><span style={{fontWeight:600,fontSize:13}}>{t.nombre}</span></button>);})}
                   </div>
                 </div>
               </div>
@@ -1720,7 +1730,7 @@ function App(){
                 </div>
               )}
               {!cardsCollapsed&&visibleCards.length>0&&(()=>{
-                const HEADER_H = 62;
+                const HEADER_H = 56;
                 const OVERLAP  = 14;
                 const GAP      = 10;
                 const expandedIdx = visibleCards.findIndex(c => c.id === expandedCardId);
@@ -1859,7 +1869,7 @@ function App(){
                 <div style={{flex:1,height:1,background:`linear-gradient(90deg,${T.border},transparent)`}}/>
               </div>
               {!loansCollapsed&&(()=>{
-                const HEADER_H = 62;
+                const HEADER_H = 56;
                 const OVERLAP  = 14;
                 const GAP      = 10;
                 const expandedIdx = visibleLoans.findIndex(c => c.id === expandedLoanId);
