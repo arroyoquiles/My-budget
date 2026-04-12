@@ -720,8 +720,8 @@ const GastoItem=memo(({item,pid,editId,setEditId,tarjetas,onCycle,onLongPress,on
             {(debt.historial||[]).slice(0,2).map((h,i)=>(<div key={i} style={{display:"flex",justifyContent:"space-between",fontSize:10,padding:"3px 0",borderBottom:`1px solid ${T.border}`}}><span style={{color:T.muted}}>{h.fecha} · {h.tipo==="pago"?"Paid":"Charge"}</span><span style={{color:h.tipo==="pago"?"#3fb950":"#f85149",fontWeight:700}}>{h.tipo==="pago"?"-":"+"}${h.monto}</span></div>))}
           </div>)
           :(<div style={{display:"flex",gap:6,marginTop:6}} onMouseDown={e=>e.stopPropagation()} onTouchStart={e=>e.stopPropagation()}>
-            <button style={{...BTN,flex:1,padding:"8px",background:"rgba(63,185,80,0.1)",color:"#3fb950",fontSize:12,border:"1px solid rgba(63,185,80,0.3)",fontWeight:600}} onClick={()=>{setAccion({id:debt.id,tipo:"pago"});setMontoAccion("");}}>💳 Payment</button>
-            {tipo==="card"&&<button style={{...BTN,flex:1,padding:"8px",background:"rgba(248,81,73,0.07)",color:"#f85149",fontSize:12,border:"1px solid rgba(248,81,73,0.22)",fontWeight:600}} onClick={()=>{setAccion({id:debt.id,tipo:"gasto"});setMontoAccion("");}}>🛒 Charge</button>}
+            <button style={{...BTN,flex:1,padding:"8px",background:"rgba(63,185,80,0.1)",color:"#3fb950",fontSize:12,border:"1px solid rgba(63,185,80,0.3)",fontWeight:600}} onMouseDown={e=>{e.stopPropagation();e.preventDefault();}} onClick={e=>{e.stopPropagation();setAccion({id:debt.id,tipo:"pago"});setMontoAccion("");}}>💳 Payment</button>
+            {tipo==="card"&&<button style={{...BTN,flex:1,padding:"8px",background:"rgba(248,81,73,0.07)",color:"#f85149",fontSize:12,border:"1px solid rgba(248,81,73,0.22)",fontWeight:600}} onMouseDown={e=>{e.stopPropagation();e.preventDefault();}} onClick={e=>{e.stopPropagation();setAccion({id:debt.id,tipo:"gasto"});setMontoAccion("");}}>🛒 Charge</button>}
           </div>)
       )}
     </div>
@@ -1229,16 +1229,13 @@ function App(){
     const pdDays=Math.ceil((payday-today)/86400000);
     const remColor=getRemainingColor(sob);
     return(<div className="anim">
-      <div style={{display:"flex",gap:8,marginBottom:12}}>
-        {isCurrent&&<div style={{flex:1,background:"rgba(88,166,255,0.1)",border:"1px solid rgba(88,166,255,0.3)",borderRadius:10,padding:"8px 12px",fontSize:11,color:"#58a6ff",fontWeight:600}}>✓ Active check period</div>}
-        {payday&&<div style={{flex:1,background:pdDays===0?"rgba(88,166,255,0.1)":"rgba(63,185,80,0.07)",border:`1px solid ${pdDays===0?"rgba(88,166,255,0.3)":"rgba(63,185,80,0.2)"}`,borderRadius:10,padding:"8px 12px",display:"flex",justifyContent:"space-between",alignItems:"center"}}>
-          <span style={{fontSize:11,color:T.muted}}>📅 Payday</span>
-          <div style={{textAlign:"right"}}>
-            <span style={{fontFamily:"monospace",fontWeight:700,color:pdDays===0?"#58a6ff":"#3fb950",fontSize:12}}>{fmd(payday)}</span>
-            {pdDays===0&&<div style={{fontSize:9,color:"#58a6ff",fontWeight:700}}>TODAY 🎉</div>}
-          </div>
-        </div>}
+      {/* Compact header: Active badge + Payday inline */}
+      <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:12}}>
+        {isCurrent&&<div style={{background:"rgba(88,166,255,0.1)",border:"1px solid rgba(88,166,255,0.3)",borderRadius:10,padding:"6px 12px",fontSize:11,color:"#58a6ff",fontWeight:600,flexShrink:0}}>✓ Active</div>}
+        {payday&&<div style={{fontSize:11,color:pdDays===0?"#58a6ff":"#3fb950",fontWeight:600}}>📅 {fmd(payday)}{pdDays===0?" 🎉":pdDays>0?<span style={{fontSize:10,color:T.muted,fontWeight:400}}> · {pdDays}d</span>:""}</div>}
       </div>
+
+      {/* Amount card */}
       <div style={{...CARD,padding:"13px 16px",marginBottom:12,borderColor:T.accent}}>
         <div style={{fontSize:10,color:T.accent,fontWeight:700,letterSpacing:1.5,marginBottom:7}}>{label.toUpperCase()} AMOUNT</div>
         <input style={{...INP,fontFamily:"monospace",fontSize:22,fontWeight:700}} type="text" inputMode="decimal"
@@ -1254,42 +1251,53 @@ function App(){
           </button>)}
         </div>
       </div>
-      {/* Paycheck summary card — improved clarity */}
+
+      {/* Summary card with donut ring */}
       <div style={{...CARD,padding:"14px 16px",marginBottom:12,borderColor:done?"#2ea043":T.border}}>
-        {/* Top: income / assigned / remaining */}
-        <div style={{marginBottom:10}}>
-          <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"5px 0",borderBottom:`1px solid ${T.border}`}}>
-            <span style={{fontSize:11,color:T.muted}}>Income</span>
-            <span style={{fontFamily:"monospace",fontWeight:700,fontSize:13,color:"#3fb950"}}>{fmt(amt)}</span>
+        <div style={{display:"flex",alignItems:"center",gap:14,marginBottom:12}}>
+          {/* Donut ring */}
+          <div style={{flexShrink:0,position:"relative",width:56,height:56}}>
+            <svg width="56" height="56" viewBox="0 0 56 56">
+              <circle cx="28" cy="28" r="22" fill="none" stroke={T.surface2} strokeWidth="7"/>
+              <circle cx="28" cy="28" r="22" fill="none" stroke={done?"#2ea043":remColor} strokeWidth="7"
+                strokeDasharray={`${amt>0?Math.max(0,Math.min(138.2,(sob/amt)*138.2)):0} 138.2`}
+                strokeLinecap="round" transform={`rotate(${amt>0?(total/amt)*360-90:-90} 28 28)`}/>
+            </svg>
+            <div style={{position:"absolute",inset:0,display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center"}}>
+              <span style={{fontFamily:"monospace",fontWeight:800,fontSize:10,color:done?"#2ea043":remColor,lineHeight:1}}>{amt>0?Math.round((sob/amt)*100):0}%</span>
+              <span style={{fontSize:7,color:T.muted}}>left</span>
+            </div>
           </div>
-          <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"5px 0",borderBottom:`1px solid ${T.border}`}}>
-            <span style={{fontSize:11,color:T.muted}}>Assigned</span>
-            <span style={{fontFamily:"monospace",fontWeight:700,fontSize:13,color:"#f85149"}}>{fmt(total)}</span>
-          </div>
-          <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"7px 0"}}>
-            <span style={{fontSize:13,fontWeight:700,color:T.text}}>Remaining</span>
-            <span style={{fontFamily:"monospace",fontSize:20,fontWeight:800,color:remColor}}>{fmt(sob)}</span>
+          {/* Stats */}
+          <div style={{flex:1,display:"flex",flexDirection:"column",gap:5}}>
+            <div style={{display:"flex",justifyContent:"space-between"}}>
+              <span style={{fontSize:10,color:T.muted}}>Income</span>
+              <span style={{fontFamily:"monospace",fontWeight:700,fontSize:11,color:"#3fb950"}}>{fmt(amt)}</span>
+            </div>
+            <div style={{display:"flex",justifyContent:"space-between"}}>
+              <span style={{fontSize:10,color:T.muted}}>Assigned</span>
+              <span style={{fontFamily:"monospace",fontWeight:700,fontSize:11,color:"#f85149"}}>{fmt(total)}</span>
+            </div>
+            <div style={{display:"flex",justifyContent:"space-between",borderTop:`1px solid ${T.border}`,paddingTop:4}}>
+              <span style={{fontSize:11,fontWeight:700,color:T.text}}>Remaining</span>
+              <span style={{fontFamily:"monospace",fontWeight:800,fontSize:14,color:remColor}}>{fmt(sob)}</span>
+            </div>
           </div>
         </div>
-        {/* Progress bar */}
-        <div style={{height:6,background:T.surface2,borderRadius:8,overflow:"hidden",display:"flex",marginBottom:6}}>
+        <div style={{height:5,background:T.surface2,borderRadius:8,overflow:"hidden",display:"flex",marginBottom:5}}>
           <div style={{width:`${total>0?Math.round((paid/total)*100):0}%`,background:"#2ea043",transition:"width 0.5s"}}/>
           <div style={{width:`${total>0?Math.round((reserved/total)*100):0}%`,background:"#d29922",transition:"width 0.5s"}}/>
         </div>
-        {/* Status row with usage percent */}
-        <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:2}}>
-          <div style={{fontSize:11,color:done?"#3fb950":T.muted}}>{done?"✅ All paid!":`${fmt(paid)} paid · ${fmt(reserved)} reserved`}</div>
-          <div style={{display:"flex",alignItems:"center",gap:6}}>
-            <span style={{fontSize:10,color:T.muted,fontWeight:500}}>{amt>0?Math.min(100,Math.round((total/amt)*100)):0}% used</span>
-            <div style={{fontFamily:"monospace",fontSize:13,fontWeight:800,color:done?"#3fb950":"#d29922"}}>{pct}%</div>
-          </div>
+        <div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+          <div style={{fontSize:10,color:done?"#3fb950":T.muted}}>{done?"✅ All paid!":`${fmt(paid)} paid · ${fmt(reserved)} reserved`}</div>
+          <span style={{fontSize:10,color:T.muted}}>{amt>0?Math.min(100,Math.round((total/amt)*100)):0}% used</span>
         </div>
-        <div style={{fontSize:10,color:T.muted,marginTop:2}}>Tap ● = paid · Long press ◑ = reserved</div>
+        <div style={{fontSize:10,color:T.muted,marginTop:4}}>Tap ● = paid · Long press ◑ = reserved</div>
       </div>
       <DestinoSummary gastos={gastos} T={T}/>
       {renderCheckTabGrouped(pid,gastos)}
-      <button style={{...BTN,width:"100%",marginTop:2,marginBottom:10,padding:"8px",background:"transparent",color:T.muted,fontSize:12,border:`1px dashed ${T.border}`,fontWeight:500,opacity:0.8}} onClick={()=>addGasto(pid)}>+ Add Expense</button>
-      <button style={{...BTN,width:"100%",padding:"11px",background:"rgba(248,81,73,0.08)",color:"#f85149",fontSize:13,border:"1px solid rgba(248,81,73,0.25)"}} onClick={()=>setResetConfirm({pid,label})}>🔄 New Cycle — Reset {label}</button>
+      <button style={{...BTN,width:"100%",marginTop:2,marginBottom:8,padding:"11px",background:"rgba(88,166,255,0.08)",color:T.accent,fontSize:13,fontWeight:600,border:`1px solid rgba(88,166,255,0.2)`,borderRadius:10}} onClick={()=>addGasto(pid)}>+ Add Expense</button>
+      <button style={{...BTN,width:"100%",padding:"8px",background:"transparent",color:T.muted,fontSize:11,border:"none",opacity:0.6}} onClick={()=>setResetConfirm({pid,label})}>🔄 New Cycle — Reset {label}</button>
     </div>);
   };
   const hasActiveCheck=monthPeriods.some(p=>p.isCurrent);
@@ -1427,7 +1435,7 @@ function App(){
                 {(()=>{const m=parseFloat(moveAmt)||0;if(!m)return<span style={{fontSize:11,color:T.muted}}>Current: <span style={{fontFamily:"monospace",fontWeight:700,color:selPot?.color}}>{fmt(selBal)}</span></span>;const newBal=moveMode==="add"?selBal+m:Math.max(0,selBal-m);const color=moveMode==="add"?"#3fb950":"#f85149";return(<div style={{width:"100%",padding:"8px 11px",borderRadius:9,background:moveMode==="add"?"rgba(63,185,80,0.06)":"rgba(248,81,73,0.06)",border:`1px solid ${moveMode==="add"?"rgba(63,185,80,0.25)":"rgba(248,81,73,0.25)"}`}}><div style={{display:"flex",justifyContent:"space-between",fontSize:11}}><span style={{color:T.muted}}>{selPot?.label} → new balance</span><span style={{fontFamily:"monospace",fontWeight:700,color}}>{fmt(newBal)}</span></div></div>);})()}
               </div>
               {/* Action */}
-              <button style={{...BTN,width:"100%",padding:"13px",background:moveMode==="add"?"#238636":"rgba(248,81,73,0.85)",color:"#fff",fontSize:14,fontWeight:700,borderRadius:11}} onClick={doMoveMoney}>
+              <button style={{...BTN,width:"100%",padding:"13px",background:moveMode==="add"?"#238636":"rgba(248,81,73,0.85)",color:"#fff",fontSize:14,fontWeight:700,borderRadius:11}} onMouseDown={e=>e.preventDefault()} onClick={doMoveMoney}>
                 {moveMode==="add"?`💸 Add to ${selPot?.label||moveTo}`:`💳 Use from ${selPot?.label||moveTo}`}
               </button>
             </div>
@@ -1579,8 +1587,8 @@ function App(){
               const paid=gastos.filter(g=>g.state==="paid").reduce((s,g)=>s+n(g.monto),0);
               const reserved=gastos.filter(g=>g.state==="reserved").reduce((s,g)=>s+n(g.monto),0);
               const sob=periodAmt-total;
-              const assigned=paid+reserved;
-              const remaining=periodAmt-assigned;
+              const assigned=total;
+              const remaining=periodAmt-total;
               return(<div key={p.id} style={{paddingBottom:pi<monthPeriods.length-1?12:0,marginBottom:pi<monthPeriods.length-1?12:0,borderBottom:pi<monthPeriods.length-1?`1px solid ${T.border}`:"none"}}>
                 <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:7}}>
                   <div style={{display:"flex",alignItems:"center",gap:6}}>
@@ -1720,7 +1728,7 @@ function App(){
             :allDebts;
           const firstDebtId=sortStrategy?sortedAllDebts.find(d=>n(d.balance)>0)?.id??null:null;
           const visibleCards=sortCards(debtsFilter==="all"||debtsFilter==="cards"?cards:debtsFilter==="loans"?[]:cards);
-          const visibleLoans=sortCards(debtsFilter==="all"||debtsFilter==="loans"?loans:debtsFilter==="cards"?[]:loans);
+          const visibleLoans=(debtsFilter==="all"||debtsFilter==="loans"?loans:debtsFilter==="cards"?[]:loans).sort((a,b)=>(b.priority?1:0)-(a.priority?1:0));
           const filterBtns=[{id:"all",label:"All"},{id:"cards",label:"💳 Cards"},{id:"loans",label:"🏦 Loans"}];
           const sortLabels={apr:"APR",balance:"SMALL"};
           return(<div className="anim">
