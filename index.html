@@ -503,7 +503,7 @@ const GastoItem=memo(({item,pid,editId,setEditId,tarjetas,onCycle,onLongPress,on
   const isActive=accion?.id===debt.id;
   const pct=n(debt.original)>0?Math.round(((n(debt.original)-n(debt.balance))/n(debt.original))*100):0;
   const lc=tipo==="loan"?calcLoan(debt.balance,debt.interes,debt.minimo):null;
-  const fields=tipo==="card"?[["BALANCE","balance"],["LIMIT","limite"],["MIN ($)","minimo"],["APR (%)","interes"]]:[["BALANCE","balance"],["MONTHLY","minimo"],["APR (%)","interes"]];
+  const fields=tipo==="card"?[["BALANCE","balance"],["LIMIT","limite"],["MIN ($)","minimo"],["APR (%)","interes"]]:[["BALANCE","balance"],["ORIGINAL","original"],["MONTHLY","minimo"],["APR (%)","interes"]];
   const newFields=tipo==="card"?fields:[["BALANCE","balance"],["ORIGINAL","original"],["MONTHLY","minimo"],["APR (%)","interes"]];
   const dpLabel=dp===0?"TODAY":dp===null?null:`${dp}d`;
   const showEdit=editing||isAdding;
