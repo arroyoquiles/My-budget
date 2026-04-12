@@ -147,6 +147,19 @@ const getLoanIcon=(nombre)=>{
   for(const[k,v] of Object.entries(LOAN_ICONS)){if(lower.includes(k))return v;}
   return"🏦";
 };
+const getLoanColor=(nombre)=>{
+  if(!nombre)return"#58a6ff";
+  const lower=nombre.toLowerCase();
+  if(lower.includes("auto")||lower.includes("car"))return"#f97316";
+  if(lower.includes("mortgage")||lower.includes("home"))return"#3b82f6";
+  if(lower.includes("student"))return"#8b5cf6";
+  if(lower.includes("personal"))return"#10b981";
+  if(lower.includes("heloc")||lower.includes("credit line")||lower.includes("line of credit"))return"#ec4899";
+  // Fallback: derive color from name hash for uniqueness
+  let h=0;for(let i=0;i<nombre.length;i++)h=(h*31+nombre.charCodeAt(i))&0xfffffff;
+  const palette=["#58a6ff","#34d399","#a78bfa","#f59e0b","#06b6d4","#f472b6"];
+  return palette[h%palette.length];
+};
 const DORDER=["savings_acct","emergency","investment","rent","auto","insurance","utilities","gas","credit_card","groceries","subscription","dining","entertainment","medical","lifestyle","temp","other"];
 const DUE_DAY_CATS=new Set(["credit_card","rent","utilities","insurance","subscription","auto","medical"]);
 const gds=(d,r,cardObj)=>{if(d==="credit_card"&&r&&CC[r])return{...DEST.credit_card,...CC[r],label:r};if(d==="credit_card"&&cardObj&&cardObj._vc)return{...DEST.credit_card,...cardObj._vc,label:r||cardObj.nombre||"Credit Card"};if(d==="credit_card"&&r)return{...DEST.credit_card,label:r};return DEST[d]||DEST.other;};
@@ -515,7 +528,7 @@ const GastoItem=memo(({item,pid,editId,setEditId,tarjetas,onCycle,onLongPress,on
   const cardUtilPct=tipo==="card"&&n(debt.limite)>0?Math.min(100,Math.round((n(debt.balance)/n(debt.limite))*100)):0;
   const utilColor=getUtilColor(cardUtilPct);
   const utilLabel=getUtilLabel(cardUtilPct);
-  const balanceColor=tipo==="card"?(CC[debt.nombre]?.color||vcStyle?.color||"#ec4899"):"#f85149";
+  const balanceColor=n(debt.balance)===0?T.muted:tipo==="card"?(CC[debt.nombre]?.color||vcStyle?.color||"#ec4899"):getLoanColor(debt.nombre);
   const lpTimer=useRef(null);
   const lpFired=useRef(false);
   const lpStartPos=useRef(null);
@@ -847,7 +860,8 @@ function App(){
   const T=THEMES[theme];
   useEffect(()=>{document.body.className=theme;},[theme]);
   useEffect(()=>{localStorage.setItem(SK,JSON.stringify(data));},[data]);
-  const toast_=(msg,type="ok")=>{setToast({msg,type});clearTimeout(toastRef.current);toastRef.current=setTimeout(()=>setToast(null),2800);};
+  const haptic=(ms=30)=>{try{if(navigator.vibrate)navigator.vibrate(ms);}catch{}};
+  const toast_=(msg,type="ok")=>{setToast({msg,type});haptic(type==="err"?[30,30,30]:20);clearTimeout(toastRef.current);toastRef.current=setTimeout(()=>setToast(null),2800);};
   const INP=mkINP(T),BTN=mkBTN(),CARD=mkCARD(T);
   const freq=data.payFreq||"biweekly";
   const anchor=data.proximoCobro||"2026-04-03";
@@ -942,7 +956,7 @@ function App(){
     const cur=(p.periods[pid]||{}).gastos||[];
     return{...p,periods:{...p.periods,[pid]:{...(p.periods[pid]||{}),gastos:fn(cur)}}};
   });
-  const cycleState=useCallback((pid,id)=>updPeriodGastos(pid,g=>g.map(x=>x.id!==id?x:{...x,state:x.state==="paid"?"pending":"paid",pagado:x.state!=="paid"})),[]);
+  const cycleState=useCallback((pid,id)=>{haptic(20);updPeriodGastos(pid,g=>g.map(x=>x.id!==id?x:{...x,state:x.state==="paid"?"pending":"paid",pagado:x.state!=="paid"}));},[]);
   const setReserved=useCallback((pid,id)=>updPeriodGastos(pid,g=>g.map(x=>x.id!==id?x:{...x,state:x.state==="reserved"?"pending":"reserved",pagado:false})),[]);
   const updateGasto=useCallback((pid,id,f,v)=>updPeriodGastos(pid,g=>g.map(x=>x.id===id?{...x,[f]:v}:x)),[]);
   const batchUpdateGasto=useCallback((pid,id,fields)=>updPeriodGastos(pid,g=>g.map(x=>x.id===id?{...x,...fields}:x)),[]);
@@ -1314,7 +1328,8 @@ function App(){
         .tabs::-webkit-scrollbar{display:none;}
         .quick-modal-fullscreen{animation:slideInUp 0.22s ease;}
       `}</style>
-      {toast&&<div style={{position:"fixed",top:16,right:16,zIndex:9999,background:toast.type==="err"?"#da3633":"#238636",color:"#fff",padding:"10px 16px",borderRadius:11,fontWeight:600,fontSize:13,boxShadow:"0 8px 24px rgba(0,0,0,0.4)"}}>{toast.msg}</div>}
+      {toast&&<div style={{position:"fixed",top:"max(16px, env(safe-area-inset-top, 16px))",left:"50%",transform:"translateX(-50%)",zIndex:9999,background:toast.type==="err"?"rgba(218,54,51,0.95)":"rgba(35,134,54,0.95)",color:"#fff",padding:"10px 20px",borderRadius:24,fontWeight:600,fontSize:13,boxShadow:"0 8px 32px rgba(0,0,0,0.4)",backdropFilter:"blur(8px)",border:`1px solid ${toast.type==="err"?"rgba(248,81,73,0.4)":"rgba(46,160,67,0.4)"}`,whiteSpace:"nowrap",animation:"slideInDown 0.2s ease"}}>{toast.msg}</div>}
+      <style>{`@keyframes slideInDown{from{opacity:0;transform:translateX(-50%) translateY(-12px);}to{opacity:1;transform:translateX(-50%) translateY(0);}}`}</style>
       {urgentDebts.length>0&&!alertDim&&(
         <div style={{background:"linear-gradient(135deg,#f85149,#da3633)",padding:"12px 16px",position:"sticky",top:0,zIndex:100}}>
           <div style={{maxWidth:760,margin:"0 auto",display:"flex",justifyContent:"space-between",alignItems:"flex-start"}}>
@@ -1457,7 +1472,6 @@ function App(){
       <div className="c">
         <div style={{marginBottom:16,display:"flex",justifyContent:"space-between",alignItems:"center"}}>
           <div>
-            <div style={{fontSize:9,color:T.accent,letterSpacing:2,marginBottom:3,fontWeight:600,opacity:0.7}}>FINANCIAL PLANNER</div>
             <div style={{fontSize:26,fontWeight:800,letterSpacing:-0.8,background:"linear-gradient(135deg, #e6edf3 0%, #58a6ff 100%)",WebkitBackgroundClip:"text",WebkitTextFillColor:"transparent",backgroundClip:"text"}}>My Budget</div>
           </div>
           {diasProx!==null&&(<div style={{background:"rgba(63,185,80,0.08)",border:"1px solid rgba(63,185,80,0.25)",borderRadius:10,padding:"5px 10px",textAlign:"center",cursor:"pointer"}} onClick={()=>{if(currentPeriod){setActiveCheckPid(currentPeriod.id);setTab("paychecks");}}}>
@@ -1495,20 +1509,52 @@ function App(){
             const remColor=remaining>=200?"#3fb950":remaining>=50?"#3fb950":remaining>=0?"#56d364":remaining>=-99?"#f97316":"#f85149";
             const remOpacity=remaining>=50?1:remaining>=0?0.8:1;
             return(<div style={{...CARD,padding:"13px 16px",marginBottom:12}}>
-              <div style={{fontSize:10,color:T.muted,letterSpacing:1.5,fontWeight:700,marginBottom:10}}>📊 MONTHLY OVERVIEW</div>
-              <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"5px 0",borderBottom:`1px solid ${T.border}`}}>
-                <span style={{fontSize:11,color:T.muted}}>Planned income</span>
-                <span style={{fontFamily:"monospace",fontWeight:700,fontSize:12,color:"#3fb950"}}>{fmt(totalMonthlyIncome)}</span>
+              <div style={{fontSize:10,color:T.muted,letterSpacing:1.5,fontWeight:700,marginBottom:12}}>📊 MONTHLY OVERVIEW</div>
+              <div style={{display:"flex",alignItems:"center",gap:16,marginBottom:14}}>
+                {/* Donut ring */}
+                <div style={{flexShrink:0,position:"relative",width:72,height:72}}>
+                  <svg width="72" height="72" viewBox="0 0 72 72">
+                    <circle cx="36" cy="36" r="28" fill="none" stroke={T.surface2} strokeWidth="8"/>
+                    <circle cx="36" cy="36" r="28" fill="none" stroke={totalMonthlyIncome>0?"#f85149":"#30363d"} strokeWidth="8"
+                      strokeDasharray={`${totalMonthlyIncome>0?Math.min(100,Math.round((totalMonthlyExp/totalMonthlyIncome)*100)):0} * 1.759 ${175.9}`}
+                      strokeDasharray={`${totalMonthlyIncome>0?Math.min(175.9,(totalMonthlyExp/totalMonthlyIncome)*175.9):0} ${175.9}`}
+                      strokeLinecap="round" transform="rotate(-90 36 36)"/>
+                    <circle cx="36" cy="36" r="28" fill="none" stroke={remColor} strokeWidth="8"
+                      strokeDasharray={`${totalMonthlyIncome>0?Math.max(0,Math.min(175.9,(remaining/totalMonthlyIncome)*175.9)):0} ${175.9}`}
+                      strokeLinecap="round" transform={`rotate(${totalMonthlyIncome>0?(totalMonthlyExp/totalMonthlyIncome)*360-90:-90} 36 36)`}/>
+                  </svg>
+                  <div style={{position:"absolute",inset:0,display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center"}}>
+                    <span style={{fontFamily:"monospace",fontWeight:800,fontSize:11,color:remColor,lineHeight:1}}>{totalMonthlyIncome>0?Math.round((remaining/totalMonthlyIncome)*100):0}%</span>
+                    <span style={{fontSize:8,color:T.muted,marginTop:1}}>free</span>
+                  </div>
+                </div>
+                {/* Stats */}
+                <div style={{flex:1,display:"flex",flexDirection:"column",gap:6}}>
+                  <div>
+                    <div style={{display:"flex",justifyContent:"space-between",marginBottom:3}}>
+                      <span style={{fontSize:10,color:T.muted}}>Income</span>
+                      <span style={{fontFamily:"monospace",fontWeight:700,fontSize:11,color:"#3fb950"}}>{fmt(totalMonthlyIncome)}</span>
+                    </div>
+                    <div style={{height:4,background:T.surface2,borderRadius:4,overflow:"hidden"}}>
+                      <div style={{height:"100%",width:"100%",background:"#3fb950",borderRadius:4}}/>
+                    </div>
+                  </div>
+                  <div>
+                    <div style={{display:"flex",justifyContent:"space-between",marginBottom:3}}>
+                      <span style={{fontSize:10,color:T.muted}}>Spending</span>
+                      <span style={{fontFamily:"monospace",fontWeight:700,fontSize:11,color:"#f85149"}}>{fmt(totalMonthlyExp)}</span>
+                    </div>
+                    <div style={{height:4,background:T.surface2,borderRadius:4,overflow:"hidden"}}>
+                      <div style={{height:"100%",width:`${totalMonthlyIncome>0?Math.min(100,(totalMonthlyExp/totalMonthlyIncome)*100):0}%`,background:"#f85149",borderRadius:4,transition:"width 0.5s"}}/>
+                    </div>
+                  </div>
+                  <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",paddingTop:2,borderTop:`1px solid ${T.border}`}}>
+                    <span style={{fontSize:11,fontWeight:700,color:T.text}}>Buffer</span>
+                    <span style={{fontFamily:"monospace",fontWeight:800,fontSize:14,color:remColor,opacity:remOpacity}}>{fmt(remaining)}</span>
+                  </div>
+                </div>
               </div>
-              <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"5px 0",borderBottom:`1px solid ${T.border}`}}>
-                <span style={{fontSize:11,color:T.muted}}>Planned spending</span>
-                <span style={{fontFamily:"monospace",fontWeight:700,fontSize:12,color:"#f85149"}}>{fmt(totalMonthlyExp)}</span>
-              </div>
-              <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"7px 0"}}>
-                <span style={{fontSize:11,fontWeight:700,color:T.text}}>Free buffer</span>
-                <span style={{fontFamily:"monospace",fontWeight:800,fontSize:13,color:remColor,opacity:remOpacity}}>{fmt(remaining)}</span>
-              </div>
-              <div style={{fontSize:9,color:T.muted,marginTop:4}}>{monthPeriods.length} check{monthPeriods.length!==1?"s":""} · {monthPeriods.map(p=>fmt(getPeriodAmount(p.id))).join(" + ")}</div>
+              <div style={{fontSize:9,color:T.muted}}>{monthPeriods.length} check{monthPeriods.length!==1?"s":""} · {monthPeriods.map(p=>fmt(getPeriodAmount(p.id))).join(" + ")}</div>
             </div>);
           })()}
           {snapReminder&&(<div style={{background:snapReminder.type==="warn"?"rgba(210,153,34,0.08)":"rgba(88,166,255,0.05)",border:`1px solid ${snapReminder.type==="warn"?"rgba(210,153,34,0.25)":"rgba(88,166,255,0.15)"}`,borderRadius:11,padding:"9px 13px",marginBottom:12,display:"flex",alignItems:"center",gap:8}}>
@@ -1814,6 +1860,11 @@ function App(){
                           style={{position:"relative",marginTop,zIndex,isolation:"isolate",opacity,transition,filter,transform,
                             ...(isExpanded?{boxShadow:"0 8px 32px rgba(0,0,0,0.7)",borderRadius:14}:{})
                           }}
+                          onTouchStart={isExpanded?e=>{e.currentTarget._swipeY=e.touches[0].clientY;}:undefined}
+                          onTouchEnd={isExpanded?e=>{
+                            const dy=e.changedTouches[0].clientY-(e.currentTarget._swipeY||0);
+                            if(dy>60){haptic(20);handleExpand(e);}
+                          }:undefined}
                         >
                           <div
                             style={{
@@ -1928,10 +1979,11 @@ function App(){
                         <div key={d.id} style={{position:"relative",marginTop,zIndex,isolation:"isolate",filter:filter2,transform,transition:transition2,
                           ...(isExpanded?{boxShadow:"0 8px 32px rgba(0,0,0,0.7)",borderRadius:14}:{})
                         }}>
-                          <div style={{borderRadius:14,overflow:"hidden",cursor:isExpanded?"default":"pointer",userSelect:"none",WebkitUserSelect:"none",WebkitTouchCallout:"none",...(clipH!=null?{height:clipH,maxHeight:clipH}:{})}}
+                          <div style={{borderRadius:14,overflow:"hidden",cursor:isExpanded?"default":"pointer",userSelect:"none",WebkitUserSelect:"none",WebkitTouchCallout:"none",position:"relative",...(clipH!=null?{height:clipH,maxHeight:clipH}:{})}}
                             onClick={!isExpanded?handleExpand:undefined}
                             onContextMenu={e=>e.preventDefault()}
                           >
+                            {!isExpanded&&<div style={{position:"absolute",left:0,top:0,bottom:0,width:3,borderRadius:"14px 0 0 14px",background:getLoanColor(d.nombre),opacity:0.8,zIndex:1}}/>}
                             <DebtCard
                               debt={d} idx={globalIdx} isFirst={isFirst} tipo="loan"
                               accion={isExpanded?accion:null}
@@ -2052,7 +2104,7 @@ function App(){
           <div style={{...CARD,padding:"10px 14px",marginBottom:10}}>
             <div style={{fontSize:10,color:T.accent,letterSpacing:1.5,fontWeight:700,marginBottom:8}}>🎨 APPEARANCE</div>
             <div style={{display:"flex",gap:8}}>
-              {["dark","light"].map(th=>(<button key={th} style={{...BTN,flex:1,padding:"8px",background:theme===th?T.accent:T.surface2,color:theme===th?(th==="dark"?"#0d1117":"#fff"):T.muted,fontSize:12,border:`1px solid ${theme===th?T.accent:T.border}`}} onClick={()=>setData(p=>({...p,theme:th}))}>
+              {["dark","light"].map(th=>(<button key={th} style={{...BTN,flex:1,padding:"8px",background:theme===th?T.accent:T.surface2,color:theme===th?(th==="dark"?"#0d1117":"#fff"):T.muted,fontSize:12,border:`1px solid ${theme===th?T.accent:T.border}`}} onClick={()=>{setData(p=>({...p,theme:th}));toast_(th==="dark"?"🌙 Dark mode":"☀️ Light mode");}}>
                 {th==="dark"?"🌙 Dark":"☀️ Light"}
               </button>))}
             </div>
