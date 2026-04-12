@@ -1306,8 +1306,8 @@ function App(){
         @keyframes slideInUp{from{opacity:0;transform:translateY(20px);}to{opacity:1;transform:translateY(0);}}
         @keyframes pulse{0%,100%{opacity:1;}50%{opacity:0.6;}}
         input[type=range]{width:100%;accent-color:#58a6ff;}
-        .c{max-width:500px;margin:0 auto;padding:14px 14px 50px;}
-        @media(min-width:768px){.c{max-width:640px;padding:22px 24px 60px;}}
+        .c{max-width:500px;margin:0 auto;padding:14px 14px 90px;}
+        @media(min-width:768px){.c{max-width:640px;padding:22px 24px 100px;}}
         @media(min-width:1024px){.c{max-width:760px;}}
         .g2{display:grid;grid-template-columns:1fr 1fr;gap:10px;}
         .tabs{display:flex;gap:4px;overflow-x:auto;padding-bottom:2px;-webkit-overflow-scrolling:touch;scrollbar-width:none;margin-bottom:14px;}
@@ -1326,7 +1326,7 @@ function App(){
           </div>
         </div>
       )}
-      <button style={{...BTN,position:"fixed",bottom:22,right:18,zIndex:200,width:52,height:52,borderRadius:"50%",background:"#238636",color:"#fff",fontSize:22,boxShadow:"0 4px 20px rgba(35,134,54,0.5)",display:"flex",alignItems:"center",justifyContent:"center"}} onClick={()=>setQuickOpen(true)}>$</button>
+      <button style={{...BTN,position:"fixed",bottom:"max(82px, calc(70px + env(safe-area-inset-bottom)))",right:18,zIndex:200,width:56,height:56,borderRadius:"50%",background:"linear-gradient(135deg,#2ea043,#238636)",color:"#fff",fontSize:24,boxShadow:"0 4px 24px rgba(35,134,54,0.6), 0 0 0 1px rgba(46,160,67,0.4)",display:"flex",alignItems:"center",justifyContent:"center"}} onClick={()=>setQuickOpen(true)}>$</button>
 
       {/* ── Quick Expense Modal ── */}
       {quickOpen&&(
@@ -1455,10 +1455,10 @@ function App(){
         </div>
       </div>)}
       <div className="c">
-        <div style={{marginBottom:12,display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+        <div style={{marginBottom:16,display:"flex",justifyContent:"space-between",alignItems:"center"}}>
           <div>
-            <div style={{fontSize:9,color:T.accent,letterSpacing:2,marginBottom:3,fontWeight:600}}>FINANCIAL PLANNER</div>
-            <div style={{fontSize:22,fontWeight:800,letterSpacing:-0.5}}>My Budget</div>
+            <div style={{fontSize:9,color:T.accent,letterSpacing:2,marginBottom:3,fontWeight:600,opacity:0.7}}>FINANCIAL PLANNER</div>
+            <div style={{fontSize:26,fontWeight:800,letterSpacing:-0.8,background:"linear-gradient(135deg, #e6edf3 0%, #58a6ff 100%)",WebkitBackgroundClip:"text",WebkitTextFillColor:"transparent",backgroundClip:"text"}}>My Budget</div>
           </div>
           {diasProx!==null&&(<div style={{background:"rgba(63,185,80,0.08)",border:"1px solid rgba(63,185,80,0.25)",borderRadius:10,padding:"5px 10px",textAlign:"center",cursor:"pointer"}} onClick={()=>{if(currentPeriod){setActiveCheckPid(currentPeriod.id);setTab("paychecks");}}}>
             <div style={{fontSize:9,color:T.muted}}>NEXT CHECK</div>
@@ -1466,11 +1466,28 @@ function App(){
             <div style={{fontSize:9,color:T.muted}}>{nextPayday?fmd(nextPayday):""}</div>
           </div>)}
         </div>
-        <div ref={tabBarRef} className="tabs">
-          {TABS.map(t=>(<button key={t.id} style={{...BTN,padding:"7px 11px",fontSize:10,whiteSpace:"nowrap",flexShrink:0,background:tab===t.id?T.accent:T.surface2,color:tab===t.id?(theme==="dark"?"#0d1117":"#fff"):T.muted,border:`1px solid ${tab===t.id?T.accent:t.urgent?"#f85149":t.hasActive?"#3fb950":T.border}`,position:"relative"}} onClick={()=>{setTab(t.id);setSortMenuOpen(false);}}>
-            <span>{t.icon} {t.label}</span>
-            {t.urgent&&tab!==t.id&&<span style={{position:"absolute",top:-3,right:-3,width:8,height:8,borderRadius:"50%",background:"#f85149",border:"2px solid "+T.bg}}/>}
-          </button>))}
+        {/* Bottom Nav Bar — fixed, replaces horizontal tabs */}
+        <div ref={tabBarRef} style={{position:"fixed",bottom:0,left:0,right:0,zIndex:190,background:T.surface,borderTop:`1px solid ${T.border}`,paddingBottom:"env(safe-area-inset-bottom,0px)",display:"flex",alignItems:"stretch"}}>
+          {TABS.map(t=>{
+            const isActive=tab===t.id;
+            const SVG_ICONS={
+              overview:<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg>,
+              paychecks:<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>,
+              debts:<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="1" y="4" width="22" height="16" rx="2"/><line x1="1" y1="10" x2="23" y2="10"/></svg>,
+              calendar:<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>,
+              history:<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="12 8 12 12 14 14"/><path d="M3.05 11a9 9 0 1 1 .5 4"/><polyline points="3 21 3 15 9 15"/></svg>,
+              settings:<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>,
+            };
+            return(
+              <button key={t.id} style={{...BTN,flex:1,display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",gap:2,padding:"8px 2px 6px",background:"transparent",color:isActive?T.accent:T.muted,border:"none",borderRadius:0,position:"relative",transition:"color 0.15s"}}
+                onClick={()=>{setTab(t.id);setSortMenuOpen(false);}}>
+                {isActive&&<div style={{position:"absolute",top:0,left:"25%",right:"25%",height:2,borderRadius:"0 0 3px 3px",background:T.accent}}/>}
+                <div style={{color:isActive?T.accent:T.muted,transition:"color 0.15s"}}>{SVG_ICONS[t.id]}</div>
+                <span style={{fontSize:9,fontWeight:isActive?700:400,letterSpacing:0.2}}>{t.label}</span>
+                {t.urgent&&!isActive&&<span style={{position:"absolute",top:5,right:"calc(50% - 12px)",width:7,height:7,borderRadius:"50%",background:"#f85149",border:"1.5px solid "+T.bg}}/>}
+              </button>
+            );
+          })}
         </div>
         {tab==="overview"&&(<div className="anim">
           {(()=>{
@@ -1806,11 +1823,13 @@ function App(){
                               userSelect:"none",
                               WebkitUserSelect:"none",
                               WebkitTouchCallout:"none",
+                              position:"relative",
                               ...(clipH!=null?{height:clipH,maxHeight:clipH}:{}),
                             }}
                             onClick={!isExpanded ? handleExpand : undefined}
                             onContextMenu={e=>e.preventDefault()}
                           >
+                            {!isExpanded&&<div style={{position:"absolute",left:0,top:0,bottom:0,width:3,borderRadius:"14px 0 0 14px",background:d._vc?.color||CC[d.nombre]?.color||"#ec4899",opacity:0.7,zIndex:1}}/>}
                             <DebtCard
                               debt={d}
                               idx={globalIdx}
