@@ -25,8 +25,8 @@
     *{box-sizing:border-box;margin:0;padding:0;}
     html,body{height:100%;}
     body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;-webkit-tap-highlight-color:transparent;overscroll-behavior:none;transition:background 0.2s,color 0.2s;-webkit-backdrop-filter:blur(0);}
-    body.dark{background:#0d1117;color:#e6edf3;}
-    body.light{background:#f6f8fa;color:#1c2128;}
+    body.dark{background:#080c14;color:#e6edf3;}
+    body.light{background:#f0f4f8;color:#1c2128;}
     ::-webkit-scrollbar{width:3px;}::-webkit-scrollbar-thumb{background:#30363d;}
     input[type=text],input[type=number],input[type=email],input[type=date],select,textarea{font-size:16px!important;-webkit-text-size-adjust:100%!important;}
     .expense-row{user-select:none;-webkit-user-select:none;-webkit-touch-callout:none;}
@@ -72,8 +72,8 @@
 const { useState, useEffect, useRef, useCallback, memo, useMemo } = React;
 const SK = "mybudget_v17";
 const THEMES = {
-  dark:  { bg:"#0d1117", surface:"#161b22", surface2:"#21262d", border:"#30363d", text:"#e6edf3", muted:"#8b949e", accent:"#58a6ff", inp:{background:"#0d1117",color:"#e6edf3",border:"1.5px solid #30363d"} },
-  light: { bg:"#f6f8fa", surface:"#ffffff", surface2:"#f0f3f6", border:"#d0d7de", text:"#1c2128", muted:"#656d76", accent:"#0969da", inp:{background:"#ffffff",color:"#1c2128",border:"1.5px solid #d0d7de"} },
+  dark:  { bg:"#080c14", surface:"#0f1724", surface2:"#1a2236", border:"#243048", text:"#e6edf3", muted:"#8b949e", accent:"#58a6ff", inp:{background:"#0a1020",color:"#e6edf3",border:"1.5px solid #243048"} },
+  light: { bg:"#f0f4f8", surface:"#ffffff", surface2:"#e8edf5", border:"#d0d7de", text:"#1c2128", muted:"#656d76", accent:"#0969da", inp:{background:"#ffffff",color:"#1c2128",border:"1.5px solid #d0d7de"} },
 };
 const DEST = {
   savings_acct: {label:"Savings Acct.", icon:"🏦",color:"#3fb950",bg:"rgba(63,185,80,0.1)",   border:"rgba(63,185,80,0.3)"},
@@ -1323,7 +1323,7 @@ function App(){
 
   return(
     <div ref={mainRef}
-      style={{minHeight:"100vh",background:T.bg,color:T.text,fontFamily:"-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif",WebkitTransform:"translateZ(0)",transform:"translateZ(0)"}}>
+      style={{minHeight:"100vh",background:T.bg,color:T.text,fontFamily:"-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif"}}>
       <style>{`
         @keyframes fadeUp{from{opacity:0;transform:translateY(8px);}to{opacity:1;transform:translateY(0);}}.anim{animation:fadeUp 0.22s ease;}
         @keyframes slideInUp{from{opacity:0;transform:translateY(20px);}to{opacity:1;transform:translateY(0);}}
@@ -1490,7 +1490,7 @@ function App(){
           </div>)}
         </div>
         {/* Bottom Nav Bar — fixed, replaces horizontal tabs */}
-        <div ref={tabBarRef} style={{position:"fixed",bottom:0,left:0,right:0,zIndex:190,background:theme==="dark"?"rgba(22,27,34,0.75)":"rgba(255,255,255,0.75)",backdropFilter:"blur(20px) saturate(180%)",WebkitBackdropFilter:"blur(20px) saturate(180%)",borderTop:`1px solid ${theme==="dark"?"rgba(48,54,61,0.6)":"rgba(208,215,222,0.6)"}`,paddingBottom:"max(12px, env(safe-area-inset-bottom, 12px))",display:"flex",alignItems:"stretch"}}>
+        <div ref={tabBarRef} style={{position:"fixed",bottom:0,left:0,right:0,zIndex:190,background:theme==="dark"?"rgba(8,12,20,0.7)":"rgba(240,244,248,0.7)",backdropFilter:"saturate(200%) blur(28px)",WebkitBackdropFilter:"saturate(200%) blur(28px)",borderTop:`1px solid ${theme==="dark"?"rgba(36,48,72,0.8)":"rgba(208,215,222,0.6)"}`,paddingBottom:"max(12px, env(safe-area-inset-bottom, 12px))",display:"flex",alignItems:"stretch"}}>
           {TABS.map(t=>{
             const isActive=tab===t.id;
             const SVG_ICONS={
@@ -1782,7 +1782,7 @@ function App(){
               {/* Credit Cards section header with + button always on right */}
               <div style={{display:"flex",alignItems:"center",gap:0,marginBottom:cardsCollapsed?8:10,marginTop:4,filter:expandedLoanId?"blur(1.5px) brightness(0.6)":"none",transition:"filter 0.2s ease"}}>
                 <div style={{flex:1,height:1,background:`linear-gradient(90deg,transparent,${T.border})`}}/>
-                <button style={{...BTN,display:"flex",alignItems:"center",gap:6,padding:"5px 12px",borderRadius:20,background:"rgba(236,72,153,0.08)",backdropFilter:"blur(12px)",WebkitBackdropFilter:"blur(12px)",border:"1px solid rgba(236,72,153,0.22)"}} onClick={()=>{setCardsCollapsed(c=>!c);setExpandedCardId(prev=>{if(prev){bumpReset(prev);}return null;});setAccion(null);setMontoAccion("");setSortMenuOpen(false);}}>
+                <button style={{...BTN,display:"flex",alignItems:"center",gap:6,padding:"5px 12px",borderRadius:20,background:"rgba(236,72,153,0.1)",backdropFilter:"saturate(200%) blur(20px)",WebkitBackdropFilter:"saturate(200%) blur(20px)",border:"1px solid rgba(236,72,153,0.25)"}} onClick={()=>{setCardsCollapsed(c=>!c);setExpandedCardId(prev=>{if(prev){bumpReset(prev);}return null;});setAccion(null);setMontoAccion("");setSortMenuOpen(false);}}>
                   <span style={{fontSize:13}}>{cardsCollapsed?"▶":"▼"}</span>
                   <span style={{fontSize:11,fontWeight:700,color:"#ec4899",letterSpacing:0.5}}>💳 Credit Cards</span>
                   <span style={{fontSize:10,color:"rgba(236,72,153,0.7)",fontWeight:500}}>{visibleCards.length} card{visibleCards.length!==1?"s":""} · {fmt(visibleCards.reduce((s,d)=>s+n(d.balance),0))}</span>
@@ -1936,7 +1936,7 @@ function App(){
                 transition:"filter 0.2s ease",
               }}>
                 <div style={{flex:1,height:1,background:`linear-gradient(90deg,transparent,${T.border})`}}/>
-                <button style={{...BTN,display:"flex",alignItems:"center",gap:6,padding:"5px 12px",borderRadius:20,background:"rgba(249,115,22,0.08)",backdropFilter:"blur(12px)",WebkitBackdropFilter:"blur(12px)",border:"1px solid rgba(249,115,22,0.22)"}} onClick={()=>{setLoansCollapsed(c=>!c);setSortMenuOpen(false);}}>
+                <button style={{...BTN,display:"flex",alignItems:"center",gap:6,padding:"5px 12px",borderRadius:20,background:"rgba(249,115,22,0.1)",backdropFilter:"saturate(200%) blur(20px)",WebkitBackdropFilter:"saturate(200%) blur(20px)",border:"1px solid rgba(249,115,22,0.25)"}} onClick={()=>{setLoansCollapsed(c=>!c);setSortMenuOpen(false);}}>
                   <span style={{fontSize:13}}>{loansCollapsed?"▶":"▼"}</span>
                   <span style={{fontSize:11,fontWeight:700,color:"#f97316",letterSpacing:0.5}}>{visibleLoans.length===1?getLoanIcon(visibleLoans[0].nombre):"🏦"} Loans</span>
                   <span style={{fontSize:10,color:"rgba(249,115,22,0.7)",fontWeight:500}}>{visibleLoans.length} loan{visibleLoans.length!==1?"s":""} · {fmt(visibleLoans.reduce((s,d)=>s+n(d.balance),0))}</span>
