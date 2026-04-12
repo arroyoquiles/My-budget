@@ -190,6 +190,7 @@ const calcLoan=(balance,apr,pmt)=>{
   return{interest:Math.max(0,interest),principal:Math.max(0,principal),newBalance:Math.max(0,b-principal)};
 };
 const parseAnchor=anchor=>{
+  if(!anchor)return new Date(); // fallback to today if no anchor set
   const[y,m,d]=anchor.split("-").map(Number);
   const dt=new Date(y,m-1,d);dt.setHours(0,0,0,0);return dt;
 };
@@ -234,6 +235,7 @@ const getCurrentPeriodStart=(anchor,freq)=>{
   return new Date(base.getTime()+periodsDone*step*86400000);
 };
 const getNextPayday=(anchor,freq)=>{
+  if(!anchor)return null;
   const today=new Date();today.setHours(0,0,0,0);
   if(freq==="semimonthly"){
     const d1=new Date(today.getFullYear(),today.getMonth(),1);
@@ -255,6 +257,7 @@ const getNextPayday=(anchor,freq)=>{
   return new Date(curStart.getTime()+step*86400000);
 };
 const getUpcomingPaydays=(anchor,count=8,freq="biweekly")=>{
+  if(!anchor)return[];
   const today=new Date();today.setHours(0,0,0,0);
   const days=[];
   if(freq==="semimonthly"){
@@ -285,6 +288,7 @@ const getUpcomingPaydays=(anchor,count=8,freq="biweekly")=>{
   return days.slice(0,count);
 };
 const buildMonthPeriods=(anchor,freq)=>{
+  if(!anchor)return[];
   const today=new Date();today.setHours(0,0,0,0);
   const yr=today.getFullYear(),mth=today.getMonth();
   const paydays=getPaydaysInMonth(anchor,freq,yr,mth);
@@ -307,7 +311,7 @@ const migrate=raw=>{
   const dm={savings:"savings_acct",directo:"rent",temporal:"temp",ninguno:"other",tarjeta:"credit_card",savings_acct:"savings_acct",credit_card:"credit_card",rent:"rent",utilities:"utilities",auto:"auto",insurance:"insurance",groceries:"groceries",subscription:"subscription",gas:"gas",emergency:"emergency",investment:"investment",temp:"temp",dining:"dining",entertainment:"entertainment",medical:"medical",other:"other"};
   const cm={carro:"auto",vivienda:"rent",servicios:"subscription",gas:"gas",tarjeta:"credit_card",comida:"groceries",otro:"other",auto:"auto",rent:"rent",subscription:"subscription",credit_card:"credit_card",groceries:"groceries",other:"other",insurance:"insurance",utilities:"utilities",dining:"dining",entertainment:"entertainment",medical:"medical",lifestyle:"lifestyle"};
   const mg=g=>({...g,cat:cm[g.cat]||cm[g.categoria]||"other",destino:dm[g.destino]||"other",diaPago:g.diaPago||null,tarjetaRef:g.tarjetaRef||"",state:g.state||(g.pagado?"paid":"pending"),_quick:g._quick||false});
-  const anchor=raw.proximoCobro||"2026-04-03";
+  const anchor=raw.proximoCobro||"";
   const freq=raw.payFreq||"biweekly";
   let periods=raw.periods||{};
   if(!raw.periods){
@@ -859,8 +863,8 @@ function App(){
   const toast_=(msg,type="ok")=>{setToast({msg,type});haptic(type==="err"?[30,30,30]:20);clearTimeout(toastRef.current);toastRef.current=setTimeout(()=>setToast(null),2800);};
   const INP=mkINP(T),BTN=mkBTN(),CARD=mkCARD(T);
   const freq=data.payFreq||"biweekly";
-  const anchor=data.proximoCobro||"2026-04-03";
-  const globalCheckAmount=n(data.checkAmount||1520);
+  const anchor=data.proximoCobro||"";
+  const globalCheckAmount=n(data.checkAmount||0);
   const today=useMemo(()=>{const d=new Date();d.setHours(0,0,0,0);return d;},[]);
   const monthPeriods=useMemo(()=>buildMonthPeriods(anchor,freq),[anchor,freq,today]);
   const currentPeriod=monthPeriods.find(p=>p.isCurrent)||monthPeriods[0];
