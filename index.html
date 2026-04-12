@@ -24,7 +24,7 @@
   <style>
     *{box-sizing:border-box;margin:0;padding:0;}
     html,body{height:100%;}
-    body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;-webkit-tap-highlight-color:transparent;overscroll-behavior:none;transition:background 0.2s,color 0.2s;padding-top:env(safe-area-inset-top,0px);}
+    body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;-webkit-tap-highlight-color:transparent;overscroll-behavior:none;transition:background 0.2s,color 0.2s;}
     body.dark{background:#080c14;color:#e6edf3;}
     body.light{background:#f0f4f8;color:#1c2128;}
     ::-webkit-scrollbar{width:3px;}::-webkit-scrollbar-thumb{background:#30363d;}
@@ -1329,13 +1329,10 @@ function App(){
         @keyframes slideInUp{from{opacity:0;transform:translateY(20px);}to{opacity:1;transform:translateY(0);}}
         @keyframes pulse{0%,100%{opacity:1;}50%{opacity:0.6;}}
         input[type=range]{width:100%;accent-color:#58a6ff;}
-        .c{max-width:500px;margin:0 auto;padding:14px 14px 100px;}
-        @media(min-width:768px){.c{max-width:640px;padding:22px 24px 100px;}}
-        @media(min-width:1024px){.c{max-width:780px;}}
+        .c{max-width:480px;margin:0 auto;padding:14px 14px 110px;}
+        @media(min-width:768px){.c{max-width:480px;padding:18px 18px 110px;}}
         .nav-bar{position:fixed;bottom:0;left:0;right:0;z-index:190;}
-        .nav-bar-inner{max-width:500px;margin:0 auto;display:flex;align-items:stretch;}
-        @media(min-width:768px){.nav-bar-inner{max-width:640px;}}
-        @media(min-width:1024px){.nav-bar-inner{max-width:780px;}}
+        .nav-bar-inner{max-width:480px;margin:0 auto;display:flex;align-items:stretch;}
         .g2{display:grid;grid-template-columns:1fr 1fr;gap:10px;}
         .tabs{display:flex;gap:4px;overflow-x:auto;padding-bottom:2px;-webkit-overflow-scrolling:touch;scrollbar-width:none;margin-bottom:14px;}
         .tabs::-webkit-scrollbar{display:none;}
