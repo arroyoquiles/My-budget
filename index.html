@@ -1326,7 +1326,7 @@ function App(){
           </div>
         </div>
       )}
-      <button style={{...BTN,position:"fixed",bottom:"max(82px, calc(70px + env(safe-area-inset-bottom)))",right:18,zIndex:200,width:56,height:56,borderRadius:"50%",background:"linear-gradient(135deg,#2ea043,#238636)",color:"#fff",fontSize:24,boxShadow:"0 4px 24px rgba(35,134,54,0.6), 0 0 0 1px rgba(46,160,67,0.4)",display:"flex",alignItems:"center",justifyContent:"center"}} onClick={()=>setQuickOpen(true)}>$</button>
+      <button style={{...BTN,position:"fixed",bottom:"max(90px, calc(78px + env(safe-area-inset-bottom)))",right:16,zIndex:200,height:44,paddingLeft:18,paddingRight:18,borderRadius:22,background:"linear-gradient(135deg,#2ea043,#238636)",color:"#fff",fontSize:14,fontWeight:700,boxShadow:"0 4px 24px rgba(35,134,54,0.6), 0 0 0 1px rgba(46,160,67,0.4)",display:"flex",alignItems:"center",gap:6,letterSpacing:0.3}} onClick={()=>setQuickOpen(true)}><span style={{fontSize:16}}>$</span>Quick +</button>
 
       {/* ── Quick Expense Modal ── */}
       {quickOpen&&(
@@ -1467,7 +1467,7 @@ function App(){
           </div>)}
         </div>
         {/* Bottom Nav Bar — fixed, replaces horizontal tabs */}
-        <div ref={tabBarRef} style={{position:"fixed",bottom:0,left:0,right:0,zIndex:190,background:T.surface,borderTop:`1px solid ${T.border}`,paddingBottom:"env(safe-area-inset-bottom,0px)",display:"flex",alignItems:"stretch"}}>
+        <div ref={tabBarRef} style={{position:"fixed",bottom:0,left:0,right:0,zIndex:190,background:T.surface,borderTop:`1px solid ${T.border}`,paddingBottom:"max(12px, env(safe-area-inset-bottom, 12px))",display:"flex",alignItems:"stretch"}}>
           {TABS.map(t=>{
             const isActive=tab===t.id;
             const SVG_ICONS={
@@ -2049,54 +2049,50 @@ function App(){
           </div>))}
         </div>)}
         {tab==="settings"&&(<div className="anim">
-          <div style={{...CARD,padding:"14px 16px",marginBottom:14}}>
-            <div style={{fontSize:11,color:T.accent,letterSpacing:1.5,fontWeight:700,marginBottom:12}}>🎨 APPEARANCE</div>
+          <div style={{...CARD,padding:"10px 14px",marginBottom:10}}>
+            <div style={{fontSize:10,color:T.accent,letterSpacing:1.5,fontWeight:700,marginBottom:8}}>🎨 APPEARANCE</div>
             <div style={{display:"flex",gap:8}}>
-              {["dark","light"].map(th=>(<button key={th} style={{...BTN,flex:1,padding:"10px",background:theme===th?T.accent:T.surface2,color:theme===th?(th==="dark"?"#0d1117":"#fff"):T.muted,fontSize:12,border:`1px solid ${theme===th?T.accent:T.border}`}} onClick={()=>setData(p=>({...p,theme:th}))}>
+              {["dark","light"].map(th=>(<button key={th} style={{...BTN,flex:1,padding:"8px",background:theme===th?T.accent:T.surface2,color:theme===th?(th==="dark"?"#0d1117":"#fff"):T.muted,fontSize:12,border:`1px solid ${theme===th?T.accent:T.border}`}} onClick={()=>setData(p=>({...p,theme:th}))}>
                 {th==="dark"?"🌙 Dark":"☀️ Light"}
               </button>))}
             </div>
           </div>
-          <div style={{...CARD,padding:"14px 16px",marginBottom:14}}>
-            <div style={{fontSize:11,color:T.accent,letterSpacing:1.5,fontWeight:700,marginBottom:12}}>💵 PAYDAY SETTINGS</div>
-            <div style={{marginBottom:10}}>
-              <div style={{fontSize:9,color:T.muted,marginBottom:5}}>DEFAULT PAYCHECK AMOUNT ($)</div>
-              <input style={{...INP,fontSize:16,fontFamily:"monospace",fontWeight:700}} type="number" inputMode="decimal" value={data.checkAmount||""} onChange={e=>setData(p=>({...p,checkAmount:parseFloat(e.target.value)||0}))} placeholder="1520"/>
-              <div style={{fontSize:10,color:T.muted,marginTop:5}}>Used as default for all pay periods. Each paycheck can override its amount individually.</div>
+          <div style={{...CARD,padding:"10px 14px",marginBottom:10}}>
+            <div style={{fontSize:10,color:T.accent,letterSpacing:1.5,fontWeight:700,marginBottom:8}}>💵 PAYDAY SETTINGS</div>
+            <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8,marginBottom:8}}>
+              <div>
+                <div style={{fontSize:9,color:T.muted,marginBottom:4}}>AMOUNT ($)</div>
+                <input style={{...INP,fontSize:15,fontFamily:"monospace",fontWeight:700,padding:"8px 10px"}} type="number" inputMode="decimal" value={data.checkAmount||""} onChange={e=>setData(p=>({...p,checkAmount:parseFloat(e.target.value)||0}))} placeholder="1520"/>
+              </div>
+              <div>
+                <div style={{fontSize:9,color:T.muted,marginBottom:4}}>ANCHOR DATE</div>
+                <input style={{...INP,fontSize:12,padding:"8px 10px"}} type="date" value={data.proximoCobro||""} onChange={e=>setData(p=>({...p,proximoCobro:e.target.value}))}/>
+              </div>
             </div>
-            <div style={{marginBottom:10}}><div style={{fontSize:9,color:T.muted,marginBottom:5}}>ANCHOR PAYDAY DATE</div><input style={{...INP,fontSize:14,padding:"9px 12px"}} type="date" value={data.proximoCobro||""} onChange={e=>setData(p=>({...p,proximoCobro:e.target.value}))}/></div>
-            <div style={{marginBottom:10}}><div style={{fontSize:9,color:T.muted,marginBottom:5}}>FREQUENCY</div>
-              <select style={{...INP,fontSize:14,padding:"9px 12px"}} value={data.payFreq||"biweekly"} onChange={e=>setData(p=>({...p,payFreq:e.target.value}))}>
+            <div style={{marginBottom:8}}>
+              <div style={{fontSize:9,color:T.muted,marginBottom:4}}>FREQUENCY</div>
+              <select style={{...INP,fontSize:13,padding:"8px 10px"}} value={data.payFreq||"biweekly"} onChange={e=>setData(p=>({...p,payFreq:e.target.value}))}>
                 <option value="weekly">Weekly — every 7 days</option>
                 <option value="biweekly">Biweekly — every 14 days</option>
                 <option value="semimonthly">Semi-monthly — 1st &amp; 15th</option>
                 <option value="monthly">Monthly</option>
               </select>
             </div>
-            <div style={{background:T.surface2,borderRadius:10,padding:"10px 12px",fontSize:11,color:T.muted,lineHeight:1.7}}>
-              <div>This month: <strong style={{color:T.accent}}>{monthPeriods.length} pay period{monthPeriods.length!==1?"s":""}</strong> ({monthPeriods.map(p=>fmd(p.payday)).join(", ")})</div>
-              <div style={{marginTop:3}}><span style={{fontWeight:600,color:T.text}}>Current</span> — <strong style={{color:T.text,fontSize:12}}>{currentPeriod?fmd(currentPeriod.payday):"-"}</strong></div>
-              <div style={{marginTop:3}}><span style={{fontWeight:700,color:"#3fb950"}}>Next payday</span> — <strong style={{color:"#3fb950",fontSize:12}}>{nextPayday?fmd(nextPayday):"-"}</strong> <span style={{color:T.muted,fontSize:10}}>({diasProx===0?"today":diasProx+"d away"})</span></div>
+            <div style={{background:T.surface2,borderRadius:8,padding:"7px 10px",fontSize:10,color:T.muted,lineHeight:1.6}}>
+              <span>{monthPeriods.length} period{monthPeriods.length!==1?"s":""} · Current: <strong style={{color:T.text}}>{currentPeriod?fmd(currentPeriod.payday):"-"}</strong> · </span>
+              <span style={{color:"#3fb950",fontWeight:600}}>Next: {nextPayday?fmd(nextPayday):"-"} ({diasProx===0?"today":diasProx+"d"})</span>
             </div>
           </div>
-          <div style={{...CARD,padding:"14px 16px",marginBottom:14}}>
-            <div style={{fontSize:11,color:T.accent,letterSpacing:1.5,fontWeight:700,marginBottom:4}}>💾 DATA BACKUP</div>
-            {snapReminder&&(<div style={{background:snapReminder.type==="warn"?"rgba(210,153,34,0.07)":"rgba(88,166,255,0.05)",border:`1px solid ${snapReminder.type==="warn"?"rgba(210,153,34,0.2)":"rgba(88,166,255,0.12)"}`,borderRadius:9,padding:"8px 11px",marginBottom:10,marginTop:8,fontSize:10,color:snapReminder.type==="warn"?"#d29922":T.muted,display:"flex",gap:6,alignItems:"center"}}>
-              <span>{snapReminder.type==="warn"?"⚠️":"💡"}</span><span>{snapReminder.msg}</span>
-            </div>)}
-            <div style={{fontSize:10,color:T.muted,marginBottom:10,marginTop:snapReminder?0:8}}>
-              Backup includes all periods, expenses, debts, pots, settings, and snapshots.<br/>
-              File: <strong style={{color:T.text}}>mybudget_backup.json</strong>
+          <div style={{...CARD,padding:"10px 14px",marginBottom:10}}>
+            <div style={{fontSize:10,color:T.accent,letterSpacing:1.5,fontWeight:700,marginBottom:8}}>💾 DATA BACKUP</div>
+            <div style={{display:"flex",gap:8}}>
+              <button style={{...BTN,flex:1,padding:"9px",background:T.surface2,color:T.muted,fontSize:12,border:`1px solid ${T.border}`,display:"flex",flexDirection:"column",alignItems:"center",gap:1}} onClick={exportData}><span>📥 Save Backup</span><span style={{fontSize:9,opacity:0.6}}>Download copy</span></button>
+              <label style={{flex:1}}><input type="file" accept=".json" onChange={importData} style={{display:"none"}}/><div style={{padding:"9px",background:T.surface2,color:T.muted,fontSize:12,border:`1px solid ${T.border}`,textAlign:"center",cursor:"pointer",borderRadius:10,fontWeight:600,display:"flex",flexDirection:"column",alignItems:"center",gap:1}}><span>📤 Load Backup</span><span style={{fontSize:9,opacity:0.6}}>Import file</span></div></label>
             </div>
-            <div style={{display:"flex",gap:8,marginBottom:8}}>
-              <button style={{...BTN,flex:1,padding:"10px",background:T.surface2,color:T.muted,fontSize:12,border:`1px solid ${T.border}`,display:"flex",flexDirection:"column",alignItems:"center",gap:2}} onClick={exportData}><span>📥 Save Backup</span><span style={{fontSize:9,color:T.muted,fontWeight:400,opacity:0.75}}>Download a copy of your data</span></button>
-              <label style={{flex:1}}><input type="file" accept=".json" onChange={importData} style={{display:"none"}}/><div style={{padding:"10px",background:T.surface2,color:T.muted,fontSize:12,border:`1px solid ${T.border}`,textAlign:"center",cursor:"pointer",borderRadius:10,fontWeight:600,display:"flex",flexDirection:"column",alignItems:"center",gap:2}}><span>📤 Load Backup</span><span style={{fontSize:9,color:T.muted,fontWeight:400,opacity:0.75}}>Import a previously saved backup file</span></div></label>
-            </div>
-            <div style={{fontSize:10,color:T.muted}}>Import fully replaces current data. Export first to be safe.</div>
           </div>
-          <div style={{background:"rgba(248,81,73,0.04)",border:"1px solid rgba(248,81,73,0.2)",borderRadius:14,padding:"14px 16px"}}>
-            <div style={{fontSize:11,color:"#f85149",letterSpacing:1.5,fontWeight:700,marginBottom:12}}>⚠️ DANGER ZONE</div>
-            <button style={{...BTN,width:"100%",padding:"11px",background:"rgba(248,81,73,0.1)",color:"#f85149",fontSize:13,border:"1px solid rgba(248,81,73,0.3)"}} onClick={()=>{if(window.confirm("Reset ALL data to defaults? Cannot be undone.")){localStorage.removeItem(SK);setData(migrate(DD));setTab("overview");toast_("🔄 App reset");}}}>🗑 Reset All Data</button>
+          <div style={{background:"rgba(248,81,73,0.04)",border:"1px solid rgba(248,81,73,0.2)",borderRadius:14,padding:"10px 14px"}}>
+            <div style={{fontSize:10,color:"#f85149",letterSpacing:1.5,fontWeight:700,marginBottom:8}}>⚠️ DANGER ZONE</div>
+            <button style={{...BTN,width:"100%",padding:"10px",background:"rgba(248,81,73,0.1)",color:"#f85149",fontSize:13,border:"1px solid rgba(248,81,73,0.3)"}} onClick={()=>{if(window.confirm("Reset ALL data to defaults? Cannot be undone.")){localStorage.removeItem(SK);setData(migrate(DD));setTab("overview");toast_("🔄 App reset");}}}>🗑 Reset All Data</button>
           </div>
         </div>)}
       </div>
