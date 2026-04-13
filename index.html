@@ -406,6 +406,7 @@ const migrate=raw=>{
     payFreq:freq,
     theme:raw.theme||"dark",
     checkAmount:n(raw.checkAmount||raw.c1||raw.c2||raw.check1||raw.check2||raw.cheque1||raw.cheque2)||0,
+    useFixedAmount:raw.useFixedAmount,
     periods,
     tarjetas:(raw.tarjetas||[]).map(t=>({...t,fechaPago:t.fechaPago||"",fechaCorte:t.fechaCorte||"",historial:t.historial||[],tipo:"card"})),
     loans:(raw.loans||DD.loans).map(l=>({...l,tipo:"loan"})),
@@ -419,7 +420,7 @@ const migrate=raw=>{
 };
 const DD={
   proximoCobro:"",payFreq:"biweekly",theme:"dark",
-  checkAmount:0,useFixedAmount:true,periods:{},
+  checkAmount:0,useFixedAmount:undefined,periods:{},
   tarjetas:[],
   loans:[],
   pots:{savings_acct:0,emergency:0,investment:0},
@@ -535,7 +536,7 @@ const GastoItem=memo(({item,pid,editId,setEditId,tarjetas,onCycle,onLongPress,on
   if(editId===item.id)return(
     <div style={{marginBottom:8,...CARD,padding:"14px",border:`1px solid ${T.accent}`}}>
       <div style={{marginBottom:10}}><div style={{fontSize:10,color:T.muted,marginBottom:5}}>NAME</div><input style={INP} value={item.nombre} onChange={e=>onUpdate(item.id,"nombre",e.target.value)} placeholder="Expense name"/></div>
-      <div style={{marginBottom:10}}><div style={{fontSize:10,color:T.muted,marginBottom:5}}>AMOUNT ($)</div><input style={INP} type="number" inputMode="decimal" value={item.monto||""} onChange={e=>onUpdate(item.id,"monto",e.target.value)} placeholder="0"/></div>
+      <div style={{marginBottom:10}}><div style={{fontSize:10,color:T.muted,marginBottom:5}}>AMOUNT ($)</div><div className="amt-wrap"><span className="amt-prefix" style={{fontSize:14,color:item.monto?T.accent+"99":T.muted+"55"}}>$</span><input style={{...INP,paddingLeft:20}} type="number" inputMode="decimal" value={item.monto||""} onChange={e=>onUpdate(item.id,"monto",e.target.value)} placeholder="0"/></div></div>
       <div style={{marginBottom:10}}>
         <div style={{fontSize:10,color:T.muted,marginBottom:5}}>DESTINATION</div>
         <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:5}}>
@@ -729,7 +730,7 @@ const GastoItem=memo(({item,pid,editId,setEditId,tarjetas,onCycle,onLongPress,on
         </div>
       </div>}
       <div
-        className="debt-card-tap" onFocus={e=>{if(showEdit){setTimeout(()=>{e.target.scrollIntoView&&e.target.scrollIntoView({behavior:"smooth",block:"nearest"});},100);}}} style={{...CARD,padding:"12px 14px",marginBottom:0,overflow:"hidden",borderColor:isFirst?"#d29922":showEdit?`${T.accent}80`:debt.priority?"rgba(245,158,11,0.35)":T.border,transition:"transform 0.3s cubic-bezier(0.34,1.2,0.64,1), border-color 0.2s",transform:`translateX(${showEdit?0:debtSwipe}px)`,userSelect:"none",WebkitUserSelect:"none",WebkitTouchCallout:"none",...(clipH!=null?{boxSizing:"border-box",height:clipH,maxHeight:clipH,minHeight:clipH,clipPath:"inset(0 round 16px)"}:{clipPath:"none"})}}
+        className="debt-card-tap" onFocus={e=>{if(showEdit){setTimeout(()=>{e.target.scrollIntoView&&e.target.scrollIntoView({behavior:"smooth",block:"nearest"});},100);}}} style={{...CARD,padding:clipH!=null?"10px 14px":"12px 14px",marginBottom:0,overflow:"hidden",borderColor:isFirst?"#d29922":showEdit?`${T.accent}80`:debt.priority?"rgba(245,158,11,0.35)":T.border,transition:"transform 0.3s cubic-bezier(0.34,1.2,0.64,1), border-color 0.2s",transform:`translateX(${showEdit?0:debtSwipe}px)`,userSelect:"none",WebkitUserSelect:"none",WebkitTouchCallout:"none",...(clipH!=null?{boxSizing:"border-box",height:clipH,maxHeight:clipH,minHeight:clipH,clipPath:"inset(0 round 16px)"}:{clipPath:"none"})}}
       onTouchStart={hLPStart}
       onTouchMove={hLPMove}
       onTouchEnd={hLPEnd}
@@ -751,7 +752,7 @@ const GastoItem=memo(({item,pid,editId,setEditId,tarjetas,onCycle,onLongPress,on
           }
         }}
       >
-        <span style={{fontSize:15,flexShrink:0,pointerEvents:"none"}}>{debtIcon}</span>
+        <span style={{fontSize:15,flexShrink:0,pointerEvents:"none",display:"inline-block",transition:"transform 0.35s cubic-bezier(0.34,1.56,0.64,1)",transform:clipH==null?"scale(1.35)":"scale(1)"}}>{debtIcon}</span>
         {showEdit
           ?<input style={{...INP,fontWeight:700,fontSize:14,background:"transparent",border:"none",borderBottom:`1.5px solid ${T.accent}`,borderRadius:0,padding:"2px 0",flex:1,userSelect:"text",WebkitUserSelect:"text"}} value={debt.nombre} onChange={e=>onUpdate(debt.id,"nombre",e.target.value)} autoFocus={false} onMouseDown={e=>e.stopPropagation()} onTouchStart={e=>e.stopPropagation()}/>
           :<div style={{flex:1,minWidth:0,pointerEvents:"none"}}>
@@ -781,11 +782,11 @@ const GastoItem=memo(({item,pid,editId,setEditId,tarjetas,onCycle,onLongPress,on
           <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8,marginBottom:14}}>
             <div>
               <div style={{fontSize:9,color:T.muted,letterSpacing:1.5,fontWeight:600,marginBottom:5}}>BALANCE</div>
-              <input style={{...INP,fontSize:18,fontFamily:"monospace",fontWeight:700,padding:"10px 12px",userSelect:"text",WebkitUserSelect:"text"}} type="number" inputMode="decimal" placeholder="0" value={debt.balance||""} onChange={e=>onUpdate(debt.id,"balance",e.target.value)}/>
+              <div className="amt-wrap"><span className="amt-prefix" style={{fontSize:16,color:debt.balance?T.accent+"99":T.muted+"55"}}>$</span><input style={{...INP,fontSize:18,fontFamily:"monospace",fontWeight:700,padding:"10px 12px",paddingLeft:22,userSelect:"text",WebkitUserSelect:"text"}} type="number" inputMode="decimal" placeholder="0" value={debt.balance||""} onChange={e=>onUpdate(debt.id,"balance",e.target.value)}/></div>
             </div>
             <div>
               <div style={{fontSize:9,color:T.muted,letterSpacing:1.5,fontWeight:600,marginBottom:5}}>{tipo==="card"?"LIMIT":"ORIGINAL"}</div>
-              <input style={{...INP,fontSize:18,fontFamily:"monospace",fontWeight:700,padding:"10px 12px",userSelect:"text",WebkitUserSelect:"text"}} type="number" inputMode="decimal" placeholder="0" value={(tipo==="card"?debt.limite:debt.original)||""} onChange={e=>onUpdate(debt.id,tipo==="card"?"limite":"original",e.target.value)}/>
+              <div className="amt-wrap"><span className="amt-prefix" style={{fontSize:16,color:(tipo==="card"?debt.limite:debt.original)?T.accent+"99":T.muted+"55"}}>$</span><input style={{...INP,fontSize:18,fontFamily:"monospace",fontWeight:700,padding:"10px 12px",paddingLeft:22,userSelect:"text",WebkitUserSelect:"text"}} type="number" inputMode="decimal" placeholder="0" value={(tipo==="card"?debt.limite:debt.original)||""} onChange={e=>onUpdate(debt.id,tipo==="card"?"limite":"original",e.target.value)}/></div>
             </div>
           </div>
 
@@ -793,11 +794,11 @@ const GastoItem=memo(({item,pid,editId,setEditId,tarjetas,onCycle,onLongPress,on
           <div style={{display:"flex",gap:6,marginBottom:12}}>
             <div style={{flex:1}}>
               <div style={{fontSize:9,color:T.muted,letterSpacing:1.5,fontWeight:600,marginBottom:5}}>MIN</div>
-              <input style={{...INP,fontSize:13,padding:"7px 8px",userSelect:"text",WebkitUserSelect:"text"}} type="number" inputMode="decimal" placeholder="0" value={debt.minimo||""} onChange={e=>onUpdate(debt.id,"minimo",e.target.value)}/>
+              <div className="amt-wrap"><span className="amt-prefix" style={{fontSize:12,color:debt.minimo?T.accent+"99":T.muted+"55"}}>$</span><input style={{...INP,fontSize:13,padding:"7px 8px",paddingLeft:18,userSelect:"text",WebkitUserSelect:"text"}} type="number" inputMode="decimal" placeholder="0" value={debt.minimo||""} onChange={e=>onUpdate(debt.id,"minimo",e.target.value)}/></div>
             </div>
             <div style={{flex:1}}>
               <div style={{fontSize:9,color:T.muted,letterSpacing:1.5,fontWeight:600,marginBottom:5}}>APR</div>
-              <input style={{...INP,fontSize:13,padding:"7px 6px",userSelect:"text",WebkitUserSelect:"text",textAlign:"center"}} type="number" inputMode="decimal" placeholder="0" value={debt.interes||""} onChange={e=>onUpdate(debt.id,"interes",e.target.value)}/>
+              <div style={{position:"relative"}}><span style={{position:"absolute",right:8,top:"50%",transform:"translateY(-50%)",fontSize:12,fontFamily:"monospace",fontWeight:700,color:debt.interes?T.accent+"99":T.muted+"55",pointerEvents:"none"}}>%</span><input style={{...INP,fontSize:13,padding:"7px 6px",paddingRight:20,userSelect:"text",WebkitUserSelect:"text",textAlign:"center"}} type="number" inputMode="decimal" placeholder="0" value={debt.interes||""} onChange={e=>onUpdate(debt.id,"interes",e.target.value)}/></div>
             </div>
             <div style={{flex:1}}>
               <div style={{fontSize:9,color:dp!==null&&dp<=3?"#f85149":T.muted,letterSpacing:1.5,fontWeight:dp!==null&&dp<=3?700:600,marginBottom:5}}>DUE</div>
@@ -811,15 +812,15 @@ const GastoItem=memo(({item,pid,editId,setEditId,tarjetas,onCycle,onLongPress,on
 
           {/* COLOR PICKER — discrete button */}
           {tipo==="card"&&!CC[debt.nombre]&&(<div style={{marginBottom:10}}>
-            <button style={{...BTN,display:"flex",alignItems:"center",gap:6,padding:"6px 10px",borderRadius:8,background:T.surface2,border:`1px solid ${T.border}`,fontSize:11,color:T.muted}}
+            <button style={{...BTN,display:"flex",alignItems:"center",gap:5,padding:"4px 8px",borderRadius:7,background:T.surface2,border:`1px solid ${T.border}`,fontSize:10,color:T.muted}}
               onMouseDown={e=>e.stopPropagation()} onClick={()=>setShowColorPicker(s=>!s)}>
-              <div style={{width:12,height:12,borderRadius:"50%",background:(debt._vc||CARD_PALETTE[0]).color,flexShrink:0}}/>
+              <div style={{width:10,height:10,borderRadius:"50%",background:(debt._vc||CARD_PALETTE[0]).color,flexShrink:0}}/>
               <span>Color</span>
-              <span style={{fontSize:9,opacity:0.5}}>{showColorPicker?"▲":"▼"}</span>
+              <span style={{fontSize:8,opacity:0.5}}>{showColorPicker?"▲":"▼"}</span>
             </button>
             {showColorPicker&&<div style={{display:"flex",gap:6,flexWrap:"wrap",marginTop:8,padding:"8px",background:T.surface2,borderRadius:10}}>
               {CARD_PALETTE.map((p,i)=>(<button key={i} onMouseDown={e=>e.stopPropagation()} onClick={()=>{onUpdate(debt.id,"_vc",p);setShowColorPicker(false);}}
-                style={{...BTN,width:26,height:26,borderRadius:"50%",padding:0,background:p.color,
+                style={{...BTN,width:24,height:24,borderRadius:"50%",padding:0,background:p.color,
                   border:JSON.stringify(debt._vc)===JSON.stringify(p)?`3px solid ${T.text}`:`2px solid rgba(255,255,255,0.15)`,
                   transform:JSON.stringify(debt._vc)===JSON.stringify(p)?"scale(1.2)":"scale(1)",
                   transition:"all 0.15s",flexShrink:0}}/>))}
@@ -912,7 +913,7 @@ const GastoItem=memo(({item,pid,editId,setEditId,tarjetas,onCycle,onLongPress,on
           ?(<div style={{background:T.bg,borderRadius:8,padding:"10px 11px",border:`1px solid ${accion.tipo==="pago"?"#3fb950":"#f85149"}`,marginTop:6}} onMouseDown={e=>e.stopPropagation()} onTouchStart={e=>e.stopPropagation()}>
             <div style={{fontSize:11,fontWeight:700,color:accion.tipo==="pago"?"#3fb950":"#f85149",marginBottom:7}}>{accion.tipo==="pago"?"💳 Amount paid?":"🛒 Amount charged?"}</div>
             <div style={{display:"flex",gap:6,marginBottom:5}}>
-              <input style={{...INP,flex:1,fontFamily:"monospace",fontWeight:700,fontSize:16,padding:"8px 10px",userSelect:"text",WebkitUserSelect:"text"}} type="number" inputMode="decimal" placeholder="$0" value={montoAccion} onChange={e=>setMontoAccion(e.target.value)} onMouseDown={e=>e.stopPropagation()} onTouchStart={e=>e.stopPropagation()}/>
+              <div className="amt-wrap"><span className="amt-prefix" style={{fontSize:14,color:montoAccion?T.accent+"99":T.muted+"55"}}>$</span><input style={{...INP,flex:1,fontFamily:"monospace",fontWeight:700,fontSize:16,padding:"8px 10px",paddingLeft:20,userSelect:"text",WebkitUserSelect:"text"}} type="number" inputMode="decimal" placeholder="0" value={montoAccion} onChange={e=>setMontoAccion(e.target.value)} onMouseDown={e=>e.stopPropagation()} onTouchStart={e=>e.stopPropagation()}/></div>
               <button style={{...BTN,padding:"8px 13px",background:accion.tipo==="pago"?"#238636":"rgba(248,81,73,0.2)",color:accion.tipo==="pago"?"#fff":"#f85149",fontSize:14}} onMouseDown={e=>e.stopPropagation()} onTouchStart={e=>e.stopPropagation()} onClick={()=>onApply(debt.id,tipo)}>✓</button>
               <button style={{...BTN,padding:"8px 10px",background:T.surface2,color:T.muted,fontSize:14}} onMouseDown={e=>e.stopPropagation()} onTouchStart={e=>e.stopPropagation()} onClick={()=>{setAccion(null);setMontoAccion("");}}>✕</button>
             </div>
@@ -1537,12 +1538,12 @@ function App(){
       {/* Amount card */}
       <div style={{...CARD,padding:"13px 16px",marginBottom:12,borderColor:T.accent}}>
         <div style={{fontSize:10,color:T.accent,fontWeight:700,letterSpacing:1.5,marginBottom:7}}>{label.toUpperCase()} AMOUNT</div>
-        <input style={{...INP,fontFamily:"monospace",fontSize:22,fontWeight:700}} type="text" inputMode="decimal"
+        <div className="amt-wrap"><span className="amt-prefix" style={{fontSize:20,color:amt>0?T.accent+"99":T.muted+"55"}}>$</span><input style={{...INP,fontFamily:"monospace",fontSize:22,fontWeight:700,paddingLeft:28}} type="text" inputMode="decimal"
           value={amtInputVal[pid]!=null?amtInputVal[pid]:String(amt)}
           onChange={e=>{const v=e.target.value;if(v===""||/^\d*\.?\d*$/.test(v))setAmtInputVal(p=>({...p,[pid]:v}));}}
           onBlur={e=>{const v=amtInputVal[pid];if(v==null)return;const num=parseFloat(v);if(!isNaN(num)&&num>0)setPeriodAmount(pid,num);else{setData(p=>{const np={...p.periods};if(np[pid]){const{amount:_,...rest}=np[pid];np[pid]=rest;}return{...p,periods:np};});}setAmtInputVal(p=>{const n={...p};delete n[pid];return n;});}}
           onFocus={e=>{setAmtInputVal(p=>({...p,[pid]:String(amt)}));}}
-          placeholder={data.useFixedAmount!==false?String(globalCheckAmount):"Enter amount"}/>
+          placeholder={data.useFixedAmount!==false?String(globalCheckAmount):"Enter amount"}/></div>
         <div style={{marginTop:6,minHeight:22}}>
           {data.useFixedAmount!==false&&periodAmountIsCustom&&(<button style={{...BTN,padding:"2px 8px",fontSize:10,background:"rgba(210,153,34,0.1)",color:"#d29922",border:"1px solid rgba(210,153,34,0.3)"}}
             onClick={()=>{setData(p=>{const np={...p.periods};if(np[pid]){const{amount:_,...rest}=np[pid];np[pid]=rest;}return{...p,periods:np};});setAmtInputVal(p=>{const n={...p};delete n[pid];return n;});}}>
@@ -1641,6 +1642,8 @@ function App(){
         @keyframes itemExit{0%{opacity:1;transform:translateX(0);max-height:120px;margin-bottom:7px;}100%{opacity:0;transform:translateX(60px);max-height:0;margin-bottom:0;}}.expense-row-exit{animation:itemExit 0.28s ease forwards;}
         @keyframes modalEnter{from{opacity:0;transform:scale(0.95) translateY(8px);}to{opacity:1;transform:scale(1) translateY(0);}}.modal-anim{animation:modalEnter 0.3s cubic-bezier(0.34,1.2,0.64,1) both;}
         @keyframes pop{from{opacity:0.6;transform:scale(0.97);}to{opacity:1;transform:scale(1);}}
+        @keyframes dotPop{0%{transform:scale(1);}40%{transform:scale(2.0);}70%{transform:scale(0.88);}100%{transform:scale(1);}}
+        .amt-wrap{position:relative;display:block;}.amt-prefix{position:absolute;left:11px;top:50%;transform:translateY(-50%);font-family:monospace;font-weight:700;pointer-events:none;z-index:1;}
         @keyframes editOpen{from{opacity:0;transform:translateY(-6px);}to{opacity:1;transform:translateY(0);}}
         @keyframes debtExit{0%{opacity:1;max-height:200px;margin-bottom:9px;}100%{opacity:0;max-height:0;margin-bottom:0;}}.debt-exit{animation:debtExit 0.3s ease forwards;}
         .expense-row:active{transform:scale(0.99);transition:transform 0.08s ease;}
@@ -1695,13 +1698,13 @@ function App(){
                 {/* CHECK MODE */}
                 <div style={{display:quickApplyTo==="check"?"block":"none"}}>
                   <div style={{marginBottom:8}}><div style={{fontSize:9,color:T.muted,letterSpacing:1.2,fontWeight:700,marginBottom:4}}>WHAT WAS IT?</div><input style={{...INP}} value={quickNote} onChange={e=>setQuickNote(e.target.value)} placeholder="e.g. Walmart, gas..."/></div>
-                  <div style={{marginBottom:8}}><div style={{fontSize:9,color:T.muted,letterSpacing:1.2,fontWeight:700,marginBottom:4}}>AMOUNT ($)</div><input data-quick-check-amt style={{...INP,fontFamily:"monospace",fontWeight:700,fontSize:22}} type="number" inputMode="decimal" value={quickAmt} onChange={e=>setQuickAmt(e.target.value)} placeholder="0.00"/></div>
+                  <div style={{marginBottom:8}}><div style={{fontSize:9,color:T.muted,letterSpacing:1.2,fontWeight:700,marginBottom:4}}>AMOUNT ($)</div><div className="amt-wrap"><span className="amt-prefix" style={{fontSize:20,color:quickAmt?T.accent+"99":T.muted+"55"}}>$</span><input data-quick-check-amt style={{...INP,fontFamily:"monospace",fontWeight:700,fontSize:22,paddingLeft:28}} type="number" inputMode="decimal" value={quickAmt} onChange={e=>setQuickAmt(e.target.value)} placeholder="0.00"/></div></div>
                   <div style={{marginBottom:8}}><div style={{fontSize:9,color:T.muted,letterSpacing:1.2,fontWeight:700,marginBottom:4}}>DEDUCT FROM</div><div style={{display:"flex",gap:6}}>{monthPeriods.map(p=>(<button key={p.id} style={{...BTN,flex:1,padding:"8px",fontSize:12,background:quickPid===p.id?`${T.accent}26`:T.surface2,color:quickPid===p.id?T.accent:T.muted,border:`1px solid ${quickPid===p.id?T.accent:T.border}`}} onClick={()=>setQuickPid(p.id)}>{p.isCurrent?"💰":"📋"} {p.label}{p.isCurrent?" ✓":""}</button>))}</div></div>
                   <div style={{height:32,display:"flex",alignItems:"center"}}>{quickAmtNum>0&&quickPreviewCheck&&(<div style={{width:"100%",padding:"7px 11px",borderRadius:9,background:quickPreviewCheck.newLeftover>=0?"rgba(63,185,80,0.06)":"rgba(248,81,73,0.06)",border:`1px solid ${quickPreviewCheck.newLeftover>=0?"rgba(63,185,80,0.25)":"rgba(248,81,73,0.25)"}`}}><div style={{display:"flex",justifyContent:"space-between",fontSize:11}}><span style={{color:T.muted}}>Left over after this</span><span style={{fontFamily:"monospace",fontWeight:700,color:quickPreviewCheck.newLeftover>=0?"#3fb950":"#f85149"}}>{fmt(quickPreviewCheck.newLeftover)}</span></div></div>)}</div>
                 </div>
                 {/* CARD MODE */}
                 <div style={{display:quickApplyTo==="card"?"block":"none"}}>
-                  <div style={{marginBottom:8}}><div style={{fontSize:9,color:T.muted,letterSpacing:1.2,fontWeight:700,marginBottom:4}}>AMOUNT ($)</div><input ref={el=>{window._quickCardAmtEl=el;}} style={{...INP,fontFamily:"monospace",fontWeight:700,fontSize:22}} type="number" inputMode="decimal" value={quickAmt} onChange={e=>setQuickAmt(e.target.value)} placeholder="0.00"/></div>
+                  <div style={{marginBottom:8}}><div style={{fontSize:9,color:T.muted,letterSpacing:1.2,fontWeight:700,marginBottom:4}}>AMOUNT ($)</div><div className="amt-wrap"><span className="amt-prefix" style={{fontSize:20,color:quickAmt?T.accent+"99":T.muted+"55"}}>$</span><input ref={el=>{window._quickCardAmtEl=el;}} style={{...INP,fontFamily:"monospace",fontWeight:700,fontSize:22,paddingLeft:28}} type="number" inputMode="decimal" value={quickAmt} onChange={e=>setQuickAmt(e.target.value)} placeholder="0.00"/></div></div>
                   <div style={{height:32,display:"flex",alignItems:"center",marginBottom:8}}>{quickAmtNum>0&&quickPreviewCard&&(<div style={{width:"100%",padding:"7px 11px",borderRadius:9,background:T.surface2,border:`1px solid ${T.border}`}}><div style={{display:"flex",justifyContent:"space-between",fontSize:11}}><span style={{color:T.muted}}>New balance</span><span style={{fontFamily:"monospace",fontWeight:700,color:"#94a3b8"}}>{fmt(quickPreviewCard.newBalance)}{quickPreviewCard.pct!==null&&<span style={{fontSize:10,color:quickPreviewCard.pct>=90?"#f85149":quickPreviewCard.pct>=70?"#d29922":T.muted,marginLeft:5}}>{quickPreviewCard.pct}%</span>}</span></div></div>)}</div>
                   <div style={{fontSize:9,color:T.muted,letterSpacing:1.2,fontWeight:700,marginBottom:4}}>WHICH CARD?</div>
                   <div style={{display:"flex",flexDirection:"column",gap:4,overflowY:"auto",maxHeight:160,WebkitOverflowScrolling:"touch"}}
@@ -1761,7 +1764,7 @@ function App(){
               {/* Amount input — single stable element, never recreated */}
               <div style={{marginBottom:10}}>
                 <div style={{fontSize:10,color:T.muted,marginBottom:5,letterSpacing:1.2,fontWeight:700}}>AMOUNT ($)</div>
-                <input ref={moveAmtRef} style={{...INP,fontFamily:"monospace",fontWeight:700,fontSize:22}} type="number" inputMode="decimal" value={moveAmt} onChange={e=>setMoveAmt(e.target.value)} placeholder="0" autoFocus/>
+                <div className="amt-wrap"><span className="amt-prefix" style={{fontSize:20,color:moveAmt?T.accent+"99":T.muted+"55"}}>$</span><input ref={moveAmtRef} style={{...INP,fontFamily:"monospace",fontWeight:700,fontSize:22,paddingLeft:28}} type="number" inputMode="decimal" value={moveAmt} onChange={e=>setMoveAmt(e.target.value)} placeholder="0" autoFocus/></div>
               </div>
               {/* Balance preview — fixed height container to avoid layout shift */}
               <div style={{height:36,marginBottom:14,display:"flex",alignItems:"center"}}>
@@ -1875,9 +1878,21 @@ function App(){
             settings:<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>,
           };
           const getIdx=(cx,el)=>{const r=el.getBoundingClientRect();return Math.max(0,Math.min(TABS.length-1,Math.floor((cx-r.left)/(r.width/TABS.length))));};
+          const lastTabTap=React.useRef({id:null,t:0});
+          const handleTabClick=(tid)=>{
+            const now=Date.now();
+            const scrollTabs=new Set(["overview","paychecks","debts"]);
+            if(tid===tab&&scrollTabs.has(tid)&&now-lastTabTap.current.t<400){
+              window.scrollTo({top:0,behavior:"smooth"});
+              lastTabTap.current={id:null,t:0};
+            } else {
+              setTab(tid);setSortMenuOpen(false);
+              lastTabTap.current={id:tid,t:now};
+            }
+          };
           const onTS=(e)=>{dragRef.current={active:false,startX:e.touches[0].clientX};};
           const onTM=(e)=>{const d=dragRef.current;if(Math.abs(e.touches[0].clientX-d.startX)>8)d.active=true;if(!d.active)return;const idx=getIdx(e.touches[0].clientX,e.currentTarget);if(TABS[idx]&&TABS[idx].id!==tab){setTab(TABS[idx].id);setSortMenuOpen(false);}};
-          const onTE=(e)=>{if(!dragRef.current.active){const idx=getIdx(e.changedTouches[0].clientX,e.currentTarget);if(TABS[idx]){setTab(TABS[idx].id);setSortMenuOpen(false);}}dragRef.current.active=false;};
+          const onTE=(e)=>{if(!dragRef.current.active){const idx=getIdx(e.changedTouches[0].clientX,e.currentTarget);if(TABS[idx])handleTabClick(TABS[idx].id);}dragRef.current.active=false;};
           return(
             <div ref={tabBarRef} style={{position:"fixed",bottom:0,left:0,right:0,zIndex:190,paddingBottom:"max(14px,env(safe-area-inset-bottom,14px))",paddingLeft:14,paddingRight:14,paddingTop:8,background:"transparent",pointerEvents:"none",WebkitTransform:"translateZ(0)",transform:"translateZ(0)",WebkitBackfaceVisibility:"hidden"}}>
               <div onTouchStart={onTS} onTouchMove={onTM} onTouchEnd={onTE}
@@ -1886,7 +1901,7 @@ function App(){
                   const isActive=tab===t.id;
                   return(
                     <button key={t.id} style={{...BTN,flex:1,display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",gap:2,padding:"9px 2px 7px",borderRadius:999,background:isActive?`${T.accent}22`:"transparent",border:isActive?`1px solid ${T.accent}44`:"1px solid transparent",boxShadow:isActive?`0 1px 8px ${T.accent}22`:"none",color:isActive?T.accent:T.muted,transform:isActive?"scale(1.04)":"scale(1)",transition:"all 0.25s cubic-bezier(0.34,1.56,0.64,1)",position:"relative"}}
-                      onClick={()=>{setTab(t.id);setSortMenuOpen(false);}}>
+                      onClick={()=>handleTabClick(t.id)}>
                       <div style={{transition:"color 0.2s"}}>{SVG_ICONS[t.id]}</div>
                       <span style={{fontSize:9,fontWeight:isActive?700:500,letterSpacing:0.3}}>{t.label}</span>
                       {t.urgent&&!isActive&&<span className="onboard-pulse" style={{position:"absolute",top:5,right:"calc(50% - 13px)",width:8,height:8,borderRadius:"50%",background:T.accent,border:"1.5px solid "+T.bg}}/>}
@@ -2082,8 +2097,13 @@ function App(){
           }}>💾 Save Monthly Snapshot</button>
         </div>)}
         {tab==="paychecks"&&(<div className="anim">
-          {/* Internal paycheck sub-tabs */}
-          {monthPeriods.length>1&&(<div style={{display:"flex",gap:5,marginBottom:14,background:T.surface2,borderRadius:11,padding:3}}>
+          {!data.proximoCobro&&(<div style={{textAlign:"center",padding:"40px 20px"}}>
+            <div style={{fontSize:36,marginBottom:12}}>💰</div>
+            <div style={{fontSize:15,fontWeight:700,color:T.text,marginBottom:6}}>Set up your paycheck first</div>
+            <div style={{fontSize:12,color:T.muted,marginBottom:18,lineHeight:1.6}}>Go to <strong style={{color:T.accent}}>Settings</strong> and configure your anchor date and pay frequency.</div>
+            <button style={{...BTN,padding:"10px 24px",background:`${T.accent}18`,color:T.accent,fontSize:13,fontWeight:700,border:`1px solid ${T.accent}44`,borderRadius:12}} onClick={()=>setTab("settings")}>⚙️ Go to Settings</button>
+          </div>)}
+          {data.proximoCobro&&monthPeriods.length>1&&(<div style={{display:"flex",gap:5,marginBottom:14,background:T.surface2,borderRadius:11,padding:3}}>
             {monthPeriods.map(p=>{
               const isActive=activeCheckPid===p.id||((!activeCheckPid)&&p.isCurrent);
               const pgastos=(data.periods[p.id]||{}).gastos||[];
@@ -2102,7 +2122,7 @@ function App(){
               </button>);
             })}
           </div>)}
-          {(()=>{
+          {data.proximoCobro&&(()=>{
             const pid=activeCheckPid||(monthPeriods.find(p=>p.isCurrent)||monthPeriods[0])?.id;
             const period=monthPeriods.find(p=>p.id===pid)||monthPeriods[0];
             return period?renderCheckTab(period):null;
@@ -2209,8 +2229,8 @@ function App(){
                 </div>
               )}
               {!cardsCollapsed&&visibleCards.length>0&&(()=>{
-                const HEADER_H = 48;
-                const OVERLAP  = 14;
+                const HEADER_H = 52;
+                const OVERLAP  = 16;
                 const GAP      = 10;
                 const expandedIdx = visibleCards.findIndex(c => c.id === expandedCardId);
 
@@ -2368,8 +2388,8 @@ function App(){
                 <div style={{flex:1,height:1,background:`linear-gradient(90deg,${T.border},transparent)`}}/>
               </div>
               {!loansCollapsed&&(()=>{
-                const HEADER_H = 48;
-                const OVERLAP  = 14;
+                const HEADER_H = 52;
+                const OVERLAP  = 16;
                 const GAP      = 10;
                 const expandedIdx = visibleLoans.findIndex(c => c.id === expandedLoanId);
                 return(
@@ -2613,35 +2633,39 @@ function App(){
         {tab==="settings"&&(<div className="anim">
           {/* 1. Payday */}
           <div style={{...CARD,padding:"12px 14px",marginBottom:10}}>
-            <div style={{fontSize:10,color:T.accent,letterSpacing:1.5,fontWeight:700,marginBottom:8}}>💵 PAYDAY SETTINGS</div>
-            <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8,marginBottom:8}}>
-              <div>
-                <div style={{fontSize:9,color:T.muted,marginBottom:6}}>AMOUNT ($)</div>
-                {(()=>{const needsSetup=!data.checkAmount&&!data.proximoCobro&&data.useFixedAmount!==false;return(
-                <div style={{display:"flex",gap:8,marginBottom:6}}>
-                  <button className={needsSetup?"onboard-pulse":""} style={{...BTN,flex:1,padding:"6px 10px",borderRadius:9,background:data.useFixedAmount!==false?`${T.accent}18`:T.surface2,border:data.useFixedAmount!==false?`1px solid ${T.accent}`:`1px solid ${T.border}`,fontSize:11,color:data.useFixedAmount!==false?T.accent:T.muted,fontWeight:data.useFixedAmount!==false?700:400}}
-                    onClick={()=>setData(p=>({...p,useFixedAmount:true}))}>🔒 Fixed</button>
-                  <button className={needsSetup?"onboard-pulse":""} style={{...BTN,flex:1,padding:"6px 10px",borderRadius:9,background:data.useFixedAmount===false?`${T.accent}18`:T.surface2,border:data.useFixedAmount===false?`1px solid ${T.accent}`:`1px solid ${T.border}`,fontSize:11,color:data.useFixedAmount===false?T.accent:T.muted,fontWeight:data.useFixedAmount===false?700:400}}
-                    onClick={()=>setData(p=>({...p,useFixedAmount:false}))}>✏️ Variable</button>
-                </div>);})()}
-                {data.useFixedAmount!==false&&(()=>{const needsAmt=data.useFixedAmount!==false&&!data.checkAmount;return<input className={needsAmt?"onboard-pulse":""} style={{...INP,fontSize:15,fontFamily:"monospace",fontWeight:700,padding:"8px 10px"}} type="number" inputMode="decimal" value={data.checkAmount||""} onChange={e=>setData(p=>({...p,checkAmount:parseFloat(e.target.value)||0}))} placeholder="e.g. 1500"/>;})()}
-                {data.useFixedAmount===false&&<div style={{fontSize:10,color:T.muted,padding:"6px 0"}}>Each paycheck has its own amount — set it in the Paychecks tab</div>}
-              </div>
-              <div><div style={{fontSize:9,color:T.muted,marginBottom:4}}>ANCHOR DATE</div><input style={{...INP,fontSize:12,padding:"8px 10px"}} type="date" value={data.proximoCobro||""} onChange={e=>setData(p=>({...p,proximoCobro:e.target.value}))}/></div>
-            </div>
-            <div style={{marginBottom:8}}>
-              <div style={{fontSize:9,color:T.muted,marginBottom:4}}>FREQUENCY</div>
-              <select style={{...INP,fontSize:13,padding:"8px 10px"}} value={data.payFreq||"biweekly"} onChange={e=>setData(p=>({...p,payFreq:e.target.value}))}>
-                <option value="weekly">Weekly — every 7 days</option>
-                <option value="biweekly">Biweekly — every 14 days</option>
-                <option value="semimonthly">Semi-monthly — 1st &amp; 15th</option>
-                <option value="monthly">Monthly</option>
-              </select>
-            </div>
-            <div style={{background:T.surface2,borderRadius:8,padding:"7px 10px",fontSize:10,color:T.muted,lineHeight:1.6}}>
-              <span>{monthPeriods.length} period{monthPeriods.length!==1?"s":""} · Current: <strong style={{color:T.text}}>{currentPeriod?fmd(currentPeriod.payday):"-"}</strong> · </span>
-              <span style={{color:"#3fb950",fontWeight:600}}>Next: {nextPayday?fmd(nextPayday):"-"} ({diasProx===0?"today":diasProx!=null?diasProx+"d":"—"})</span>
-            </div>
+            <div style={{fontSize:10,color:T.accent,letterSpacing:1.5,fontWeight:700,marginBottom:10}}>💵 PAYDAY SETTINGS</div>
+            {(()=>{
+              const needsTypeSelection = data.useFixedAmount === undefined;
+              const needsAmount = data.useFixedAmount === true && !data.checkAmount;
+              return(<>
+                <div style={{marginBottom:10}}>
+                  <div style={{fontSize:9,color:T.muted,marginBottom:6,letterSpacing:1}}>AMOUNT TYPE</div>
+                  <div style={{display:"flex",gap:8}}>
+                    <button className={needsTypeSelection?"onboard-pulse":""} style={{...BTN,flex:1,padding:"9px 10px",borderRadius:10,background:data.useFixedAmount===true?`${T.accent}18`:T.surface2,border:data.useFixedAmount===true?`1px solid ${T.accent}`:`1px solid ${T.border}`,fontSize:12,color:data.useFixedAmount===true?T.accent:T.muted,fontWeight:data.useFixedAmount===true?700:400,display:"flex",alignItems:"center",justifyContent:"center",gap:5}}
+                      onClick={()=>setData(p=>({...p,useFixedAmount:true}))}>🔒 Fixed</button>
+                    <button className={needsTypeSelection?"onboard-pulse":""} style={{...BTN,flex:1,padding:"9px 10px",borderRadius:10,background:data.useFixedAmount===false?`${T.accent}18`:T.surface2,border:data.useFixedAmount===false?`1px solid ${T.accent}`:`1px solid ${T.border}`,fontSize:12,color:data.useFixedAmount===false?T.accent:T.muted,fontWeight:data.useFixedAmount===false?700:400,display:"flex",alignItems:"center",justifyContent:"center",gap:5}}
+                      onClick={()=>setData(p=>({...p,useFixedAmount:false}))}>✏️ Variable</button>
+                  </div>
+                </div>
+                {data.useFixedAmount===true&&(
+                  <div style={{marginBottom:10}}>
+                    <div style={{fontSize:9,color:T.muted,marginBottom:6,letterSpacing:1}}>AMOUNT ($)</div>
+                    <div className="amt-wrap"><span className="amt-prefix" style={{fontSize:18,color:data.checkAmount?T.accent+"99":T.muted+"55"}}>$</span><input className={needsAmount?"onboard-pulse":""} style={{...INP,fontSize:18,fontFamily:"monospace",fontWeight:700,padding:"10px 12px",paddingLeft:24}} type="number" inputMode="decimal" value={data.checkAmount||""} onChange={e=>setData(p=>({...p,checkAmount:parseFloat(e.target.value)||0}))} placeholder="e.g. 1500"/></div>
+                  </div>
+                )}
+                {data.useFixedAmount===false&&(
+                  <div style={{marginBottom:10,padding:"8px 10px",background:T.surface2,borderRadius:9,fontSize:11,color:T.muted}}>✏️ Variable — set the amount per paycheck in the <strong style={{color:T.accent}}>Paychecks</strong> tab</div>
+                )}
+                <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8,marginBottom:8}}>
+                  <div><div style={{fontSize:9,color:T.muted,marginBottom:4,letterSpacing:1}}>ANCHOR DATE</div><input style={{...INP,fontSize:12,padding:"8px 10px"}} type="date" value={data.proximoCobro||""} onChange={e=>setData(p=>({...p,proximoCobro:e.target.value}))}/></div>
+                  <div><div style={{fontSize:9,color:T.muted,marginBottom:4,letterSpacing:1}}>FREQUENCY</div><select style={{...INP,fontSize:12,padding:"8px 10px"}} value={data.payFreq||"biweekly"} onChange={e=>setData(p=>({...p,payFreq:e.target.value}))}><option value="weekly">Weekly</option><option value="biweekly">Biweekly</option><option value="semimonthly">Semi-monthly</option><option value="monthly">Monthly</option></select></div>
+                </div>
+                <div style={{background:T.surface2,borderRadius:8,padding:"7px 10px",fontSize:10,color:T.muted,lineHeight:1.6}}>
+                  <span>{monthPeriods.length} period{monthPeriods.length!==1?"s":""} · Current: <strong style={{color:T.text}}>{currentPeriod?fmd(currentPeriod.payday):"-"}</strong> · </span>
+                  <span style={{color:"#3fb950",fontWeight:600}}>Next: {nextPayday?fmd(nextPayday):"-"} ({diasProx===0?"today":diasProx!=null?diasProx+"d":"—"})</span>
+                </div>
+              </>);
+            })()}
           </div>
           {/* 2. Appearance */}
           <div style={{...CARD,padding:"12px 14px",marginBottom:10}}>
