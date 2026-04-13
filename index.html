@@ -151,7 +151,7 @@ const DEST = {
   lifestyle:    {label:"Lifestyle",      icon:"✨",color:"#a78bfa",bg:"rgba(167,139,250,0.1)", border:"rgba(167,139,250,0.3)"},
   other:        {label:"Other",         icon:"📌",color:"#8b949e",bg:"transparent",            border:"#21262d"},
 };
-const DEST_ORDER = ["savings_acct","credit_card","rent","utilities","auto","insurance","groceries","subscription","gas","emergency","investment","temp","dining","entertainment","medical","lifestyle","other"];
+const DEST_ORDER = ["credit_card","rent","auto","utilities","insurance","savings_acct","emergency","investment","groceries","gas","subscription","dining","entertainment","medical","lifestyle","temp","other"];
 const POTS = {
   savings_acct:{label:"Savings",   icon:"🏦",color:"#3fb950",bg:"rgba(63,185,80,0.1)"},
   emergency:   {label:"Emergency", icon:"🆘",color:"#06b6d4",bg:"rgba(6,182,212,0.1)"},
@@ -163,21 +163,18 @@ const CC = {
   "Prime Card": {color:"#58a6ff",bg:"rgba(88,166,255,0.12)", border:"rgba(88,166,255,0.35)", dot:"🔵"},
 };
 const CARD_PALETTE=[
-  {color:"#3b82f6",bg:"rgba(59,130,246,0.12)",border:"rgba(59,130,246,0.35)",dot:"🔵"},
-  {color:"#8b5cf6",bg:"rgba(139,92,246,0.12)", border:"rgba(139,92,246,0.35)", dot:"🟣"},
-  {color:"#10b981",bg:"rgba(16,185,129,0.12)", border:"rgba(16,185,129,0.35)", dot:"🟢"},
-  {color:"#f97316",bg:"rgba(249,115,22,0.12)", border:"rgba(249,115,22,0.35)", dot:"🟠"},
-  {color:"#06b6d4",bg:"rgba(6,182,212,0.12)",  border:"rgba(6,182,212,0.35)",  dot:"🔵"},
-  {color:"#eab308",bg:"rgba(234,179,8,0.12)",  border:"rgba(234,179,8,0.35)",  dot:"🟡"},
-  {color:"#ec4899",bg:"rgba(236,72,153,0.12)", border:"rgba(236,72,153,0.35)", dot:"🩷"},
-  {color:"#14b8a6",bg:"rgba(20,184,166,0.12)", border:"rgba(20,184,166,0.35)", dot:"🩵"},
-  {color:"#6366f1",bg:"rgba(99,102,241,0.12)", border:"rgba(99,102,241,0.35)", dot:"🟣"},
-  {color:"#84cc16",bg:"rgba(132,204,22,0.12)", border:"rgba(132,204,22,0.35)", dot:"🟢"},
-  {color:"#f59e0b",bg:"rgba(245,158,11,0.12)", border:"rgba(245,158,11,0.35)", dot:"🟡"},
-  {color:"#7c3aed",bg:"rgba(124,58,237,0.12)", border:"rgba(124,58,237,0.35)", dot:"🟣"},
-  {color:"#0ea5e9",bg:"rgba(14,165,233,0.12)", border:"rgba(14,165,233,0.35)", dot:"🔵"},
   {color:"#f43f5e",bg:"rgba(244,63,94,0.12)",  border:"rgba(244,63,94,0.35)",  dot:"🔴"},
-  {color:"#34d399",bg:"rgba(52,211,153,0.12)", border:"rgba(52,211,153,0.35)", dot:"🟢"},
+  {color:"#f97316",bg:"rgba(249,115,22,0.12)", border:"rgba(249,115,22,0.35)", dot:"🟠"},
+  {color:"#eab308",bg:"rgba(234,179,8,0.12)",  border:"rgba(234,179,8,0.35)",  dot:"🟡"},
+  {color:"#10b981",bg:"rgba(16,185,129,0.12)", border:"rgba(16,185,129,0.35)", dot:"🟢"},
+  {color:"#3b82f6",bg:"rgba(59,130,246,0.12)", border:"rgba(59,130,246,0.35)", dot:"🔵"},
+  {color:"#8b5cf6",bg:"rgba(139,92,246,0.12)", border:"rgba(139,92,246,0.35)", dot:"🟣"},
+  {color:"#1e293b",bg:"rgba(30,41,59,0.12)",   border:"rgba(30,41,59,0.35)",   dot:"⚫️"},
+  {color:"#e2e8f0",bg:"rgba(226,232,240,0.12)",border:"rgba(226,232,240,0.35)",dot:"⚪️"},
+  {color:"#92400e",bg:"rgba(146,64,14,0.12)",  border:"rgba(146,64,14,0.35)",  dot:"🟤"},
+  {color:"#ec4899",bg:"rgba(236,72,153,0.12)", border:"rgba(236,72,153,0.35)", dot:"🩷"},
+  {color:"#06b6d4",bg:"rgba(6,182,212,0.12)",  border:"rgba(6,182,212,0.35)",  dot:"🩵"},
+  {color:"#94a3b8",bg:"rgba(148,163,184,0.12)",border:"rgba(148,163,184,0.35)",dot:"🩶"},
 ];
 const CICONS={
   auto:"🚗",rent:"🏠",subscription:"📱",gas:"⛽",credit_card:"💳",
@@ -422,7 +419,7 @@ const migrate=raw=>{
 };
 const DD={
   proximoCobro:"",payFreq:"biweekly",theme:"dark",
-  checkAmount:0,periods:{},
+  checkAmount:0,useFixedAmount:true,periods:{},
   tarjetas:[],
   loans:[],
   pots:{savings_acct:0,emergency:0,investment:0},
@@ -640,11 +637,12 @@ const GastoItem=memo(({item,pid,editId,setEditId,tarjetas,onCycle,onLongPress,on
   const [editing,setEditing]=useState(false);
   const [savedSnapshot,setSavedSnapshot]=useState(null);
   const [debtSwipe,setDebtSwipe]=useState(0);
+  const [showColorPicker,setShowColorPicker]=useState(false);
   const debtSwipeRef=useRef({startX:0,startY:0,dir:null,active:false});
   // Reset all internal open UI whenever resetToken changes (card collapsed by external action)
   useEffect(()=>{
     if(resetToken===undefined)return;
-    setEditing(false);setSavedSnapshot(null);setDebtSwipe(0);
+    setEditing(false);setSavedSnapshot(null);setDebtSwipe(0);setShowColorPicker(false);setShowColorPicker(false);
   },[resetToken]);
   const INP=mkINP(T),BTN=mkBTN(),CARD=mkCARD(T);
   const dp=getDU(debt.fechaPago),fpd=gdf(debt.fechaPago),fcd=debt.fechaCorte?gdf(debt.fechaCorte):null;
@@ -714,9 +712,9 @@ const GastoItem=memo(({item,pid,editId,setEditId,tarjetas,onCycle,onLongPress,on
     if(savedSnapshot){
       Object.keys(savedSnapshot).forEach(k=>onUpdate(debt.id,k,savedSnapshot[k]));
     }
-    setEditing(false);setSavedSnapshot(null);setDebtSwipe(0);
+    setEditing(false);setSavedSnapshot(null);setDebtSwipe(0);setShowColorPicker(false);setShowColorPicker(false);
   };
-  const saveEditing=()=>{setEditing(false);setSavedSnapshot(null);setDebtSwipe(0);};
+  const saveEditing=()=>{setEditing(false);setSavedSnapshot(null);setDebtSwipe(0);setShowColorPicker(false);setShowColorPicker(false);};
   return(
     <div style={{position:"relative",marginBottom:9,borderRadius:14,overflow:"hidden",...(clipH!=null?{height:clipH,maxHeight:clipH,minHeight:clipH}:{})}}>
       {/* Swipe actions behind — only when expanded and not collapsed in stack */}
@@ -812,25 +810,21 @@ const GastoItem=memo(({item,pid,editId,setEditId,tarjetas,onCycle,onLongPress,on
           </div>
 
           {/* COLOR PICKER — discrete button */}
-          {tipo==="card"&&!CC[debt.nombre]&&(()=>{
-            const [showColors,setShowColors]=React.useState(false);
-            const cur=debt._vc||CARD_PALETTE[0];
-            return(<div style={{marginBottom:10}}>
-              <button style={{...BTN,display:"flex",alignItems:"center",gap:6,padding:"6px 10px",borderRadius:8,background:T.surface2,border:`1px solid ${T.border}`,fontSize:11,color:T.muted}}
-                onMouseDown={e=>e.stopPropagation()} onClick={()=>setShowColors(s=>!s)}>
-                <div style={{width:12,height:12,borderRadius:"50%",background:cur.color,flexShrink:0}}/>
-                <span>Color</span>
-                <span style={{fontSize:9,opacity:0.5}}>{showColors?"▲":"▼"}</span>
-              </button>
-              {showColors&&<div style={{display:"flex",gap:6,flexWrap:"wrap",marginTop:8,padding:"8px",background:T.surface2,borderRadius:10}}>
-                {CARD_PALETTE.map((p,i)=>(<button key={i} onMouseDown={e=>e.stopPropagation()} onClick={()=>{onUpdate(debt.id,"_vc",p);setShowColors(false);}}
-                  style={{...BTN,width:26,height:26,borderRadius:"50%",padding:0,background:p.color,
-                    border:JSON.stringify(debt._vc)===JSON.stringify(p)?`3px solid ${T.text}`:`2px solid rgba(255,255,255,0.15)`,
-                    transform:JSON.stringify(debt._vc)===JSON.stringify(p)?"scale(1.2)":"scale(1)",
-                    transition:"all 0.15s",flexShrink:0}}/>))}
-              </div>}
-            </div>);
-          })()}
+          {tipo==="card"&&!CC[debt.nombre]&&(<div style={{marginBottom:10}}>
+            <button style={{...BTN,display:"flex",alignItems:"center",gap:6,padding:"6px 10px",borderRadius:8,background:T.surface2,border:`1px solid ${T.border}`,fontSize:11,color:T.muted}}
+              onMouseDown={e=>e.stopPropagation()} onClick={()=>setShowColorPicker(s=>!s)}>
+              <div style={{width:12,height:12,borderRadius:"50%",background:(debt._vc||CARD_PALETTE[0]).color,flexShrink:0}}/>
+              <span>Color</span>
+              <span style={{fontSize:9,opacity:0.5}}>{showColorPicker?"▲":"▼"}</span>
+            </button>
+            {showColorPicker&&<div style={{display:"flex",gap:6,flexWrap:"wrap",marginTop:8,padding:"8px",background:T.surface2,borderRadius:10}}>
+              {CARD_PALETTE.map((p,i)=>(<button key={i} onMouseDown={e=>e.stopPropagation()} onClick={()=>{onUpdate(debt.id,"_vc",p);setShowColorPicker(false);}}
+                style={{...BTN,width:26,height:26,borderRadius:"50%",padding:0,background:p.color,
+                  border:JSON.stringify(debt._vc)===JSON.stringify(p)?`3px solid ${T.text}`:`2px solid rgba(255,255,255,0.15)`,
+                  transform:JSON.stringify(debt._vc)===JSON.stringify(p)?"scale(1.2)":"scale(1)",
+                  transition:"all 0.15s",flexShrink:0}}/>))}
+            </div>}
+          </div>)}
           {/* ACTIONS */}
           <div style={{display:"flex",gap:8,marginTop:8}} onMouseDown={e=>e.stopPropagation()}>
             <button style={{...BTN,flex:1,padding:"12px",background:"#238636",color:"#fff",fontSize:13,fontWeight:700,borderRadius:11,letterSpacing:0.8}} onClick={isAdding?()=>setAddingDebt(null):saveEditing}>✓  SAVE</button>
@@ -1277,7 +1271,7 @@ function App(){
     setTimeout(()=>setEditId(nid),30);
   },[]);
   const resetCheck=useCallback((pid,label)=>{
-    updPeriodGastos(pid,g=>g.filter(x=>x.destino!=="temp"&&!x._quick).map(x=>({...x,state:"pending",pagado:false})));
+    updPeriodGastos(pid,g=>g.filter(x=>x.destino!=="temp"&&!x._quick).map(x=>({...x,state:"pending",pagado:false,_potAdded:false})));
     toast_(`🔄 ${label} reset`);
   },[]);
 
@@ -1548,12 +1542,13 @@ function App(){
           onChange={e=>{const v=e.target.value;if(v===""||/^\d*\.?\d*$/.test(v))setAmtInputVal(p=>({...p,[pid]:v}));}}
           onBlur={e=>{const v=amtInputVal[pid];if(v==null)return;const num=parseFloat(v);if(!isNaN(num)&&num>0)setPeriodAmount(pid,num);else{setData(p=>{const np={...p.periods};if(np[pid]){const{amount:_,...rest}=np[pid];np[pid]=rest;}return{...p,periods:np};});}setAmtInputVal(p=>{const n={...p};delete n[pid];return n;});}}
           onFocus={e=>{setAmtInputVal(p=>({...p,[pid]:String(amt)}));}}
-          placeholder={String(globalCheckAmount)}/>
+          placeholder={data.useFixedAmount!==false?String(globalCheckAmount):"Enter amount"}/>
         <div style={{marginTop:6,minHeight:22}}>
-          {periodAmountIsCustom&&(<button style={{...BTN,padding:"2px 8px",fontSize:10,background:"rgba(210,153,34,0.1)",color:"#d29922",border:"1px solid rgba(210,153,34,0.3)"}}
+          {data.useFixedAmount!==false&&periodAmountIsCustom&&(<button style={{...BTN,padding:"2px 8px",fontSize:10,background:"rgba(210,153,34,0.1)",color:"#d29922",border:"1px solid rgba(210,153,34,0.3)"}}
             onClick={()=>{setData(p=>{const np={...p.periods};if(np[pid]){const{amount:_,...rest}=np[pid];np[pid]=rest;}return{...p,periods:np};});setAmtInputVal(p=>{const n={...p};delete n[pid];return n;});}}>
             ↩ Use default ({fmt(globalCheckAmount)})
           </button>)}
+          {data.useFixedAmount===false&&<span style={{fontSize:10,color:T.muted}}>✏️ Variable mode — enter amount for this check</span>}
         </div>
       </div>
 
@@ -1630,7 +1625,7 @@ function App(){
     {id:"debts",     icon:"💳",label:"Debts",urgent:urgentDebts.length>0},
     {id:"calendar",  icon:"📅",label:"Calendar"},
     {id:"history",   icon:"📆",label:"History"},
-    {id:"settings",  icon:"⚙️",label:"Settings"},
+    {id:"settings",  icon:"⚙️",label:"Settings",urgent:!data.proximoCobro||(data.useFixedAmount!==false&&!data.checkAmount)},
   ];
   const snapReminder=useMemo(()=>getSnapshotReminder(today,data.snapshots),[today,data.snapshots]);
 
@@ -1641,7 +1636,7 @@ function App(){
       onTouchEnd={handleSwipeTouchEnd}
       style={{minHeight:"100vh",background:T.bg,color:T.text,fontFamily:"-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif"}}>
       <style>{`
-        @keyframes tabEnter{from{opacity:0;transform:scale(0.99);}to{opacity:1;transform:scale(1);}}.anim{animation:tabEnter 0.5s cubic-bezier(0.25,0.46,0.45,0.94) both;}
+        @keyframes tabEnter{from{opacity:0;transform:scale(0.99);}to{opacity:1;transform:scale(1);}}.anim{animation:tabEnter 0.5s cubic-bezier(0.25,0.46,0.45,0.94) both;}@keyframes onboardPulse{0%,100%{box-shadow:0 0 0 0 rgba(88,166,255,0.5);}50%{box-shadow:0 0 0 8px rgba(88,166,255,0);}}.onboard-pulse{animation:onboardPulse 1.8s ease-in-out infinite;border-radius:inherit;}
         @keyframes itemEnter{from{opacity:0;}to{opacity:1;}}
         @keyframes itemExit{0%{opacity:1;transform:translateX(0);max-height:120px;margin-bottom:7px;}100%{opacity:0;transform:translateX(60px);max-height:0;margin-bottom:0;}}.expense-row-exit{animation:itemExit 0.28s ease forwards;}
         @keyframes modalEnter{from{opacity:0;transform:scale(0.95) translateY(8px);}to{opacity:1;transform:scale(1) translateY(0);}}.modal-anim{animation:modalEnter 0.3s cubic-bezier(0.34,1.2,0.64,1) both;}
@@ -1894,7 +1889,7 @@ function App(){
                       onClick={()=>{setTab(t.id);setSortMenuOpen(false);}}>
                       <div style={{transition:"color 0.2s"}}>{SVG_ICONS[t.id]}</div>
                       <span style={{fontSize:9,fontWeight:isActive?700:500,letterSpacing:0.3}}>{t.label}</span>
-                      {t.urgent&&!isActive&&<span style={{position:"absolute",top:5,right:"calc(50% - 13px)",width:7,height:7,borderRadius:"50%",background:"#f85149",border:"1.5px solid "+T.bg}}/>}
+                      {t.urgent&&!isActive&&<span className="onboard-pulse" style={{position:"absolute",top:5,right:"calc(50% - 13px)",width:8,height:8,borderRadius:"50%",background:T.accent,border:"1.5px solid "+T.bg}}/>}
                     </button>
                   );
                 })}
@@ -2620,7 +2615,18 @@ function App(){
           <div style={{...CARD,padding:"12px 14px",marginBottom:10}}>
             <div style={{fontSize:10,color:T.accent,letterSpacing:1.5,fontWeight:700,marginBottom:8}}>💵 PAYDAY SETTINGS</div>
             <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8,marginBottom:8}}>
-              <div><div style={{fontSize:9,color:T.muted,marginBottom:4}}>AMOUNT ($)</div><input style={{...INP,fontSize:15,fontFamily:"monospace",fontWeight:700,padding:"8px 10px"}} type="number" inputMode="decimal" value={data.checkAmount||""} onChange={e=>setData(p=>({...p,checkAmount:parseFloat(e.target.value)||0}))} placeholder="e.g. 1500"/></div>
+              <div>
+                <div style={{fontSize:9,color:T.muted,marginBottom:6}}>AMOUNT ($)</div>
+                {(()=>{const needsSetup=!data.checkAmount&&!data.proximoCobro&&data.useFixedAmount!==false;return(
+                <div style={{display:"flex",gap:8,marginBottom:6}}>
+                  <button className={needsSetup?"onboard-pulse":""} style={{...BTN,flex:1,padding:"6px 10px",borderRadius:9,background:data.useFixedAmount!==false?`${T.accent}18`:T.surface2,border:data.useFixedAmount!==false?`1px solid ${T.accent}`:`1px solid ${T.border}`,fontSize:11,color:data.useFixedAmount!==false?T.accent:T.muted,fontWeight:data.useFixedAmount!==false?700:400}}
+                    onClick={()=>setData(p=>({...p,useFixedAmount:true}))}>🔒 Fixed</button>
+                  <button className={needsSetup?"onboard-pulse":""} style={{...BTN,flex:1,padding:"6px 10px",borderRadius:9,background:data.useFixedAmount===false?`${T.accent}18`:T.surface2,border:data.useFixedAmount===false?`1px solid ${T.accent}`:`1px solid ${T.border}`,fontSize:11,color:data.useFixedAmount===false?T.accent:T.muted,fontWeight:data.useFixedAmount===false?700:400}}
+                    onClick={()=>setData(p=>({...p,useFixedAmount:false}))}>✏️ Variable</button>
+                </div>);})()}
+                {data.useFixedAmount!==false&&(()=>{const needsAmt=data.useFixedAmount!==false&&!data.checkAmount;return<input className={needsAmt?"onboard-pulse":""} style={{...INP,fontSize:15,fontFamily:"monospace",fontWeight:700,padding:"8px 10px"}} type="number" inputMode="decimal" value={data.checkAmount||""} onChange={e=>setData(p=>({...p,checkAmount:parseFloat(e.target.value)||0}))} placeholder="e.g. 1500"/>;})()}
+                {data.useFixedAmount===false&&<div style={{fontSize:10,color:T.muted,padding:"6px 0"}}>Each paycheck has its own amount — set it in the Paychecks tab</div>}
+              </div>
               <div><div style={{fontSize:9,color:T.muted,marginBottom:4}}>ANCHOR DATE</div><input style={{...INP,fontSize:12,padding:"8px 10px"}} type="date" value={data.proximoCobro||""} onChange={e=>setData(p=>({...p,proximoCobro:e.target.value}))}/></div>
             </div>
             <div style={{marginBottom:8}}>
@@ -2634,7 +2640,7 @@ function App(){
             </div>
             <div style={{background:T.surface2,borderRadius:8,padding:"7px 10px",fontSize:10,color:T.muted,lineHeight:1.6}}>
               <span>{monthPeriods.length} period{monthPeriods.length!==1?"s":""} · Current: <strong style={{color:T.text}}>{currentPeriod?fmd(currentPeriod.payday):"-"}</strong> · </span>
-              <span style={{color:"#3fb950",fontWeight:600}}>Next: {nextPayday?fmd(nextPayday):"-"} ({diasProx===0?"today":diasProx+"d"})</span>
+              <span style={{color:"#3fb950",fontWeight:600}}>Next: {nextPayday?fmd(nextPayday):"-"} ({diasProx===0?"today":diasProx!=null?diasProx+"d":"—"})</span>
             </div>
           </div>
           {/* 2. Appearance */}
