@@ -730,7 +730,7 @@ const GastoItem=memo(({item,pid,editId,setEditId,tarjetas,onCycle,onLongPress,on
         </div>
       </div>}
       <div
-        className="debt-card-tap" onFocus={e=>{if(showEdit){setTimeout(()=>{e.target.scrollIntoView&&e.target.scrollIntoView({behavior:"smooth",block:"nearest"});},100);}}} style={{...CARD,padding:clipH!=null?"11px 14px":"12px 14px",marginBottom:0,overflow:"hidden",borderColor:isFirst?"#d29922":showEdit?`${T.accent}80`:debt.priority?"rgba(245,158,11,0.35)":T.border,transition:"transform 0.3s cubic-bezier(0.34,1.2,0.64,1), border-color 0.2s",transform:`translateX(${showEdit?0:debtSwipe}px)`,userSelect:"none",WebkitUserSelect:"none",WebkitTouchCallout:"none",...(clipH!=null?{boxSizing:"border-box",height:clipH,maxHeight:clipH,minHeight:clipH,display:"flex",alignItems:"center",clipPath:"inset(0 round 16px)"}:{clipPath:"none"})}}
+        className="debt-card-tap" onFocus={e=>{if(showEdit){setTimeout(()=>{e.target.scrollIntoView&&e.target.scrollIntoView({behavior:"smooth",block:"nearest"});},100);}}} style={{...CARD,padding:clipH!=null?"12px 14px":"12px 14px",marginBottom:0,overflow:"hidden",borderColor:isFirst?"#d29922":showEdit?`${T.accent}80`:debt.priority?"rgba(245,158,11,0.35)":T.border,transition:"transform 0.3s cubic-bezier(0.34,1.2,0.64,1), border-color 0.2s",transform:`translateX(${showEdit?0:debtSwipe}px)`,userSelect:"none",WebkitUserSelect:"none",WebkitTouchCallout:"none",...(clipH!=null?{boxSizing:"border-box",height:clipH,maxHeight:clipH,minHeight:clipH,clipPath:"inset(0 round 16px)"}:{clipPath:"none"})}}
       onTouchStart={hLPStart}
       onTouchMove={hLPMove}
       onTouchEnd={hLPEnd}
@@ -2227,7 +2227,7 @@ function App(){
               )}
               {!cardsCollapsed&&visibleCards.length>0&&(()=>{
                 const HEADER_H = 58;
-                const OVERLAP  = 18;
+                const OVERLAP  = 14;
                 const GAP      = 10;
                 const expandedIdx = visibleCards.findIndex(c => c.id === expandedCardId);
 
@@ -2241,10 +2241,10 @@ function App(){
                       const isExpanded = expandedCardId===d.id;
                       const isFirstAfterExpanded = expandedIdx >= 0 && stackIdx === expandedIdx + 1;
 
-                      // Expanded card floats above everything. All others: card 1 on top (highest z).
+                      // Last card on top (highest z), first card on bottom
                       const zIndex = isExpanded
                         ? visibleCards.length + 10
-                        : Math.max(1, visibleCards.length - stackIdx);
+                        : stackIdx + 1;
 
                       // Expanded card gets a gap above AND below (it floats between two stacks)
                       const marginTop = stackIdx === 0
@@ -2386,7 +2386,7 @@ function App(){
               </div>
               {!loansCollapsed&&(()=>{
                 const HEADER_H = 58;
-                const OVERLAP  = 18;
+                const OVERLAP  = 14;
                 const GAP      = 10;
                 const expandedIdx = visibleLoans.findIndex(c => c.id === expandedLoanId);
                 return(
@@ -2400,7 +2400,7 @@ function App(){
                       const isFirst=!!sortStrategy&&d.id===firstDebtId;
                       const isExpanded = expandedLoanId===d.id;
                       const isFirstAfterExpanded = expandedIdx >= 0 && stackIdx === expandedIdx + 1;
-                      const zIndex = isExpanded ? visibleLoans.length+10 : Math.max(1, visibleLoans.length - stackIdx);
+                      const zIndex = isExpanded ? visibleLoans.length+10 : stackIdx + 1;
                       const marginTop = stackIdx===0 ? 0 : isExpanded ? GAP : isFirstAfterExpanded ? GAP : -OVERLAP;
                       const filter2 = (expandedIdx>=0 && !isExpanded) ? "blur(1.5px) brightness(0.6)" : "none";
                       const transform = isExpanded ? "scale(1.02)" : "none";
