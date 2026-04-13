@@ -752,8 +752,10 @@ const GastoItem=memo(({item,pid,editId,setEditId,tarjetas,onCycle,onLongPress,on
           :<div style={{flex:1,minWidth:0,pointerEvents:"none"}}>
             <div style={{display:"flex",alignItems:"center",gap:6}}>
               <span style={{fontWeight:700,fontSize:clipH!=null?13:14,color:T.text,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{debt.nombre}</span>
-              {isActive&&<span style={{fontSize:9,color:T.muted,opacity:0.5}}>✏️</span>}
+              {isActive&&clipH==null&&<span style={{fontSize:9,color:T.muted,opacity:0.5}}>✏️</span>}
             </div>
+            {clipH!=null&&tipo==="card"&&n(debt.limite)>0&&<span style={{fontSize:9,color:"#3fb950",fontWeight:600,opacity:0.7}}>{fmt(Math.max(0,n(debt.limite)-n(debt.balance)))} avail.</span>}
+            {clipH!=null&&tipo==="loan"&&n(debt.original)>0&&<span style={{fontSize:9,color:"#58a6ff",fontWeight:600,opacity:0.7}}>{pct}% paid</span>}
             {tipo==="card"&&!showEdit&&clipH==null&&n(debt.limite)>0&&<span style={{fontSize:9,color:"#3fb950",fontWeight:600,opacity:0.85}}>{fmt(Math.max(0,n(debt.limite)-n(debt.balance)))}</span>}
           </div>
         }
@@ -782,22 +784,18 @@ const GastoItem=memo(({item,pid,editId,setEditId,tarjetas,onCycle,onLongPress,on
               <div className="amt-wrap"><span className="amt-prefix" style={{fontSize:16,color:(tipo==="card"?debt.limite:debt.original)?T.accent+"99":T.muted+"55"}}>$</span><input style={{...INP,fontSize:18,fontFamily:"monospace",fontWeight:700,padding:"10px 12px",paddingLeft:22,userSelect:"text",WebkitUserSelect:"text"}} type="number" inputMode="decimal" placeholder="0" value={(tipo==="card"?debt.limite:debt.original)||""} onChange={e=>onUpdate(debt.id,tipo==="card"?"limite":"original",e.target.value)}/></div>
             </div>
           </div>
-          {/* SECONDARY DATA */}
-          <div style={{display:"flex",gap:6,marginBottom:12}}>
-            <div style={{flex:1}}>
-              <div style={{fontSize:9,color:T.muted,letterSpacing:1.5,fontWeight:600,marginBottom:5}}>MIN</div>
-              <div className="amt-wrap"><span className="amt-prefix" style={{fontSize:12,color:debt.minimo?T.accent+"99":T.muted+"55"}}>$</span><input style={{...INP,fontSize:13,padding:"7px 8px",paddingLeft:18,userSelect:"text",WebkitUserSelect:"text"}} type="number" inputMode="decimal" placeholder="0" value={debt.minimo||""} onChange={e=>onUpdate(debt.id,"minimo",e.target.value)}/></div>
-            </div>
-            <div style={{flex:1}}>
-              <div style={{fontSize:9,color:T.muted,letterSpacing:1.5,fontWeight:600,marginBottom:5}}>APR</div>
+          {/* SECONDARY DATA — APR · DUE · CUT symmetric */}
+          <div style={{display:"grid",gridTemplateColumns:"1fr 1fr"+(tipo==="card"?" 1fr":""),gap:8,marginBottom:12}}>
+            <div>
+              <div style={{fontSize:9,color:T.muted,letterSpacing:1.5,fontWeight:600,marginBottom:5,textAlign:"center"}}>APR</div>
               <div style={{position:"relative"}}><span style={{position:"absolute",right:8,top:"50%",transform:"translateY(-50%)",fontSize:12,fontFamily:"monospace",fontWeight:700,color:debt.interes?T.accent+"99":T.muted+"55",pointerEvents:"none"}}>%</span><input style={{...INP,fontSize:13,padding:"7px 6px",paddingRight:20,userSelect:"text",WebkitUserSelect:"text",textAlign:"center"}} type="number" inputMode="decimal" placeholder="0" value={debt.interes||""} onChange={e=>onUpdate(debt.id,"interes",e.target.value)}/></div>
             </div>
-            <div style={{flex:1}}>
-              <div style={{fontSize:9,color:dp!==null&&dp<=3?"#f85149":T.muted,letterSpacing:1.5,fontWeight:dp!==null&&dp<=3?700:600,marginBottom:5}}>DUE</div>
+            <div>
+              <div style={{fontSize:9,color:dp!==null&&dp<=3?"#f85149":T.muted,letterSpacing:1.5,fontWeight:dp!==null&&dp<=3?700:600,marginBottom:5,textAlign:"center"}}>DUE</div>
               <input style={{...INP,fontSize:13,padding:"7px 6px",borderColor:"rgba(248,81,73,0.35)",userSelect:"text",WebkitUserSelect:"text",textAlign:"center"}} type="number" inputMode="numeric" placeholder="—" value={debt.fechaPago||""} onChange={e=>onUpdate(debt.id,"fechaPago",e.target.value)}/>
             </div>
-            {tipo==="card"&&<div style={{flex:1}}>
-              <div style={{fontSize:9,color:T.muted,letterSpacing:1.5,fontWeight:600,marginBottom:5}}>CUT</div>
+            {tipo==="card"&&<div>
+              <div style={{fontSize:9,color:T.muted,letterSpacing:1.5,fontWeight:600,marginBottom:5,textAlign:"center"}}>CUT</div>
               <input style={{...INP,fontSize:13,padding:"7px 6px",userSelect:"text",WebkitUserSelect:"text",textAlign:"center"}} type="number" inputMode="numeric" placeholder="—" value={debt.fechaCorte||""} onChange={e=>onUpdate(debt.id,"fechaCorte",e.target.value)}/>
             </div>}
           </div>
@@ -805,16 +803,20 @@ const GastoItem=memo(({item,pid,editId,setEditId,tarjetas,onCycle,onLongPress,on
           {tipo==="card"&&!CC[debt.nombre]&&(<div style={{marginBottom:10}}>
             <button style={{...BTN,display:"flex",alignItems:"center",gap:5,padding:"4px 8px",borderRadius:7,background:T.surface2,border:`1px solid ${T.border}`,fontSize:10,color:T.muted}}
               onMouseDown={e=>e.stopPropagation()} onClick={()=>setShowColorPicker(s=>!s)}>
-              <div style={{width:10,height:10,borderRadius:"50%",background:(debt._vc||CARD_PALETTE[0]).color,flexShrink:0}}/>
+              <div style={{width:10,height:10,borderRadius:"50%",background:(debt._vc||CARD_PALETTE[0]).color,flexShrink:0,transition:"transform 0.3s cubic-bezier(0.34,1.56,0.64,1)"}}/>
               <span>Color</span>
               <span style={{fontSize:8,opacity:0.5}}>{showColorPicker?"▲":"▼"}</span>
             </button>
             {showColorPicker&&<div style={{display:"flex",gap:6,flexWrap:"wrap",marginTop:8,padding:"8px",background:T.surface2,borderRadius:10}}>
-              {CARD_PALETTE.map((p,i)=>(<button key={i} onMouseDown={e=>e.stopPropagation()} onClick={()=>{onUpdate(debt.id,"_vc",p);setShowColorPicker(false);}}
-                style={{...BTN,width:24,height:24,borderRadius:"50%",padding:0,background:p.color,
-                  border:JSON.stringify(debt._vc)===JSON.stringify(p)?`3px solid ${T.text}`:`2px solid rgba(255,255,255,0.15)`,
-                  transform:JSON.stringify(debt._vc)===JSON.stringify(p)?"scale(1.2)":"scale(1)",
-                  transition:"all 0.15s",flexShrink:0}}/>))}
+              {CARD_PALETTE.map((p,i)=>{
+                const isSel=JSON.stringify(debt._vc)===JSON.stringify(p);
+                return(<button key={i} onMouseDown={e=>e.stopPropagation()} onClick={()=>{onUpdate(debt.id,"_vc",p);setShowColorPicker(false);}}
+                  style={{...BTN,width:24,height:24,borderRadius:"50%",padding:0,background:p.color,
+                    border:isSel?`3px solid ${T.text}`:`2px solid rgba(255,255,255,0.15)`,
+                    transform:isSel?"scale(1.3)":"scale(1)",
+                    boxShadow:isSel?`0 0 8px ${p.color}99`:"none",
+                    transition:"all 0.25s cubic-bezier(0.34,1.56,0.64,1)",flexShrink:0}}/>);
+              })}
             </div>}
           </div>)}
           {/* ACTIONS */}
@@ -829,6 +831,9 @@ const GastoItem=memo(({item,pid,editId,setEditId,tarjetas,onCycle,onLongPress,on
 
       {/* ── Compact view ── */}
       {!showEdit&&(<>
+
+        {/* When collapsed in stack: show nothing extra — header row IS the card */}
+        {clipH==null&&(<>
 
         {/* Card: utilization bar */}
         {tipo==="card"&&(<div style={{marginBottom:7}}>
@@ -867,7 +872,7 @@ const GastoItem=memo(({item,pid,editId,setEditId,tarjetas,onCycle,onLongPress,on
           </div>)}
         </div>
 
-        {/* Due date — loans only, own row, visually secondary to financial chips */}
+        {/* Due date — loans only */}
         {tipo==="loan"&&fpd&&dp!==null&&(<div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:4,padding:"4px 9px",borderRadius:7,background:"transparent",border:`1px solid ${dueBorder}`}}>
           <span style={{fontSize:10,color:T.muted,fontWeight:500}}>Due</span>
           <div style={{display:"flex",alignItems:"center",gap:6}}>
@@ -887,7 +892,7 @@ const GastoItem=memo(({item,pid,editId,setEditId,tarjetas,onCycle,onLongPress,on
           <span style={{fontSize:10,color:"#d29922",fontWeight:600}}>{n(debt.interes)}%</span>
         </div>)}
 
-        {/* Loan: progress bar — after all chips so header stays clean */}
+        {/* Loan: progress bar */}
         {tipo==="loan"&&n(debt.original)>0&&(<div style={{marginTop:4,marginBottom:3}}>
           <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:3}}>
             <span style={{fontSize:10,color:T.muted}}>Paid {fmt(n(debt.original)-n(debt.balance))} of {fmt(debt.original)}</span>
@@ -896,10 +901,11 @@ const GastoItem=memo(({item,pid,editId,setEditId,tarjetas,onCycle,onLongPress,on
           <div style={{height:5,background:T.surface2,borderRadius:4,overflow:"hidden"}}><div style={{height:"100%",width:`${pct}%`,background:"linear-gradient(90deg,#3fb950,#58a6ff)",borderRadius:4}}/></div>
         </div>)}
 
+        </>)}
       </>)}
 
       {/* ── Action area ── */}
-      {!isAdding&&!editing&&(
+      {!isAdding&&!editing&&clipH==null&&(
         isActive
           ?(<div style={{background:T.bg,borderRadius:8,padding:"10px 11px",border:`1px solid ${accion.tipo==="pago"?"#3fb950":"#f85149"}`,marginTop:6}} onMouseDown={e=>e.stopPropagation()} onTouchStart={e=>e.stopPropagation()}>
             <div style={{fontSize:11,fontWeight:700,color:accion.tipo==="pago"?"#3fb950":"#f85149",marginBottom:7}}>{accion.tipo==="pago"?"💳 Amount paid?":"🛒 Amount charged?"}</div>
