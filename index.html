@@ -730,7 +730,7 @@ const GastoItem=memo(({item,pid,editId,setEditId,tarjetas,onCycle,onLongPress,on
         </div>
       </div>}
       <div
-        className="debt-card-tap" onFocus={e=>{if(showEdit){setTimeout(()=>{e.target.scrollIntoView&&e.target.scrollIntoView({behavior:"smooth",block:"nearest"});},100);}}} style={{...CARD,padding:clipH!=null?"10px 14px":"12px 14px",marginBottom:0,overflow:"hidden",borderColor:isFirst?"#d29922":showEdit?`${T.accent}80`:debt.priority?"rgba(245,158,11,0.35)":T.border,transition:"transform 0.3s cubic-bezier(0.34,1.2,0.64,1), border-color 0.2s",transform:`translateX(${showEdit?0:debtSwipe}px)`,userSelect:"none",WebkitUserSelect:"none",WebkitTouchCallout:"none",...(clipH!=null?{boxSizing:"border-box",height:clipH,maxHeight:clipH,minHeight:clipH,clipPath:"inset(0 round 16px)"}:{clipPath:"none"})}}
+        className="debt-card-tap" onFocus={e=>{if(showEdit){setTimeout(()=>{e.target.scrollIntoView&&e.target.scrollIntoView({behavior:"smooth",block:"nearest"});},100);}}} style={{...CARD,padding:clipH!=null?"11px 14px":"12px 14px",marginBottom:0,overflow:"hidden",borderColor:isFirst?"#d29922":showEdit?`${T.accent}80`:debt.priority?"rgba(245,158,11,0.35)":T.border,transition:"transform 0.3s cubic-bezier(0.34,1.2,0.64,1), border-color 0.2s",transform:`translateX(${showEdit?0:debtSwipe}px)`,userSelect:"none",WebkitUserSelect:"none",WebkitTouchCallout:"none",...(clipH!=null?{boxSizing:"border-box",height:clipH,maxHeight:clipH,minHeight:clipH,display:"flex",alignItems:"center",clipPath:"inset(0 round 16px)"}:{clipPath:"none"})}}
       onTouchStart={hLPStart}
       onTouchMove={hLPMove}
       onTouchEnd={hLPEnd}
@@ -743,7 +743,7 @@ const GastoItem=memo(({item,pid,editId,setEditId,tarjetas,onCycle,onLongPress,on
 
       {/* ── Header: icon · name · balance · star ── */}
       <div
-        style={{display:"flex",alignItems:"center",gap:clipH!=null?5:7,marginBottom:clipH!=null?0:6,userSelect:"none",WebkitUserSelect:"none",WebkitTouchCallout:"none",cursor:onCollapse&&!showEdit?"pointer":"default"}}
+        style={{display:"flex",alignItems:"center",gap:clipH!=null?5:7,marginBottom:clipH!=null?0:6,width:"100%",userSelect:"none",WebkitUserSelect:"none",WebkitTouchCallout:"none",cursor:onCollapse&&!showEdit?"pointer":"default"}}
         onClick={e=>{if(onCollapse&&!showEdit&&!e.target.closest('button,input,select,textarea')){onCollapse(e);}}}
       >
         <span style={{fontSize:clipH!=null?19:15,flexShrink:0,pointerEvents:"none",display:"inline-block",transition:"transform 0.35s cubic-bezier(0.34,1.56,0.64,1)",transform:clipH==null?"scale(1.35)":"scale(1)"}}>{debtIcon}</span>
