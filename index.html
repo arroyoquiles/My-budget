@@ -658,11 +658,11 @@ const GastoItem=memo(({item,pid,editId,setEditId,tarjetas,onCycle,onLongPress,on
   const dueBorder=dp<=0?`${T.accent}4d`:dp<=5?"rgba(248,81,73,0.3)":"rgba(63,185,80,0.2)";
   const dueColor=dp<=0?T.accent:dp<=5?"#f85149":"#3fb950";
   const vcStyle=tipo==="card"&&debt._vc?debt._vc:null;
-  const debtIcon=tipo==="card"?(CC[debt.nombre]?.dot||vcStyle?.dot||"💳"):getLoanIcon(debt.nombre);
+  const debtIcon=tipo==="card"?(vcStyle?.dot||CC[debt.nombre]?.dot||"💳"):getLoanIcon(debt.nombre);
   const cardUtilPct=tipo==="card"&&n(debt.limite)>0?Math.min(100,Math.round((n(debt.balance)/n(debt.limite))*100)):0;
   const utilColor=getUtilColor(cardUtilPct);
   const utilLabel=getUtilLabel(cardUtilPct);
-  const balanceColor=n(debt.balance)===0?T.muted:tipo==="card"?(CC[debt.nombre]?.color||vcStyle?.color||"#ec4899"):getLoanColor(debt.nombre);
+  const balanceColor=n(debt.balance)===0?T.muted:tipo==="card"?(vcStyle?.color||CC[debt.nombre]?.color||"#ec4899"):getLoanColor(debt.nombre);
   const lpTimer=useRef(null);
   const lpFired=useRef(false);
   const lpStartPos=useRef(null);
@@ -746,12 +746,12 @@ const GastoItem=memo(({item,pid,editId,setEditId,tarjetas,onCycle,onLongPress,on
         style={{display:"flex",alignItems:"center",gap:clipH!=null?5:7,marginBottom:clipH!=null?0:6,userSelect:"none",WebkitUserSelect:"none",WebkitTouchCallout:"none",cursor:onCollapse&&!showEdit?"pointer":"default"}}
         onClick={e=>{if(onCollapse&&!showEdit&&!e.target.closest('button,input,select,textarea')){onCollapse(e);}}}
       >
-        <span style={{fontSize:clipH!=null?17:15,flexShrink:0,pointerEvents:"none",display:"inline-block",transition:"transform 0.35s cubic-bezier(0.34,1.56,0.64,1)",transform:clipH==null?"scale(1.35)":"scale(1)"}}>{debtIcon}</span>
+        <span style={{fontSize:clipH!=null?19:15,flexShrink:0,pointerEvents:"none",display:"inline-block",transition:"transform 0.35s cubic-bezier(0.34,1.56,0.64,1)",transform:clipH==null?"scale(1.35)":"scale(1)"}}>{debtIcon}</span>
         {showEdit
           ?<input style={{...INP,fontWeight:700,fontSize:14,background:"transparent",border:"none",borderBottom:`1.5px solid ${T.accent}`,borderRadius:0,padding:"2px 0",flex:1,userSelect:"text",WebkitUserSelect:"text"}} value={debt.nombre} onChange={e=>onUpdate(debt.id,"nombre",e.target.value)} autoFocus={false} onMouseDown={e=>e.stopPropagation()} onTouchStart={e=>e.stopPropagation()}/>
           :<div style={{flex:1,minWidth:0,pointerEvents:"none"}}>
             <div style={{display:"flex",alignItems:"center",gap:6}}>
-              <span style={{fontWeight:700,fontSize:clipH!=null?13:14,color:T.text,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{debt.nombre}</span>
+              <span style={{fontWeight:700,fontSize:clipH!=null?14:14,color:T.text,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{debt.nombre}</span>
               {isActive&&clipH==null&&<span style={{fontSize:9,color:T.muted,opacity:0.5}}>✏️</span>}
             </div>
             {clipH!=null&&tipo==="card"&&n(debt.limite)>0&&<span style={{fontSize:9,color:"#3fb950",fontWeight:600,opacity:0.7}}>{fmt(Math.max(0,n(debt.limite)-n(debt.balance)))} avail.</span>}
@@ -759,7 +759,7 @@ const GastoItem=memo(({item,pid,editId,setEditId,tarjetas,onCycle,onLongPress,on
             {tipo==="card"&&!showEdit&&clipH==null&&n(debt.limite)>0&&<span style={{fontSize:9,color:"#3fb950",fontWeight:600,opacity:0.85}}>{fmt(Math.max(0,n(debt.limite)-n(debt.balance)))}</span>}
           </div>
         }
-        <span style={{fontFamily:"monospace",fontWeight:800,fontSize:clipH!=null?(tipo==="card"?15:14):(tipo==="card"?18:16),color:balanceColor,flexShrink:0,letterSpacing:-0.3,pointerEvents:"none"}}>{fmt(n(debt.balance))}</span>
+        <span style={{fontFamily:"monospace",fontWeight:800,fontSize:clipH!=null?(tipo==="card"?16:15):(tipo==="card"?18:16),color:balanceColor,flexShrink:0,letterSpacing:-0.3,pointerEvents:"none"}}>{fmt(n(debt.balance))}</span>
         <button
           style={{...BTN,background:"transparent",color:debt.priority?"#f59e0b":T.muted,padding:"4px 5px",fontSize:clipH!=null?12:14,border:"none",opacity:debt.priority?1:0.4,flexShrink:0,transition:"opacity 0.15s",minWidth:clipH!=null?24:28,minHeight:clipH!=null?24:28,display:"flex",alignItems:"center",justifyContent:"center"}}
           onMouseDown={e=>{e.stopPropagation();e.preventDefault();clearTimeout(lpTimer.current);lpStartPos.current=null;}}
@@ -800,7 +800,7 @@ const GastoItem=memo(({item,pid,editId,setEditId,tarjetas,onCycle,onLongPress,on
             </div>}
           </div>
           {/* COLOR PICKER */}
-          {tipo==="card"&&!CC[debt.nombre]&&(<div style={{marginBottom:10}}>
+          {tipo==="card"&&(<div style={{marginBottom:10}}>
             <button style={{...BTN,display:"flex",alignItems:"center",gap:5,padding:"4px 8px",borderRadius:7,background:T.surface2,border:`1px solid ${T.border}`,fontSize:10,color:T.muted}}
               onMouseDown={e=>e.stopPropagation()} onClick={()=>setShowColorPicker(s=>!s)}>
               <div style={{width:10,height:10,borderRadius:"50%",background:(debt._vc||CARD_PALETTE[0]).color,flexShrink:0,transition:"transform 0.3s cubic-bezier(0.34,1.56,0.64,1)"}}/>
@@ -2226,8 +2226,8 @@ function App(){
                 </div>
               )}
               {!cardsCollapsed&&visibleCards.length>0&&(()=>{
-                const HEADER_H = 52;
-                const OVERLAP  = 16;
+                const HEADER_H = 58;
+                const OVERLAP  = 18;
                 const GAP      = 10;
                 const expandedIdx = visibleCards.findIndex(c => c.id === expandedCardId);
 
@@ -2385,8 +2385,8 @@ function App(){
                 <div style={{flex:1,height:1,background:`linear-gradient(90deg,${T.border},transparent)`}}/>
               </div>
               {!loansCollapsed&&(()=>{
-                const HEADER_H = 52;
-                const OVERLAP  = 16;
+                const HEADER_H = 58;
+                const OVERLAP  = 18;
                 const GAP      = 10;
                 const expandedIdx = visibleLoans.findIndex(c => c.id === expandedLoanId);
                 return(
