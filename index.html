@@ -742,31 +742,24 @@ const GastoItem=memo(({item,pid,editId,setEditId,tarjetas,onCycle,onLongPress,on
     >
 
       {/* ── Header: icon · name · balance · star ── */}
-      {/* When expanded, tapping the header area (not star/button) collapses the card */}
       <div
-        style={{display:"flex",alignItems:"center",gap:7,marginBottom:6,userSelect:"none",WebkitUserSelect:"none",WebkitTouchCallout:"none",cursor:onCollapse&&!showEdit?"pointer":"default"}}
-        onClick={e=>{
-          // Only collapse if tapping non-interactive area in header
-          if(onCollapse&&!showEdit&&!e.target.closest('button,input,select,textarea')){
-            onCollapse(e);
-          }
-        }}
+        style={{display:"flex",alignItems:"center",gap:clipH!=null?5:7,marginBottom:clipH!=null?0:6,userSelect:"none",WebkitUserSelect:"none",WebkitTouchCallout:"none",cursor:onCollapse&&!showEdit?"pointer":"default"}}
+        onClick={e=>{if(onCollapse&&!showEdit&&!e.target.closest('button,input,select,textarea')){onCollapse(e);}}}
       >
-        <span style={{fontSize:15,flexShrink:0,pointerEvents:"none",display:"inline-block",transition:"transform 0.35s cubic-bezier(0.34,1.56,0.64,1)",transform:clipH==null?"scale(1.35)":"scale(1)"}}>{debtIcon}</span>
+        <span style={{fontSize:clipH!=null?17:15,flexShrink:0,pointerEvents:"none",display:"inline-block",transition:"transform 0.35s cubic-bezier(0.34,1.56,0.64,1)",transform:clipH==null?"scale(1.35)":"scale(1)"}}>{debtIcon}</span>
         {showEdit
           ?<input style={{...INP,fontWeight:700,fontSize:14,background:"transparent",border:"none",borderBottom:`1.5px solid ${T.accent}`,borderRadius:0,padding:"2px 0",flex:1,userSelect:"text",WebkitUserSelect:"text"}} value={debt.nombre} onChange={e=>onUpdate(debt.id,"nombre",e.target.value)} autoFocus={false} onMouseDown={e=>e.stopPropagation()} onTouchStart={e=>e.stopPropagation()}/>
           :<div style={{flex:1,minWidth:0,pointerEvents:"none"}}>
             <div style={{display:"flex",alignItems:"center",gap:6}}>
-              <span style={{fontWeight:700,fontSize:14,color:T.text,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{debt.nombre}</span>
+              <span style={{fontWeight:700,fontSize:clipH!=null?13:14,color:T.text,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{debt.nombre}</span>
               {isActive&&<span style={{fontSize:9,color:T.muted,opacity:0.5}}>✏️</span>}
             </div>
-            {tipo==="card"&&!showEdit&&n(debt.limite)>0&&<span style={{fontSize:9,color:"#3fb950",fontWeight:600,opacity:0.85}}>{fmt(Math.max(0,n(debt.limite)-n(debt.balance)))}</span>}
+            {tipo==="card"&&!showEdit&&clipH==null&&n(debt.limite)>0&&<span style={{fontSize:9,color:"#3fb950",fontWeight:600,opacity:0.85}}>{fmt(Math.max(0,n(debt.limite)-n(debt.balance)))}</span>}
           </div>
         }
-        <span style={{fontFamily:"monospace",fontWeight:800,fontSize:tipo==="card"?18:16,color:balanceColor,flexShrink:0,letterSpacing:-0.3,pointerEvents:"none"}}>{fmt(n(debt.balance))}</span>
-        {/* Star: fully isolated tap — stops propagation so it never triggers long press or expand */}
+        <span style={{fontFamily:"monospace",fontWeight:800,fontSize:clipH!=null?(tipo==="card"?15:14):(tipo==="card"?18:16),color:balanceColor,flexShrink:0,letterSpacing:-0.3,pointerEvents:"none"}}>{fmt(n(debt.balance))}</span>
         <button
-          style={{...BTN,background:"transparent",color:debt.priority?"#f59e0b":T.muted,padding:"4px 5px",fontSize:14,border:"none",opacity:debt.priority?1:0.4,flexShrink:0,transition:"opacity 0.15s",minWidth:28,minHeight:28,display:"flex",alignItems:"center",justifyContent:"center"}}
+          style={{...BTN,background:"transparent",color:debt.priority?"#f59e0b":T.muted,padding:"4px 5px",fontSize:clipH!=null?12:14,border:"none",opacity:debt.priority?1:0.4,flexShrink:0,transition:"opacity 0.15s",minWidth:clipH!=null?24:28,minHeight:clipH!=null?24:28,display:"flex",alignItems:"center",justifyContent:"center"}}
           onMouseDown={e=>{e.stopPropagation();e.preventDefault();clearTimeout(lpTimer.current);lpStartPos.current=null;}}
           onTouchStart={e=>{e.stopPropagation();clearTimeout(lpTimer.current);lpStartPos.current=null;}}
           onTouchEnd={e=>{e.stopPropagation();}}
@@ -789,7 +782,6 @@ const GastoItem=memo(({item,pid,editId,setEditId,tarjetas,onCycle,onLongPress,on
               <div className="amt-wrap"><span className="amt-prefix" style={{fontSize:16,color:(tipo==="card"?debt.limite:debt.original)?T.accent+"99":T.muted+"55"}}>$</span><input style={{...INP,fontSize:18,fontFamily:"monospace",fontWeight:700,padding:"10px 12px",paddingLeft:22,userSelect:"text",WebkitUserSelect:"text"}} type="number" inputMode="decimal" placeholder="0" value={(tipo==="card"?debt.limite:debt.original)||""} onChange={e=>onUpdate(debt.id,tipo==="card"?"limite":"original",e.target.value)}/></div>
             </div>
           </div>
-
           {/* SECONDARY DATA */}
           <div style={{display:"flex",gap:6,marginBottom:12}}>
             <div style={{flex:1}}>
@@ -809,8 +801,7 @@ const GastoItem=memo(({item,pid,editId,setEditId,tarjetas,onCycle,onLongPress,on
               <input style={{...INP,fontSize:13,padding:"7px 6px",userSelect:"text",WebkitUserSelect:"text",textAlign:"center"}} type="number" inputMode="numeric" placeholder="—" value={debt.fechaCorte||""} onChange={e=>onUpdate(debt.id,"fechaCorte",e.target.value)}/>
             </div>}
           </div>
-
-          {/* COLOR PICKER — discrete button */}
+          {/* COLOR PICKER */}
           {tipo==="card"&&!CC[debt.nombre]&&(<div style={{marginBottom:10}}>
             <button style={{...BTN,display:"flex",alignItems:"center",gap:5,padding:"4px 8px",borderRadius:7,background:T.surface2,border:`1px solid ${T.border}`,fontSize:10,color:T.muted}}
               onMouseDown={e=>e.stopPropagation()} onClick={()=>setShowColorPicker(s=>!s)}>
@@ -2635,16 +2626,14 @@ function App(){
           <div style={{...CARD,padding:"12px 14px",marginBottom:10}}>
             <div style={{fontSize:10,color:T.accent,letterSpacing:1.5,fontWeight:700,marginBottom:10}}>💵 PAYDAY SETTINGS</div>
             {(()=>{
-              const needsTypeSelection = data.useFixedAmount === undefined;
-              const needsAmount = data.useFixedAmount === true && !data.checkAmount;
+              const needsTypeSelection=data.useFixedAmount===undefined;
+              const needsAmount=data.useFixedAmount===true&&!data.checkAmount;
               return(<>
                 <div style={{marginBottom:10}}>
                   <div style={{fontSize:9,color:T.muted,marginBottom:6,letterSpacing:1}}>AMOUNT TYPE</div>
                   <div style={{display:"flex",gap:8}}>
-                    <button className={needsTypeSelection?"onboard-pulse":""} style={{...BTN,flex:1,padding:"9px 10px",borderRadius:10,background:data.useFixedAmount===true?`${T.accent}18`:T.surface2,border:data.useFixedAmount===true?`1px solid ${T.accent}`:`1px solid ${T.border}`,fontSize:12,color:data.useFixedAmount===true?T.accent:T.muted,fontWeight:data.useFixedAmount===true?700:400,display:"flex",alignItems:"center",justifyContent:"center",gap:5}}
-                      onClick={()=>setData(p=>({...p,useFixedAmount:true}))}>🔒 Fixed</button>
-                    <button className={needsTypeSelection?"onboard-pulse":""} style={{...BTN,flex:1,padding:"9px 10px",borderRadius:10,background:data.useFixedAmount===false?`${T.accent}18`:T.surface2,border:data.useFixedAmount===false?`1px solid ${T.accent}`:`1px solid ${T.border}`,fontSize:12,color:data.useFixedAmount===false?T.accent:T.muted,fontWeight:data.useFixedAmount===false?700:400,display:"flex",alignItems:"center",justifyContent:"center",gap:5}}
-                      onClick={()=>setData(p=>({...p,useFixedAmount:false}))}>✏️ Variable</button>
+                    <button className={needsTypeSelection?"onboard-pulse":""} style={{...BTN,flex:1,padding:"9px 10px",borderRadius:10,background:data.useFixedAmount===true?`${T.accent}18`:T.surface2,border:data.useFixedAmount===true?`1px solid ${T.accent}`:`1px solid ${T.border}`,fontSize:12,color:data.useFixedAmount===true?T.accent:T.muted,fontWeight:data.useFixedAmount===true?700:400,display:"flex",alignItems:"center",justifyContent:"center",gap:5}} onClick={()=>setData(p=>({...p,useFixedAmount:true}))}>🔒 Fixed</button>
+                    <button className={needsTypeSelection?"onboard-pulse":""} style={{...BTN,flex:1,padding:"9px 10px",borderRadius:10,background:data.useFixedAmount===false?`${T.accent}18`:T.surface2,border:data.useFixedAmount===false?`1px solid ${T.accent}`:`1px solid ${T.border}`,fontSize:12,color:data.useFixedAmount===false?T.accent:T.muted,fontWeight:data.useFixedAmount===false?700:400,display:"flex",alignItems:"center",justifyContent:"center",gap:5}} onClick={()=>setData(p=>({...p,useFixedAmount:false}))}>✏️ Variable</button>
                   </div>
                 </div>
                 {data.useFixedAmount===true&&(
