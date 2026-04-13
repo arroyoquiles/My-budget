@@ -11,6 +11,25 @@
   <script>
   (function(){
     const svg='<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><rect width="512" height="512" rx="100" fill="#0b1220"/><rect x="76" y="158" width="324" height="224" rx="30" fill="none" stroke="white" stroke-width="22"/><rect x="318" y="188" width="102" height="72" rx="18" fill="none" stroke="white" stroke-width="18"/><circle cx="371" cy="224" r="13" fill="white"/><line x1="156" y1="118" x2="206" y2="158" stroke="white" stroke-width="21" stroke-linecap="round"/><line x1="238" y1="106" x2="268" y2="158" stroke="white" stroke-width="21" stroke-linecap="round"/><text x="100" y="330" font-family="-apple-system,BlinkMacSystemFont,Helvetica,sans-serif" font-size="96" font-weight="700" fill="white">MB</text></svg>';
+    // Update splash icon color based on saved theme - run after DOM ready
+    document.addEventListener('DOMContentLoaded',()=>{
+      try{
+        const saved=JSON.parse(localStorage.getItem('mybudget_v17')||'{}');
+        const th=saved.theme||'dark';
+        const accents={dark:'#58a6ff',violet:'#a78bfa',green:'#3fb950',pink:'#ec4899',orange:'#f97316',black:'#ffffff',copper:'#c2823a',teal:'#06b6d4',gold:'#d29922',light:'#0969da'};
+        const bgs={dark:'#080c14',violet:'#0a0814',green:'#08140c',pink:'#140810',orange:'#140e08',black:'#000000',copper:'#130f08',teal:'#08141a',gold:'#14110a',light:'#f0f4f8'};
+        const accent=accents[th]||'#58a6ff';
+        const bg=bgs[th]||'#080c14';
+        const splash=document.getElementById('splash');
+        if(splash){
+          splash.style.background=bg;
+          const title=splash.querySelector('.st');
+          if(title)title.style.backgroundImage=`linear-gradient(120deg,white 0%,white 50%,${accent} 100%)`;
+          const svgEl=splash.querySelector('svg rect');
+          if(svgEl)svgEl.setAttribute('fill',bg);
+        }
+      }catch(e){}
+    });
     const enc=encodeURIComponent(svg);
     const m={name:"My Budget",short_name:"My Budget",start_url:"/",display:"standalone",background_color:"#0b1220",theme_color:"#0b1220",icons:[{src:"data:image/svg+xml,"+enc,sizes:"512x512",type:"image/svg+xml"},{src:"data:image/svg+xml,"+enc,sizes:"192x192",type:"image/svg+xml"}]};
     const b=new Blob([JSON.stringify(m)],{type:"application/json"});
@@ -42,6 +61,8 @@
     #splash .ss{font-family:-apple-system,sans-serif;font-size:11px;color:#8b949e;letter-spacing:2px;opacity:0;animation:splashFade 0.4s ease 0.6s forwards;}
     @keyframes splashPop{0%{transform:scale(0.4);opacity:0;}100%{transform:scale(1);opacity:1;}}
     @keyframes splashFade{0%{opacity:0;transform:translateY(6px);}100%{opacity:1;transform:translateY(0);}}
+    @keyframes confettiFall{0%{transform:translateY(-20px) rotate(0deg);opacity:1;}100%{transform:translateY(100vh) rotate(720deg);opacity:0;}}
+    .confetti-piece{position:fixed;width:8px;height:8px;top:-10px;animation:confettiFall linear forwards;pointer-events:none;z-index:9998;border-radius:2px;}
     ::-webkit-scrollbar{width:3px;}::-webkit-scrollbar-thumb{background:#30363d;}
     input[type=text],input[type=number],input[type=email],input[type=date],select,textarea{font-size:16px!important;-webkit-text-size-adjust:100%!important;}
     .expense-row{user-select:none;-webkit-user-select:none;-webkit-touch-callout:none;}
@@ -546,7 +567,7 @@ const GastoItem=memo(({item,pid,editId,setEditId,tarjetas,onCycle,onLongPress,on
       </div>
     </div>
   );
-  const stBg={pending:T.surface,reserved:"rgba(210,153,34,0.07)",paid:"rgba(63,185,80,0.07)"}[item.state||"pending"];
+  const stBg={pending:T.surface,reserved:T.surface,paid:T.surface}[item.state||"pending"];
   const stBorder={pending:T.border,reserved:"rgba(210,153,34,0.3)",paid:"#2ea043"}[item.state||"pending"];
   const catIcon=getCatIcon(item.cat)||getCatIcon(item.destino)||"📌";
   const catColor=CATCOLORS[item.cat]||CATCOLORS[item.destino]||"#94a3b8";
@@ -874,6 +895,27 @@ const getSnapshotReminder=(today,snapshots)=>{
 function App(){
   const [data,setData]=useState(loadData);
   const [tab,setTab]=useState("overview");
+  const [confettiActive,setConfettiActive]=useState(false);
+  const lastDoneRef=useRef({});
+  const launchConfetti=()=>{
+    const colors=["#58a6ff","#3fb950","#f97316","#ec4899","#a78bfa","#d29922","#06b6d4"];
+    const container=document.getElementById("confetti-container");
+    if(!container)return;
+    container.innerHTML="";
+    for(let i=0;i<60;i++){
+      const el=document.createElement("div");
+      el.className="confetti-piece";
+      el.style.left=Math.random()*100+"vw";
+      el.style.background=colors[Math.floor(Math.random()*colors.length)];
+      el.style.width=(6+Math.random()*8)+"px";
+      el.style.height=(6+Math.random()*8)+"px";
+      el.style.borderRadius=Math.random()>0.5?"50%":"2px";
+      el.style.animationDuration=(1.5+Math.random()*2)+"s";
+      el.style.animationDelay=(Math.random()*0.8)+"s";
+      container.appendChild(el);
+    }
+    setTimeout(()=>{if(container)container.innerHTML="";},4000);
+  };
   const [activeCheckPid,setActiveCheckPid]=useState("");
   const [amtInputVal,setAmtInputVal]=useState({});
   const [toast,setToast]=useState(null);
@@ -1366,6 +1408,8 @@ function App(){
     const done=gastos.length>0&&gastos.every(g=>g.state==="paid");
     const pdDays=Math.ceil((payday-today)/86400000);
     const remColor=getRemainingColor(sob);
+    if(done&&!lastDoneRef.current[pid]){lastDoneRef.current[pid]=true;setTimeout(launchConfetti,300);}
+    if(!done&&lastDoneRef.current[pid])lastDoneRef.current[pid]=false;
     return(<div className="anim">
       {/* Compact header: Active badge + Payday inline */}
       {(isCurrent||payday)&&<div style={{display:"flex",alignItems:"center",gap:8,marginBottom:12,padding:"8px 12px",background:`${T.accent}0f`,borderRadius:10,border:`1px solid ${T.accent}28`}}>
@@ -1472,6 +1516,7 @@ function App(){
         .quick-modal-fullscreen{animation:slideInUp 0.22s ease;}
       `}</style>
       {toast&&<div style={{position:"fixed",top:"max(16px, env(safe-area-inset-top, 16px))",left:"50%",transform:"translateX(-50%)",zIndex:9999,background:toast.type==="err"?"#da3633":"#238636",color:"#fff",padding:"10px 20px",borderRadius:24,fontWeight:600,fontSize:13,boxShadow:"0 8px 32px rgba(0,0,0,0.4)",border:`1px solid ${toast.type==="err"?"rgba(248,81,73,0.4)":"rgba(46,160,67,0.4)"}`,whiteSpace:"nowrap",animation:"slideInDown 0.2s ease"}}>{toast.msg}</div>}
+      <div id="confetti-container" style={{position:"fixed",inset:0,pointerEvents:"none",zIndex:9998,overflow:"hidden"}}/>
       <style>{`@keyframes slideInDown{from{opacity:0;transform:translateX(-50%) translateY(-12px);}to{opacity:1;transform:translateX(-50%) translateY(0);}}`}</style>
       {urgentDebts.length>0&&!alertDim&&(
         <div style={{background:"linear-gradient(135deg,#f85149,#da3633)",padding:"12px 16px",position:"sticky",top:0,zIndex:100}}>
@@ -1921,7 +1966,7 @@ function App(){
 
             {/* Filter selector */}
             <div style={{display:"flex",gap:5,marginBottom:12,background:T.surface2,borderRadius:11,padding:3}}>
-              {filterBtns.map(f=>(<button key={f.id} style={{...BTN,flex:1,padding:"7px 4px",fontSize:11,borderRadius:9,background:debtsFilter===f.id?T.bg:"transparent",color:debtsFilter===f.id?T.accent:T.muted,border:debtsFilter===f.id?`1px solid ${T.accent}`:"1px solid transparent",transition:"all 0.15s"}} onClick={()=>{setDebtsFilter(f.id);setSortMenuOpen(false);}}>{f.label}</button>))}
+              {filterBtns.map(f=>(<button key={f.id} style={{...BTN,flex:1,padding:"7px 4px",fontSize:11,borderRadius:9,background:debtsFilter===f.id?T.bg:"transparent",color:debtsFilter===f.id?T.accent:T.muted,border:debtsFilter===f.id?`1px solid ${T.accent}`:"1px solid transparent",transition:"all 0.15s"}} onClick={()=>{setDebtsFilter(f.id);setSortMenuOpen(false);if(expandedCardId){bumpReset(expandedCardId);setExpandedCardId(null);}if(expandedLoanId){bumpReset(expandedLoanId);setExpandedLoanId(null);}setAccion(null);setMontoAccion("");}}>{f.label}</button>))}
             </div>
             {/* Compact dynamic totals */}
             <div style={{display:"flex",gap:6,marginBottom:14,flexWrap:"wrap",alignItems:"center"}}>
