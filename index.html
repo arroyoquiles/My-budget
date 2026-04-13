@@ -707,7 +707,7 @@ const GastoItem=memo(({item,pid,editId,setEditId,tarjetas,onCycle,onLongPress,on
         </div>
       </div>}
       <div
-        className="debt-card-tap" style={{...CARD,padding:"12px 14px",marginBottom:0,overflow:"hidden",borderColor:isFirst?"#d29922":showEdit?`${T.accent}80`:debt.priority?"rgba(245,158,11,0.35)":T.border,transition:"transform 0.3s cubic-bezier(0.34,1.2,0.64,1), border-color 0.2s",transform:`translateX(${showEdit?0:debtSwipe}px)`,userSelect:"none",WebkitUserSelect:"none",WebkitTouchCallout:"none",...(clipH!=null?{boxSizing:"border-box",height:clipH,maxHeight:clipH,minHeight:clipH,clipPath:"inset(0 round 16px)"}:{clipPath:"none"})}}
+        className="debt-card-tap" onFocus={e=>{if(showEdit){setTimeout(()=>{e.target.scrollIntoView&&e.target.scrollIntoView({behavior:"smooth",block:"nearest"});},100);}}} style={{...CARD,padding:"12px 14px",marginBottom:0,overflow:"hidden",borderColor:isFirst?"#d29922":showEdit?`${T.accent}80`:debt.priority?"rgba(245,158,11,0.35)":T.border,transition:"transform 0.3s cubic-bezier(0.34,1.2,0.64,1), border-color 0.2s",transform:`translateX(${showEdit?0:debtSwipe}px)`,userSelect:"none",WebkitUserSelect:"none",WebkitTouchCallout:"none",...(clipH!=null?{boxSizing:"border-box",height:clipH,maxHeight:clipH,minHeight:clipH,clipPath:"inset(0 round 16px)"}:{clipPath:"none"})}}
       onTouchStart={hLPStart}
       onTouchMove={hLPMove}
       onTouchEnd={hLPEnd}
@@ -750,12 +750,22 @@ const GastoItem=memo(({item,pid,editId,setEditId,tarjetas,onCycle,onLongPress,on
 
       {/* ── Edit fields ── */}
       {showEdit&&(<>
-        <div style={{animation:"editOpen 0.45s ease both",display:"grid",gridTemplateColumns:"1fr 1fr",gap:6,marginBottom:7}} onMouseDown={e=>e.stopPropagation()} onTouchStart={e=>e.stopPropagation()}>
-          {(isAdding?newFields:fields).map(([l,f])=>(<div key={f}><div style={{fontSize:9,color:T.muted,marginBottom:3}}>{l}</div><input style={{...INP,fontSize:14,padding:"7px 10px",userSelect:"text",WebkitUserSelect:"text"}} type="number" inputMode="decimal" value={debt[f]||""} onChange={e=>onUpdate(debt.id,f,e.target.value)}/></div>))}
+        <div style={{animation:"editOpen 0.45s ease both",marginBottom:7}} onMouseDown={e=>e.stopPropagation()} onTouchStart={e=>e.stopPropagation()}>
+          {/* Row 1: Balance | Limit/Original */}
+          <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:6,marginBottom:6}}>
+            <div><div style={{fontSize:9,color:T.muted,marginBottom:3}}>BALANCE</div><input style={{...INP,fontSize:14,padding:"7px 10px",userSelect:"text",WebkitUserSelect:"text"}} type="number" inputMode="decimal" value={debt.balance||""} onChange={e=>onUpdate(debt.id,"balance",e.target.value)}/></div>
+            <div><div style={{fontSize:9,color:T.muted,marginBottom:3}}>{tipo==="card"?"LIMIT":"ORIGINAL"}</div><input style={{...INP,fontSize:14,padding:"7px 10px",userSelect:"text",WebkitUserSelect:"text"}} type="number" inputMode="decimal" value={(tipo==="card"?debt.limite:debt.original)||""} onChange={e=>onUpdate(debt.id,tipo==="card"?"limite":"original",e.target.value)}/></div>
+          </div>
+          {/* Row 2: Min ($) | APR % — APR narrower */}
+          <div style={{display:"flex",gap:6,marginBottom:6,alignItems:"flex-end"}}>
+            <div style={{flex:1}}><div style={{fontSize:9,color:T.muted,marginBottom:3}}>MIN ($)</div><input style={{...INP,fontSize:14,padding:"7px 10px",userSelect:"text",WebkitUserSelect:"text"}} type="number" inputMode="decimal" value={debt.minimo||""} onChange={e=>onUpdate(debt.id,"minimo",e.target.value)}/></div>
+            <div style={{width:72}}><div style={{fontSize:9,color:T.muted,marginBottom:3}}>APR %</div><input style={{...INP,fontSize:14,padding:"7px 8px",userSelect:"text",WebkitUserSelect:"text",textAlign:"center"}} type="number" inputMode="decimal" value={debt.interes||""} onChange={e=>onUpdate(debt.id,"interes",e.target.value)}/></div>
+          </div>
         </div>
-        <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:6,marginBottom:8}} onMouseDown={e=>e.stopPropagation()} onTouchStart={e=>e.stopPropagation()}>
-          <div><div style={{fontSize:9,color:"#f85149",marginBottom:3,fontWeight:700}}>⚠️ DUE DAY</div><input style={{...INP,fontSize:14,padding:"7px 10px",borderColor:"rgba(248,81,73,0.3)",userSelect:"text",WebkitUserSelect:"text"}} type="number" inputMode="numeric" placeholder="e.g. 7" value={debt.fechaPago||""} onChange={e=>onUpdate(debt.id,"fechaPago",e.target.value)}/></div>
-          {tipo==="card"&&<div><div style={{fontSize:9,color:T.muted,marginBottom:3}}>✂️ CUTOFF DAY</div><input style={{...INP,fontSize:14,padding:"7px 10px",userSelect:"text",WebkitUserSelect:"text"}} type="number" inputMode="numeric" placeholder="e.g. 13" value={debt.fechaCorte||""} onChange={e=>onUpdate(debt.id,"fechaCorte",e.target.value)}/></div>}
+        {/* Row 3: Due Day | Cutoff Day — compact */}
+        <div style={{display:"flex",gap:6,marginBottom:8}} onMouseDown={e=>e.stopPropagation()} onTouchStart={e=>e.stopPropagation()}>
+          <div style={{width:90}}><div style={{fontSize:9,color:"#f85149",marginBottom:3,fontWeight:700}}>⚠️ DUE DAY</div><input style={{...INP,fontSize:14,padding:"7px 8px",borderColor:"rgba(248,81,73,0.3)",userSelect:"text",WebkitUserSelect:"text",textAlign:"center"}} type="number" inputMode="numeric" placeholder="7" value={debt.fechaPago||""} onChange={e=>onUpdate(debt.id,"fechaPago",e.target.value)}/></div>
+          {tipo==="card"&&<div style={{width:90}}><div style={{fontSize:9,color:T.muted,marginBottom:3}}>✂️ CUTOFF</div><input style={{...INP,fontSize:14,padding:"7px 8px",userSelect:"text",WebkitUserSelect:"text",textAlign:"center"}} type="number" inputMode="numeric" placeholder="13" value={debt.fechaCorte||""} onChange={e=>onUpdate(debt.id,"fechaCorte",e.target.value)}/></div>}
         </div>
         {isAdding
           ?(<div style={{display:"flex",gap:7,marginBottom:2}} onMouseDown={e=>e.stopPropagation()} onTouchStart={e=>e.stopPropagation()}>
@@ -992,6 +1002,7 @@ function App(){
   },[moveOpen]);
   const [snapDetail,setSnapDetail]=useState(null);
   const [resetConfirm,setResetConfirm]=useState(null);
+  const [themePicker,setThemePicker]=useState(false);
   const [resetAllConfirm,setResetAllConfirm]=useState(false);
   const [debtsFilter,setDebtsFilter]=useState("all");
   const [cardsCollapsed,setCardsCollapsed]=useState(false);
@@ -1039,7 +1050,27 @@ function App(){
       try{new Notification("💳 My Budget",{body:msg});}catch(e){}
     });
   },[data.tarjetas,data.loans]);
-  const haptic=(ms=30)=>{try{if(navigator.vibrate)navigator.vibrate(ms);}catch{}};
+  const hapticAC=useRef(null);
+  const haptic=(type=30)=>{
+    // iOS Safari: use AudioContext trick for real haptic feel
+    try{
+      if(!hapticAC.current)hapticAC.current=new(window.AudioContext||window.webkitAudioContext)();
+      const ac=hapticAC.current;
+      if(ac.state==="suspended")ac.resume();
+      const o=ac.createOscillator();
+      const g=ac.createGain();
+      o.connect(g);g.connect(ac.destination);
+      const dur=typeof type==="number"?type/1000:0.03;
+      const freq=Array.isArray(type)?200:type>50?80:120;
+      o.frequency.value=freq;
+      g.gain.setValueAtTime(0.0001,ac.currentTime);
+      g.gain.exponentialRampToValueAtTime(0.15,ac.currentTime+0.001);
+      g.gain.exponentialRampToValueAtTime(0.0001,ac.currentTime+dur);
+      o.start(ac.currentTime);o.stop(ac.currentTime+dur+0.01);
+    }catch(e){}
+    // Android fallback
+    try{if(navigator.vibrate)navigator.vibrate(typeof type==="number"?[type]:type);}catch{}
+  };
   const toast_=(msg,type="ok")=>{setToast({msg,type});haptic(type==="err"?[30,30,30]:20);clearTimeout(toastRef.current);toastRef.current=setTimeout(()=>setToast(null),2800);};
   const INP=mkINP(T),BTN=mkBTN(),CARD=mkCARD(T);
   const freq=data.payFreq||"biweekly";
@@ -1143,8 +1174,6 @@ function App(){
     const dx=t.clientX-swipeStart.current.x,dy=t.clientY-swipeStart.current.y;
     swipeStart.current=null;swipeFromContent.current=false;
     if(Math.abs(dx)<70||Math.abs(dx)<Math.abs(dy)*1.5)return;
-    // Swipe right → always go to Overview
-    if(dx>0&&tab!=="overview"){setTab("overview");setSortMenuOpen(false);haptic(20);}
     // Swipe left → blocked (do nothing, prevents Safari navigation)
   },[tab,TABS_ORDER]);
   const updPeriodGastos=(pid,fn)=>setData(p=>{
@@ -1536,6 +1565,7 @@ function App(){
         @keyframes editOpen{from{opacity:0;transform:translateY(-6px);}to{opacity:1;transform:translateY(0);}}
         @keyframes debtExit{0%{opacity:1;max-height:200px;margin-bottom:9px;}100%{opacity:0;max-height:0;margin-bottom:0;}}.debt-exit{animation:debtExit 0.3s ease forwards;}
         .expense-row:active{transform:scale(0.99);transition:transform 0.08s ease;}
+        input,select,textarea{scroll-margin-bottom:200px;}
         .debt-card-tap:active{transform:scale(0.988);transition:transform 0.08s ease;}
         @keyframes slideInDown{from{opacity:0;transform:translateY(-8px);}to{opacity:1;transform:translateY(0);}}
         @keyframes slideInUp{from{opacity:0;transform:translateY(20px);}to{opacity:1;transform:translateY(0);}}
@@ -1695,6 +1725,34 @@ function App(){
           </div>
         </div>
       </div>)}
+      {themePicker&&(<div style={{position:"fixed",inset:0,zIndex:400,background:"rgba(0,0,0,0.7)"}} onClick={()=>setThemePicker(false)}>
+        <div className="modal-anim" style={{position:"absolute",top:70,left:16,right:16,background:T.surface,borderRadius:20,padding:"16px",border:`1px solid ${T.border}`,boxShadow:"0 20px 60px rgba(0,0,0,0.6)"}}>
+          <div style={{fontSize:11,color:T.muted,letterSpacing:1.5,fontWeight:700,marginBottom:12}}>🎨 THEME</div>
+          <div style={{display:"flex",flexWrap:"wrap",gap:8}}>
+            {[
+              {id:"dark",label:"Azul",bg:"#080c14",accent:"#58a6ff"},
+              {id:"violet",label:"Violeta",bg:"#0a0814",accent:"#a78bfa"},
+              {id:"green",label:"Verde",bg:"#08140c",accent:"#3fb950"},
+              {id:"pink",label:"Rosa",bg:"#140810",accent:"#ec4899"},
+              {id:"orange",label:"Naranja",bg:"#140e08",accent:"#f97316"},
+              {id:"black",label:"Negro",bg:"#000000",accent:"#ffffff"},
+              {id:"copper",label:"Cobre",bg:"#130f08",accent:"#c2823a"},
+              {id:"teal",label:"Teal",bg:"#08141a",accent:"#06b6d4"},
+              {id:"gold",label:"Dorado",bg:"#14110a",accent:"#d29922"},
+              {id:"light",label:"Blanco",bg:"#f0f4f8",accent:"#0969da"},
+            ].map(th=>{
+              const isSel=theme===th.id;
+              return(<button key={th.id} onClick={()=>{setData(p=>({...p,theme:th.id}));haptic(20);setThemePicker(false);}}
+                style={{...BTN,display:"flex",alignItems:"center",gap:8,padding:"7px 12px 7px 8px",borderRadius:20,
+                  background:isSel?`${th.accent}18`:T.surface2,
+                  border:isSel?`1px solid ${th.accent}`:`1px solid ${T.border}`}}>
+                <div style={{width:18,height:18,borderRadius:"50%",background:th.bg,border:`2.5px solid ${th.accent}`,flexShrink:0}}/>
+                <span style={{fontSize:11,fontWeight:isSel?700:400,color:isSel?th.accent:T.muted}}>{th.label}</span>
+              </button>);
+            })}
+          </div>
+        </div>
+      </div>)}
       {snapDetail&&(<div style={{position:"fixed",inset:0,zIndex:300,background:"rgba(0,0,0,0.72)",display:"flex",alignItems:"center",justifyContent:"center",padding:16}} onClick={e=>{if(e.target===e.currentTarget)setSnapDetail(null);}}>
         <div className="modal-anim" style={{width:"100%",maxWidth:420,background:T.surface,borderRadius:16,padding:"20px 18px",border:`1px solid ${T.border}`}}>
           <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:16}}>
@@ -1713,7 +1771,11 @@ function App(){
       <div className="c">
         <div style={{marginBottom:16,display:"flex",justifyContent:"space-between",alignItems:"center"}}>
           <div>
-            <div style={{fontSize:26,fontWeight:800,letterSpacing:-0.8,background:`linear-gradient(120deg, ${T.text} 0%, ${T.text} 50%, ${T.accent} 100%)`,WebkitBackgroundClip:"text",WebkitTextFillColor:"transparent",backgroundClip:"text"}}>My Budget</div>
+            <div style={{fontSize:26,fontWeight:800,letterSpacing:-0.8,background:`linear-gradient(120deg, ${T.text} 0%, ${T.text} 50%, ${T.accent} 100%)`,WebkitBackgroundClip:"text",WebkitTextFillColor:"transparent",backgroundClip:"text",userSelect:"none",WebkitUserSelect:"none",cursor:"pointer"}}
+              onContextMenu={e=>{e.preventDefault();setThemePicker(p=>!p);}}
+              onTouchStart={e=>{const t=setTimeout(()=>{setThemePicker(p=>!p);haptic(40);},600);e.currentTarget._lpt=t;}}
+              onTouchEnd={e=>{clearTimeout(e.currentTarget._lpt);}}
+              onTouchMove={e=>{clearTimeout(e.currentTarget._lpt);}}>My Budget</div>
           </div>
           {diasProx!==null&&(<div style={{background:"rgba(63,185,80,0.08)",border:"1px solid rgba(63,185,80,0.25)",borderRadius:10,padding:"5px 10px",textAlign:"center",cursor:"pointer"}} onClick={()=>{if(currentPeriod){setActiveCheckPid(currentPeriod.id);setTab("paychecks");}}}>
             <div style={{fontSize:9,color:T.muted}}>NEXT CHECK</div>
@@ -1975,12 +2037,13 @@ function App(){
           const totalPriority=priorityDebts.reduce((s,d)=>s+n(d.balance),0);
           // Sorted debts — starred cards always appear first within credit cards section
           const sortCards=(arr)=>{
+            // Don't re-sort while a card is being edited (prevents jumping)
+            if(expandedCardId||expandedLoanId) return [...arr].sort((a,b)=>(b.priority?1:0)-(a.priority?1:0));
             if(sortStrategy==="apr")     return [...arr].sort((a,b)=>(b.priority?1:0)-(a.priority?1:0)||n(b.interes)-n(a.interes));
             if(sortStrategy==="balance") return [...arr].sort((a,b)=>(b.priority?1:0)-(a.priority?1:0)||n(a.balance)-n(b.balance));
-            // Default: starred first, preserve relative order otherwise
             return [...arr].sort((a,b)=>(b.priority?1:0)-(a.priority?1:0));
           };
-          const sortedAllDebts=sortStrategy==="apr"
+          const sortedAllDebts=(expandedCardId||expandedLoanId)?allDebts:sortStrategy==="apr"
             ?[...allDebts].sort((a,b)=>n(b.interes)-n(a.interes))
             :sortStrategy==="balance"
             ?[...allDebts].sort((a,b)=>n(a.balance)-n(b.balance))
