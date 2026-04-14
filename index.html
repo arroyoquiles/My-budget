@@ -416,6 +416,7 @@ const migrate=raw=>{
     snapshots:raw.snapshots||[],
     ahorro:raw.ahorro||null,
     _sa:raw._sa||"",
+    notifEnabled:raw.notifEnabled!==false,
   };
 };
 const DD={
@@ -426,6 +427,7 @@ const DD={
   pots:{savings_acct:0,emergency:0,investment:0},
   potTargets:{},
   potMovements:[],snapshots:[],ahorro:null,_sa:"",
+  notifEnabled:true,
 };
 const loadData=()=>{
   try{
@@ -1079,6 +1081,7 @@ function App(){
   const swipeFromContent=useRef(false);
   const mainRef=useRef(null);
   const tabBarRef=useRef(null);
+  const lastTabTapRef=useRef({id:null,t:0});
   const editGroupKeyRef=useRef(null);
 
   const theme=data.theme||"dark";
@@ -1093,7 +1096,9 @@ function App(){
     }
   },[]);
   useEffect(()=>{
-    if(!("Notification" in window)||Notification.permission!=="granted")return;
+    if(!("Notification" in window)||!data.notifEnabled)return;
+    if(Notification.permission==="default"){Notification.requestPermission();}
+    if(Notification.permission!=="granted")return;
     const today=new Date();today.setHours(0,0,0,0);
     [...(data.tarjetas||[]),...(data.loans||[])].forEach(d=>{
       if(!d.fechaPago)return;
@@ -1834,7 +1839,7 @@ function App(){
           </div>
           <div style={{display:"flex",gap:10}}>
             <button style={{...BTN,flex:2,padding:"13px",background:T.surface2,color:T.text,fontSize:14,fontWeight:600,borderRadius:12,border:`1px solid ${T.border}`}} onClick={()=>setResetAllConfirm(false)}>Keep my data</button>
-            <button style={{...BTN,flex:1,padding:"13px",background:"rgba(248,81,73,0.2)",color:"#f85149",fontSize:13,fontWeight:700,borderRadius:12,border:"1px solid rgba(248,81,73,0.4)"}} onClick={()=>{localStorage.removeItem(SK);sessionStorage.removeItem("alertDim");setData(migrate(DD));setTab("overview");setResetAllConfirm(false);toast_("🔄 App reset");}}>Reset</button>
+            <button style={{...BTN,flex:1,padding:"13px",background:"rgba(248,81,73,0.2)",color:"#f85149",fontSize:13,fontWeight:700,borderRadius:12,border:"1px solid rgba(248,81,73,0.4)"}} onClick={()=>{localStorage.removeItem(SK);sessionStorage.removeItem("alertDim");localStorage.removeItem("notifMuted");setData(migrate(DD));setResetAllConfirm(false);toast_("🔄 App reset");}}>Reset</button>
           </div>
         </div>
       </div>)}
@@ -1908,7 +1913,7 @@ function App(){
             settings:<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>,
           };
           const getIdx=(cx,el)=>{const r=el.getBoundingClientRect();return Math.max(0,Math.min(TABS.length-1,Math.floor((cx-r.left)/(r.width/TABS.length))));};
-          const lastTabTap=React.useRef({id:null,t:0});
+          const lastTabTap=lastTabTapRef;
           const handleTabClick=(tid)=>{
             const now=Date.now();
             const scrollTabs=new Set(["overview","paychecks","debts"]);
@@ -2760,26 +2765,34 @@ function App(){
             </div>
           </div>
           {/* 3. Notifications */}
-          {(()=>{
-            const notifSupported="Notification" in window;
-            const perm=notifSupported?Notification.permission:"unsupported";
-            return(<div style={{...CARD,padding:"12px 14px",marginBottom:10}}>
-              <div style={{fontSize:10,color:T.accent,letterSpacing:1.5,fontWeight:700,marginBottom:8}}>🔔 NOTIFICATIONS</div>
-              <div style={{display:"flex",alignItems:"center",justifyContent:"space-between"}}>
-                <div>
-                  <div style={{fontSize:12,color:T.text,fontWeight:600,marginBottom:2}}>Due date alerts</div>
-                  <div style={{fontSize:10,color:T.muted}}>{perm==="granted"?"Active — alerts 3 days before due":perm==="denied"?"Blocked in browser settings":perm==="unsupported"?"Not supported on this device":"Tap to enable"}</div>
-                </div>
-                {perm!=="unsupported"&&<button style={{...BTN,padding:"7px 14px",fontSize:11,fontWeight:700,borderRadius:9,
-                  background:perm==="granted"?"rgba(63,185,80,0.15)":perm==="denied"?"rgba(248,81,73,0.1)":`${T.accent}18`,
-                  color:perm==="granted"?"#3fb950":perm==="denied"?"#f85149":T.accent,
-                  border:`1px solid ${perm==="granted"?"rgba(63,185,80,0.3)":perm==="denied"?"rgba(248,81,73,0.3)":T.accent+"44"}`}}
-                  onClick={()=>{if(perm==="default")Notification.requestPermission().then(()=>toast_("🔔 Notification preference saved"));else if(perm==="denied")toast_("Open browser Settings to allow notifications","err");else toast_("✅ Notifications already active");}}>
-                  {perm==="granted"?"✓ On":perm==="denied"?"Blocked":"Enable"}
-                </button>}
+          <div style={{...CARD,padding:"12px 14px",marginBottom:10}}>
+            <div style={{fontSize:10,color:T.accent,letterSpacing:1.5,fontWeight:700,marginBottom:8}}>🔔 NOTIFICATIONS</div>
+            <div style={{display:"flex",alignItems:"center",justifyContent:"space-between"}}>
+              <div>
+                <div style={{fontSize:12,color:T.text,fontWeight:600,marginBottom:2}}>Due date alerts</div>
+                <div style={{fontSize:10,color:T.muted}}>{data.notifEnabled?"Alerts 3 days before due dates":"Disabled — no alerts"}</div>
               </div>
-            </div>);
-          })()}
+              <button style={{...BTN,width:52,height:28,borderRadius:14,padding:0,position:"relative",
+                background:data.notifEnabled?T.accent:"rgba(255,255,255,0.1)",
+                border:`1px solid ${data.notifEnabled?T.accent:T.border}`,
+                transition:"background 0.25s, border-color 0.25s"}}
+                onClick={()=>{
+                  const newVal=!data.notifEnabled;
+                  setData(p=>({...p,notifEnabled:newVal}));
+                  if(newVal&&"Notification" in window&&Notification.permission==="default"){
+                    Notification.requestPermission();
+                  }
+                  toast_(newVal?"🔔 Notifications on":"🔕 Notifications off");
+                }}>
+                <div style={{position:"absolute",top:3,left:data.notifEnabled?26:3,width:20,height:20,borderRadius:"50%",
+                  background:"#fff",transition:"left 0.25s cubic-bezier(0.34,1.56,0.64,1)",
+                  boxShadow:"0 1px 4px rgba(0,0,0,0.3)"}}/>
+              </button>
+            </div>
+            {"Notification" in window&&Notification.permission==="denied"&&data.notifEnabled&&(
+              <div style={{marginTop:8,fontSize:10,color:"#f85149"}}>⚠️ Blocked in browser — enable in device Settings</div>
+            )}
+          </div>
           {/* 4. Backup */}
           <div style={{...CARD,padding:"12px 14px",marginBottom:10}}>
             <div style={{fontSize:10,color:T.accent,letterSpacing:1.5,fontWeight:700,marginBottom:8}}>💾 DATA BACKUP</div>
