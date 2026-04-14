@@ -367,7 +367,7 @@ const migrate=raw=>{
   const cm={carro:"auto",vivienda:"rent",servicios:"subscription",gas:"gas",tarjeta:"credit_card",comida:"groceries",otro:"other",auto:"auto",rent:"rent",subscription:"subscription",credit_card:"credit_card",groceries:"groceries",other:"other",insurance:"insurance",utilities:"utilities",dining:"dining",entertainment:"entertainment",medical:"medical",lifestyle:"lifestyle"};
   const mg=g=>({...g,cat:cm[g.cat]||cm[g.categoria]||"other",destino:dm[g.destino]||"other",diaPago:g.diaPago||null,tarjetaRef:g.tarjetaRef||"",state:g.state||(g.pagado?"paid":"pending"),_quick:g._quick||false});
   const anchor=raw.proximoCobro||"";
-  const freq=raw.payFreq||"biweekly";
+  const freq=raw.payFreq||"biweekly"; // used internally for period calculation only
   let periods=raw.periods||{};
   if(!raw.periods){
     const curStart=getCurrentPeriodStart(anchor,freq);
@@ -403,7 +403,8 @@ const migrate=raw=>{
   }
   return{
     proximoCobro:anchor,
-    payFreq:freq,
+    payFreq:raw._freqSet ? raw.payFreq : undefined,
+    _freqSet:raw._freqSet||false,
     theme:raw.theme||"dark",
     checkAmount:n(raw.checkAmount||raw.c1||raw.c2||raw.check1||raw.check2||raw.cheque1||raw.cheque2)||0,
     useFixedAmount:raw.useFixedAmount,
@@ -420,7 +421,7 @@ const migrate=raw=>{
   };
 };
 const DD={
-  proximoCobro:"",payFreq:"biweekly",theme:"dark",
+  proximoCobro:"",payFreq:undefined,theme:"dark",
   checkAmount:0,useFixedAmount:undefined,periods:{},
   tarjetas:[],
   loans:[],
@@ -560,15 +561,36 @@ const GastoItem=memo(({item,pid,editId,setEditId,tarjetas,onCycle,onLongPress,on
           </select>
         </div>
       )}
-      {showDueDay&&(
+      {(DUE_DAY_CATS.has(localDestino)||DUE_DAY_CATS.has(item.cat))&&(
         <div style={{marginBottom:12}}>
-          <div style={{fontSize:10,color:T.muted,marginBottom:5}}>DUE DAY (optional){item.destino==="credit_card"&&item.tarjetaRef&&getCardDueDay(item.tarjetaRef)&&(<span style={{marginLeft:6,color:T.accent,fontSize:9}}>← auto-filled from card</span>)}</div>
-          <input style={INP} type="number" inputMode="numeric" placeholder="e.g. 7" value={item.diaPago||""} onChange={e=>onUpdate(item.id,"diaPago",e.target.value?parseInt(e.target.value):null)}/>
+          <div style={{fontSize:10,color:T.muted,marginBottom:5,display:"flex",alignItems:"center",gap:6}}>📅 DUE DAY <span style={{opacity:0.5,fontWeight:400}}>(day of month, e.g. 15)</span>{localDestino==="credit_card"&&localTarjetaRef&&getCardDueDay(localTarjetaRef)&&(<span style={{marginLeft:4,color:T.accent,fontSize:9}}>← auto-filled</span>)}</div>
+          <input style={{...INP,fontFamily:"monospace",fontWeight:700}} type="number" inputMode="numeric" placeholder="e.g. 7" value={item.diaPago||""} onChange={e=>onUpdate(item.id,"diaPago",e.target.value?parseInt(e.target.value):null)}/>
         </div>
       )}
-      <div style={{display:"flex",gap:8,marginTop:8}}>
+      {/* Recurring toggle */}
+      <button style={{...BTN,width:"100%",marginTop:10,marginBottom:2,padding:"10px 14px",borderRadius:11,display:"flex",alignItems:"center",justifyContent:"space-between",
+        background:item._recurring?`${T.accent}10`:"transparent",
+        border:`1px solid ${item._recurring?T.accent+"55":T.border}`,
+        transition:"all 0.2s"}}
+        onClick={()=>onUpdate(item.id,"_recurring",!item._recurring)}>
+        <div style={{display:"flex",alignItems:"center",gap:8}}>
+          <span style={{fontSize:15}}>🔁</span>
+          <div style={{textAlign:"left"}}>
+            <div style={{fontSize:12,fontWeight:600,color:item._recurring?T.accent:T.text}}>Repeat every cycle</div>
+            <div style={{fontSize:10,color:T.muted}}>{item._recurring?"Copies to next paycheck automatically":"One-time expense"}</div>
+          </div>
+        </div>
+        <div style={{width:36,height:20,borderRadius:10,position:"relative",flexShrink:0,
+          background:item._recurring?T.accent:"rgba(255,255,255,0.1)",
+          border:`1px solid ${item._recurring?T.accent:T.border}`,
+          transition:"background 0.2s"}}>
+          <div style={{position:"absolute",top:2,left:item._recurring?18:2,width:14,height:14,borderRadius:"50%",
+            background:"#fff",transition:"left 0.2s cubic-bezier(0.34,1.56,0.64,1)",
+            boxShadow:"0 1px 3px rgba(0,0,0,0.3)"}}/>
+        </div>
+      </button>
+      <div style={{display:"flex",gap:8,marginTop:10}}>
         <button style={{...BTN,flex:1,padding:"12px",background:"#238636",color:"#fff",fontSize:13,fontWeight:700,borderRadius:11,letterSpacing:0.8}} onClick={()=>{const updates={destino:localDestino,cat:localDestino,tarjetaRef:localDestino==="credit_card"?localTarjetaRef:""};onBatchUpdate(item.id,updates);setEditId(null);}}>✓  SAVE</button>
-        <button style={{...BTN,padding:"9px 10px",background:item._recurring?`${T.accent}22`:"transparent",color:item._recurring?T.accent:T.muted,fontSize:11,borderRadius:11,border:`1px solid ${item._recurring?T.accent:T.border}`,fontWeight:item._recurring?700:400,flexShrink:0}} title="Repeat every cycle" onClick={()=>onUpdate(item.id,"_recurring",!item._recurring)}>🔁</button>
         <button style={{...BTN,padding:"12px 16px",background:"transparent",color:T.muted,fontSize:12,borderRadius:11,border:"none",letterSpacing:0.5,opacity:0.6}} onClick={()=>setEditId(null)}>CANCEL</button>
         <button style={{...BTN,padding:"12px 14px",background:"rgba(248,81,73,0.1)",color:"#f85149",fontSize:14,borderRadius:11,border:"1px solid rgba(248,81,73,0.2)"}} onClick={e=>{const row=e.currentTarget.closest(".expense-row");if(row){row.style.animation="itemExit 0.28s ease forwards";setTimeout(()=>{onRemove(item.id);setEditId(null);},260);}else{onRemove(item.id);setEditId(null);}}}>🗑</button>
       </div>
@@ -1100,20 +1122,28 @@ function App(){
     if(Notification.permission==="default"){Notification.requestPermission();}
     if(Notification.permission!=="granted")return;
     const today=new Date();today.setHours(0,0,0,0);
-    [...(data.tarjetas||[]),...(data.loans||[])].forEach(d=>{
-      if(!d.fechaPago)return;
-      const day=parseInt(d.fechaPago);if(isNaN(day))return;
+    const fire=(id,nombre,fechaPago,icon="💰")=>{
+      if(!fechaPago)return;
+      const day=parseInt(fechaPago);if(isNaN(day))return;
       const due=new Date(today.getFullYear(),today.getMonth(),day);
       if(due<today)due.setMonth(due.getMonth()+1);
       const dl=Math.round((due-today)/(864e5));
       if(dl>3)return;
-      const key=`notif_${d.id}_${due.toISOString().slice(0,10)}`;
+      const key=`notif_${id}_${due.toISOString().slice(0,10)}`;
       if(localStorage.getItem(key))return;
       localStorage.setItem(key,"1");
-      const msg=dl===0?`${d.nombre} is DUE TODAY!`:dl===1?`${d.nombre} is due TOMORROW`:`${d.nombre} is due in ${dl} days`;
-      try{new Notification("💳 My Budget",{body:msg});}catch(e){}
+      const msg=dl===0?`${nombre} is DUE TODAY!`:dl===1?`${nombre} is due TOMORROW`:`${nombre} is due in ${dl} days`;
+      try{new Notification(`${icon} My Budget`,{body:msg});}catch(e){}
+    };
+    // Debts
+    [...(data.tarjetas||[]),...(data.loans||[])].forEach(d=>fire(d.id,d.nombre,d.fechaPago,"💳"));
+    // Expenses with due dates
+    Object.values(data.periods||{}).forEach(period=>{
+      (period.gastos||[]).forEach(g=>{
+        if(g.diaPago&&g.state!=="paid")fire(`exp_${g.id}`,g.nombre,String(g.diaPago),"📅");
+      });
     });
-  },[data.tarjetas,data.loans]);
+  },[data.tarjetas,data.loans,data.periods,data.notifEnabled]);
   const hapticAC=useRef(null);
   const haptic=(type=30)=>{
     // iOS Safari: use AudioContext trick for real haptic feel
@@ -1657,7 +1687,7 @@ function App(){
     {id:"debts",     icon:"💳",label:"Debts",urgent:urgentDebts.length>0},
     {id:"calendar",  icon:"📅",label:"Calendar"},
     {id:"history",   icon:"📆",label:"History"},
-    {id:"settings",  icon:"⚙️",label:"Settings",urgent:!data.proximoCobro||(data.useFixedAmount!==false&&!data.checkAmount)},
+    {id:"settings",  icon:"⚙️",label:"Settings",urgent:!data.proximoCobro||(data.useFixedAmount===true&&!data.checkAmount)||data.useFixedAmount===undefined||!data._freqSet},
   ];
   const snapReminder=useMemo(()=>getSnapshotReminder(today,data.snapshots),[today,data.snapshots]);
 
@@ -1700,14 +1730,15 @@ function App(){
       {toast&&<div style={{position:"fixed",top:"max(16px, env(safe-area-inset-top, 16px))",left:"50%",transform:"translateX(-50%)",zIndex:9999,background:toast.type==="err"?"#da3633":"#238636",color:"#fff",padding:"10px 20px",borderRadius:24,fontWeight:600,fontSize:13,boxShadow:"0 8px 32px rgba(0,0,0,0.4)",border:`1px solid ${toast.type==="err"?"rgba(248,81,73,0.4)":"rgba(46,160,67,0.4)"}`,whiteSpace:"nowrap",animation:"slideInDown 0.2s ease"}}>{toast.msg}</div>}
       <div id="confetti-container" style={{position:"fixed",inset:0,pointerEvents:"none",zIndex:9998,overflow:"hidden"}}/>
       <style>{`@keyframes slideInDown{from{opacity:0;transform:translateX(-50%) translateY(-12px);}to{opacity:1;transform:translateX(-50%) translateY(0);}}`}</style>
-      {urgentDebts.length>0&&!alertDim&&(
-        <div style={{background:"linear-gradient(135deg,#f85149,#da3633)",padding:"12px 16px",position:"sticky",top:0,zIndex:100}}>
-          <div style={{maxWidth:760,margin:"0 auto",display:"flex",justifyContent:"space-between",alignItems:"flex-start"}}>
-            <div style={{flex:1}}>
-              <div style={{fontWeight:800,fontSize:13,marginBottom:3,animation:"pulse 1.5s infinite"}}>🚨 PAYMENT DUE SOON!</div>
-              {urgentDebts.map(d=><div key={d.id} style={{fontSize:12,opacity:0.9}}><strong>{d.nombre}</strong> — <strong>{getDU(d.fechaPago)===0?"TODAY":getDU(d.fechaPago)+"d left"}</strong> · {fmt(d.balance)}</div>)}
-            </div>
-            <button style={{...BTN,background:"rgba(255,255,255,0.2)",color:"#fff",padding:"4px 10px",fontSize:12,marginLeft:8}} onClick={()=>{setAlertDim(true);sessionStorage.setItem("alertDim","1");}}>OK</button>
+      {urgentDebts.length>0&&!alertDim&&tab!=="debts"&&(
+        <div style={{background:"rgba(248,81,73,0.12)",borderBottom:"1px solid rgba(248,81,73,0.25)",padding:"8px 16px",position:"sticky",top:0,zIndex:100,display:"flex",alignItems:"center",justifyContent:"space-between"}}>
+          <div style={{display:"flex",alignItems:"center",gap:8}}>
+            <span style={{fontSize:13}}>🔴</span>
+            <span style={{fontSize:12,color:"#f85149",fontWeight:600}}>{urgentDebts.length} payment{urgentDebts.length>1?"s":""} due soon</span>
+          </div>
+          <div style={{display:"flex",gap:8,alignItems:"center"}}>
+            <button style={{...BTN,background:"rgba(248,81,73,0.15)",color:"#f85149",padding:"3px 10px",fontSize:11,fontWeight:600,border:"1px solid rgba(248,81,73,0.3)",borderRadius:8}} onClick={()=>setTab("debts")}>View</button>
+            <button style={{...BTN,background:"transparent",color:"#f85149",padding:"3px 8px",fontSize:14,border:"none",opacity:0.6}} onClick={()=>{setAlertDim(true);sessionStorage.setItem("alertDim","1");}}>✕</button>
           </div>
         </div>
       )}
@@ -2199,6 +2230,20 @@ function App(){
             setAccion(null);setMontoAccion("");
           };
           return(<div className="anim">
+
+            {/* Urgent debts inline alert */}
+            {urgentDebts.length>0&&(<div style={{marginBottom:12,borderRadius:10,overflow:"hidden"}}>
+              {urgentDebts.map(d=>{const du=getDU(d.fechaPago);return(<div key={d.id} style={{display:"flex",alignItems:"center",justifyContent:"space-between",padding:"9px 12px",background:du===0?"rgba(248,81,73,0.12)":"rgba(248,81,73,0.07)",borderBottom:`1px solid rgba(248,81,73,0.15)`}}>
+                <div style={{display:"flex",alignItems:"center",gap:8}}>
+                  <span style={{fontSize:13}}>{du===0?"🔴":"🟠"}</span>
+                  <div>
+                    <div style={{fontSize:12,fontWeight:700,color:T.text}}>{d.nombre}</div>
+                    <div style={{fontSize:10,color:"#f85149",fontWeight:600}}>{du===0?"Due TODAY":du===1?"Due TOMORROW":`Due in ${du}d`} · {fmt(d.balance)}</div>
+                  </div>
+                </div>
+                <button style={{...BTN,padding:"5px 11px",fontSize:11,fontWeight:700,background:"rgba(248,81,73,0.15)",color:"#f85149",border:"1px solid rgba(248,81,73,0.3)",borderRadius:8}} onClick={()=>{setDebtsFilter(d.tipo==="card"?"cards":"loans");}}>View</button>
+              </div>);})}
+            </div>)}
 
             {/* Filter selector */}
             <div style={{display:"flex",gap:5,marginBottom:12,background:T.surface2,borderRadius:11,padding:3}}>
@@ -2702,8 +2747,11 @@ function App(){
           <div style={{...CARD,padding:"12px 14px",marginBottom:10}}>
             <div style={{fontSize:10,color:T.accent,letterSpacing:1.5,fontWeight:700,marginBottom:10}}>💵 PAYDAY SETTINGS</div>
             {(()=>{
-              const needsTypeSelection=data.useFixedAmount===undefined;
-              const needsAmount=data.useFixedAmount===true&&!data.checkAmount;
+              const needsTypeSelection = data.useFixedAmount===undefined;
+              const needsAmount        = data.useFixedAmount===true && !data.checkAmount;
+              const needsAnchor        = !needsTypeSelection && !needsAmount && !data.proximoCobro;
+              const needsFreq          = !needsTypeSelection && !needsAmount && !!data.proximoCobro && !data._freqSet;
+              const freq               = data.payFreq||"";
               return(<>
                 <div style={{marginBottom:10}}>
                   <div style={{fontSize:9,color:T.muted,marginBottom:6,letterSpacing:1}}>AMOUNT TYPE</div>
@@ -2715,18 +2763,18 @@ function App(){
                 {data.useFixedAmount===false&&(
                   <div style={{marginBottom:10,padding:"8px 10px",background:T.surface2,borderRadius:9,fontSize:11,color:T.muted,animation:"tabEnter 0.3s ease both"}}>✏️ Variable — set the amount per paycheck in the <strong style={{color:T.accent}}>Paychecks</strong> tab</div>
                 )}
-                <div style={{display:"grid",gridTemplateColumns:data.useFixedAmount===true?"1fr 1fr 1fr":"1fr 1fr",gap:8,marginBottom:8,transition:"all 0.25s ease"}}>
+                <div style={{display:"grid",gridTemplateColumns:data.useFixedAmount===true?"1fr 1fr 1fr":"1fr 1fr",gap:8,marginBottom:8}}>
                   {data.useFixedAmount===true&&<div style={{animation:"tabEnter 0.3s ease both"}}>
                     <div style={{fontSize:9,color:T.muted,marginBottom:4,letterSpacing:1}}>AMOUNT ($)</div>
                     <div className="amt-wrap"><span className="amt-prefix" style={{fontSize:14,color:data.checkAmount?T.accent+"99":T.muted+"55"}}>$</span><input className={needsAmount?"onboard-pulse":""} style={{...INP,fontSize:14,fontFamily:"monospace",fontWeight:700,padding:"8px 10px",paddingLeft:20,height:38,boxSizing:"border-box"}} type="number" inputMode="decimal" value={data.checkAmount||""} onChange={e=>setData(p=>({...p,checkAmount:parseFloat(e.target.value)||0}))} placeholder="1500"/></div>
                   </div>}
                   <div>
                     <div style={{fontSize:9,color:T.muted,marginBottom:4,letterSpacing:1}}>ANCHOR DATE</div>
-                    <input style={{...INP,fontSize:12,padding:"8px 10px",height:38,boxSizing:"border-box"}} type="date" value={data.proximoCobro||""} onChange={e=>setData(p=>({...p,proximoCobro:e.target.value}))}/>
+                    <input className={needsAnchor?"onboard-pulse":""} style={{...INP,fontSize:12,padding:"8px 10px",height:38,boxSizing:"border-box"}} type="date" value={data.proximoCobro||""} onChange={e=>setData(p=>({...p,proximoCobro:e.target.value}))}/>
                   </div>
                   <div>
                     <div style={{fontSize:9,color:T.muted,marginBottom:4,letterSpacing:1}}>FREQUENCY</div>
-                    <select style={{...INP,fontSize:12,padding:"8px 10px",height:38,boxSizing:"border-box"}} value={data.payFreq||"biweekly"} onChange={e=>setData(p=>({...p,payFreq:e.target.value}))}><option value="weekly">Weekly</option><option value="biweekly">Biweekly</option><option value="semimonthly">Semi-monthly</option><option value="monthly">Monthly</option></select>
+                    <select className={needsFreq?"onboard-pulse":""} style={{...INP,fontSize:12,padding:"8px 10px",height:38,boxSizing:"border-box"}} value={freq} onChange={e=>setData(p=>({...p,payFreq:e.target.value,_freqSet:true}))}><option value="" disabled>— Select —</option><option value="weekly">Weekly</option><option value="biweekly">Biweekly</option><option value="semimonthly">Semi-monthly</option><option value="monthly">Monthly</option></select>
                   </div>
                 </div>
                 <div style={{background:T.surface2,borderRadius:8,padding:"7px 10px",fontSize:10,color:T.muted,lineHeight:1.6}}>
