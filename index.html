@@ -222,18 +222,23 @@ const fmtD=v=>new Intl.NumberFormat("en-US",{style:"currency",currency:"USD",min
 const n=v=>parseFloat(v)||0;
 const fmd=d=>{const m=["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];return`${m[d.getMonth()]} ${d.getDate()}`;};
 const dateStr=d=>{const y=d.getFullYear(),mo=String(d.getMonth()+1).padStart(2,"0"),dy=String(d.getDate()).padStart(2,"0");return`${y}-${mo}-${dy}`;};
+const clampDay=(year,month,day)=>Math.min(day,new Date(year,month+1,0).getDate());
 const getDU=dia=>{
   if(!dia)return null;
   const h=new Date();h.setHours(0,0,0,0);
-  const c=new Date(h.getFullYear(),h.getMonth(),parseInt(dia));
-  if(c<h)c.setMonth(c.getMonth()+1);
+  const d=parseInt(dia);
+  let y=h.getFullYear(),m=h.getMonth();
+  const c=new Date(y,m,clampDay(y,m,d));
+  if(c<h){m++;if(m>11){m=0;y++;}const c2=new Date(y,m,clampDay(y,m,d));return Math.ceil((c2-h)/86400000);}
   return Math.ceil((c-h)/86400000);
 };
 const gdf=dia=>{
   if(!dia)return null;
   const h=new Date();h.setHours(0,0,0,0);
-  const c=new Date(h.getFullYear(),h.getMonth(),parseInt(dia));
-  if(c<h)c.setMonth(c.getMonth()+1);
+  const d=parseInt(dia);
+  let y=h.getFullYear(),m=h.getMonth();
+  const c=new Date(y,m,clampDay(y,m,d));
+  if(c<h){m++;if(m>11){m=0;y++;}return new Date(y,m,clampDay(y,m,d));}
   return c;
 };
 const calcLoan=(balance,apr,pmt)=>{
@@ -564,7 +569,7 @@ const GastoItem=memo(({item,pid,editId,setEditId,tarjetas,onCycle,onLongPress,on
       {(DUE_DAY_CATS.has(localDestino)||DUE_DAY_CATS.has(item.cat))&&(
         <div style={{marginBottom:12}}>
           <div style={{fontSize:10,color:T.muted,marginBottom:5,display:"flex",alignItems:"center",gap:6}}>📅 DUE DAY <span style={{opacity:0.5,fontWeight:400}}>(day of month, e.g. 15)</span>{localDestino==="credit_card"&&localTarjetaRef&&getCardDueDay(localTarjetaRef)&&(<span style={{marginLeft:4,color:T.accent,fontSize:9}}>← auto-filled</span>)}</div>
-          <input style={{...INP,fontFamily:"monospace",fontWeight:700}} type="number" inputMode="numeric" placeholder="e.g. 7" value={item.diaPago||""} onChange={e=>onUpdate(item.id,"diaPago",e.target.value?parseInt(e.target.value):null)}/>
+          <input style={{...INP,fontFamily:"monospace",fontWeight:700}} type="number" inputMode="numeric" placeholder="e.g. 7" min="1" max={new Date(new Date().getFullYear(),new Date().getMonth()+1,0).getDate()} value={item.diaPago||""} onChange={e=>{const v=parseInt(e.target.value);const max=new Date(new Date().getFullYear(),new Date().getMonth()+1,0).getDate();onUpdate(item.id,"diaPago",e.target.value?Math.min(max,Math.max(1,v)):null);}} onBlur={e=>{if(item.diaPago){const max=new Date(new Date().getFullYear(),new Date().getMonth()+1,0).getDate();onUpdate(item.id,"diaPago",Math.min(max,Math.max(1,parseInt(item.diaPago)||1)));}}}/>
         </div>
       )}
       {/* Recurring toggle */}
@@ -818,11 +823,11 @@ const GastoItem=memo(({item,pid,editId,setEditId,tarjetas,onCycle,onLongPress,on
             </div>
             <div>
               <div style={{fontSize:9,color:dp!==null&&dp<=3?"#f85149":T.muted,letterSpacing:1.5,fontWeight:dp!==null&&dp<=3?700:600,marginBottom:5,textAlign:"center"}}>DUE</div>
-              <input style={{...INP,fontSize:13,padding:"7px 6px",borderColor:"rgba(248,81,73,0.35)",userSelect:"text",WebkitUserSelect:"text",textAlign:"center"}} type="number" inputMode="numeric" placeholder="—" value={debt.fechaPago||""} onChange={e=>onUpdate(debt.id,"fechaPago",e.target.value)}/>
+              <input style={{...INP,fontSize:13,padding:"7px 6px",borderColor:"rgba(248,81,73,0.35)",userSelect:"text",WebkitUserSelect:"text",textAlign:"center"}} type="number" inputMode="numeric" placeholder="—" min="1" max={new Date(new Date().getFullYear(),new Date().getMonth()+1,0).getDate()} value={debt.fechaPago||""} onChange={e=>{const v=parseInt(e.target.value);const max=new Date(new Date().getFullYear(),new Date().getMonth()+1,0).getDate();if(!e.target.value){onUpdate(debt.id,"fechaPago","");return;}if(v>=1&&v<=max)onUpdate(debt.id,"fechaPago",v);}} onBlur={e=>{if(debt.fechaPago){const max=new Date(new Date().getFullYear(),new Date().getMonth()+1,0).getDate();onUpdate(debt.id,"fechaPago",Math.min(max,Math.max(1,parseInt(debt.fechaPago)||1)));}}}/>
             </div>
             {tipo==="card"&&<div>
               <div style={{fontSize:9,color:T.muted,letterSpacing:1.5,fontWeight:600,marginBottom:5,textAlign:"center"}}>CUT</div>
-              <input style={{...INP,fontSize:13,padding:"7px 6px",userSelect:"text",WebkitUserSelect:"text",textAlign:"center"}} type="number" inputMode="numeric" placeholder="—" value={debt.fechaCorte||""} onChange={e=>onUpdate(debt.id,"fechaCorte",e.target.value)}/>
+              <input style={{...INP,fontSize:13,padding:"7px 6px",userSelect:"text",WebkitUserSelect:"text",textAlign:"center"}} type="number" inputMode="numeric" placeholder="—" min="1" max={new Date(new Date().getFullYear(),new Date().getMonth()+1,0).getDate()} value={debt.fechaCorte||""} onChange={e=>{const v=parseInt(e.target.value);const max=new Date(new Date().getFullYear(),new Date().getMonth()+1,0).getDate();if(!e.target.value){onUpdate(debt.id,"fechaCorte","");return;}if(v>=1&&v<=max)onUpdate(debt.id,"fechaCorte",v);}} onBlur={e=>{if(debt.fechaCorte){const max=new Date(new Date().getFullYear(),new Date().getMonth()+1,0).getDate();onUpdate(debt.id,"fechaCorte",Math.min(max,Math.max(1,parseInt(debt.fechaCorte)||1)));}}}/>
             </div>}
           </div>
           {/* COLOR PICKER */}
