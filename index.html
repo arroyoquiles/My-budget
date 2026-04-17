@@ -1858,92 +1858,90 @@ function App(){
         return(
         <div style={{position:"fixed",inset:0,zIndex:300,background:"rgba(0,0,0,0.75)",display:"flex",flexDirection:"column",justifyContent:"flex-end"}} onClick={e=>{if(e.target===e.currentTarget){setMoveOpen(false);setEditingPotId(null);}}} onTouchMove={e=>e.preventDefault()} onTouchStart={e=>e.stopPropagation()}>
           <div style={{width:"100%",maxWidth:500,margin:"0 auto",background:T.surface,borderRadius:"20px 20px 0 0",border:`1px solid ${T.border}`,maxHeight:"88vh",display:"flex",flexDirection:"column"}}>
-            {/* Header */}
+
+            {/* Header — only title + close, no Hide button */}
             <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",padding:"16px 18px 12px",borderBottom:`1px solid ${T.border}`,flexShrink:0}}>
               <div style={{fontSize:14,fontWeight:700}}>🪣 Manage Pots</div>
-              <div style={{display:"flex",gap:8,alignItems:"center"}}>
-                <button style={{...BTN,padding:"4px 10px",fontSize:11,fontWeight:700,borderRadius:8,background:`${T.accent}18`,color:T.accent,border:`1px solid ${T.accent}33`}}
-                  onClick={()=>setData(p=>({...p,potsHidden:!p.potsHidden}))}>
-                  {data.potsHidden?"👁 Show":"🙈 Hide"}
-                </button>
-                <button style={{...BTN,background:"transparent",color:T.muted,fontSize:18,padding:"2px 6px",lineHeight:1,border:"none"}} onClick={()=>{setMoveOpen(false);setEditingPotId(null);}}>✕</button>
-              </div>
+              <button style={{...BTN,background:"transparent",color:T.muted,fontSize:18,padding:"2px 8px",lineHeight:1,border:"none"}} onClick={()=>{setMoveOpen(false);setEditingPotId(null);}}>✕</button>
             </div>
 
-            {/* Scrollable body */}
-            <div style={{overflowY:"auto",WebkitOverflowScrolling:"touch",padding:"14px 18px",paddingBottom:"max(24px,env(safe-area-inset-bottom,24px))",flex:1}}>
+            {/* Scrollable body — does NOT move with keyboard */}
+            <div style={{overflowY:"auto",WebkitOverflowScrolling:"touch",padding:"12px 16px",paddingBottom:"max(28px,env(safe-area-inset-bottom,28px))",flex:1}}>
 
-              {/* Pot list */}
+              {/* Pot list — compact rows */}
               {potsList.map(pot=>{
                 const bal=n(pot.balance)||0;
                 const color=pot.color||"#58a6ff";
                 const isEditing=editingPotId===pot.id;
                 const isSelected=moveTo===pot.id;
                 return(
-                <div key={pot.id} style={{marginBottom:8,borderRadius:12,border:`1px solid ${isSelected?color+"66":T.border}`,background:isSelected?color+"0d":T.surface2,overflow:"hidden",transition:"all 0.2s"}}>
-                  {/* Pot row */}
-                  <div style={{display:"flex",alignItems:"center",gap:10,padding:"10px 12px",cursor:"pointer"}} onClick={()=>{setMoveTo(pot.id);setEditingPotId(null);}}>
-                    <span style={{fontSize:20}}>{pot.icon||"🪣"}</span>
-                    <div style={{flex:1,minWidth:0}}>
+                <div key={pot.id} style={{marginBottom:6,borderRadius:12,border:`1px solid ${isSelected?color+"66":T.border}`,background:isSelected?color+"0d":T.surface2,overflow:"hidden",transition:"border-color 0.2s,background 0.2s"}}>
+                  {/* Compact pot row */}
+                  <div style={{display:"flex",alignItems:"center",gap:10,padding:"9px 12px"}}>
+                    <span style={{fontSize:18,flexShrink:0,cursor:"pointer"}} onClick={()=>setEditingPotId(isEditing?null:pot.id)}>{pot.icon||"🪣"}</span>
+                    {/* Tap name → edit */}
+                    <div style={{flex:1,minWidth:0,cursor:"pointer"}} onClick={()=>{setMoveTo(pot.id);setEditingPotId(isEditing?null:pot.id);}}>
                       <div style={{fontSize:13,fontWeight:700,color:T.text}}>{pot.name}</div>
-                      <div style={{fontSize:11,fontFamily:"monospace",fontWeight:700,color:data.potsHidden?"#8b949e":color,transition:"opacity 0.12s",opacity:data.potsHidden?0.5:1}}>
+                      <div style={{fontSize:11,fontFamily:"monospace",fontWeight:700,color:data.potsHidden?"#8b949e":color,opacity:data.potsHidden?0.5:1,transition:"opacity 0.12s"}}>
                         {data.potsHidden?"••••":fmt(bal)}
                       </div>
                     </div>
-                    <div style={{display:"flex",gap:6,alignItems:"center"}}>
-                      <button style={{...BTN,padding:"5px 8px",fontSize:10,borderRadius:7,background:"transparent",color:T.muted,border:`1px solid ${T.border}`}}
-                        onMouseDown={e=>e.stopPropagation()} onClick={e=>{e.stopPropagation();setEditingPotId(isEditing?null:pot.id);}}>✏️</button>
-                      <button style={{...BTN,padding:"5px 8px",fontSize:10,borderRadius:7,background:"rgba(248,81,73,0.1)",color:"#f85149",border:"1px solid rgba(248,81,73,0.25)"}}
-                        onMouseDown={e=>e.stopPropagation()} onClick={e=>{e.stopPropagation();
-                          if(window.confirm(`Delete "${pot.name}"? Balance of ${fmt(bal)} will be lost.`)){
-                            setData(p=>({...p,potsList:(p.potsList||[]).filter(pt=>pt.id!==pot.id)}));
-                            if(moveTo===pot.id)setMoveTo(potsList.find(p2=>p2.id!==pot.id)?.id||"");
-                          }
-                        }}>🗑</button>
-                    </div>
+                    {/* + button only */}
+                    <button style={{...BTN,width:30,height:30,borderRadius:9,background:"rgba(63,185,80,0.12)",color:"#3fb950",border:"1px solid rgba(63,185,80,0.3)",fontSize:18,display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0}}
+                      onMouseDown={e=>e.stopPropagation()} onClick={e=>{e.stopPropagation();setMoveTo(pot.id);setMoveMode("add");setEditingPotId(null);}}>+</button>
+                    {/* Delete */}
+                    <button style={{...BTN,width:30,height:30,borderRadius:9,background:"rgba(248,81,73,0.08)",color:"#f85149",border:"1px solid rgba(248,81,73,0.2)",fontSize:14,display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0}}
+                      onMouseDown={e=>e.stopPropagation()} onClick={e=>{e.stopPropagation();
+                        if(window.confirm(`Delete "${pot.name}"?`)){
+                          setData(p=>({...p,potsList:(p.potsList||[]).filter(pt=>pt.id!==pot.id)}));
+                          if(moveTo===pot.id)setMoveTo(potsList.find(p2=>p2.id!==pot.id)?.id||"");
+                        }
+                      }}>🗑</button>
                   </div>
 
-                  {/* Edit panel */}
-                  {isEditing&&<div style={{padding:"0 12px 12px",borderTop:`1px solid ${T.border}`,background:T.surface}}>
+                  {/* Edit panel — with Save button */}
+                  {isEditing&&<div style={{padding:"0 12px 12px",borderTop:`1px solid ${T.border}`,background:T.surface,animation:"editOpen 0.25s ease both"}}>
                     <div style={{marginTop:10,marginBottom:8}}>
                       <div style={{fontSize:9,color:T.muted,marginBottom:4,letterSpacing:1}}>NAME</div>
-                      <input style={{...INP,fontSize:13}} value={pot.name} onChange={e=>setData(p=>({...p,potsList:(p.potsList||[]).map(pt=>pt.id===pot.id?{...pt,name:e.target.value}:pt)}))} placeholder="Pot name"/>
+                      <input style={{...INP,fontSize:13}} value={pot.name}
+                        onChange={e=>setData(p=>({...p,potsList:(p.potsList||[]).map(pt=>pt.id===pot.id?{...pt,name:e.target.value}:pt)}))}
+                        placeholder="Pot name" autoFocus/>
                     </div>
                     <div style={{marginBottom:8}}>
                       <div style={{fontSize:9,color:T.muted,marginBottom:6,letterSpacing:1}}>ICON</div>
-                      <div style={{display:"flex",flexWrap:"wrap",gap:6}}>
-                        {POT_ICONS.map(ic=><button key={ic} style={{...BTN,width:32,height:32,borderRadius:8,fontSize:16,background:pot.icon===ic?`${color}33`:T.surface2,border:`1px solid ${pot.icon===ic?color:T.border}`}} onClick={()=>setData(p=>({...p,potsList:(p.potsList||[]).map(pt=>pt.id===pot.id?{...pt,icon:ic}:pt)}))}>{ic}</button>)}
+                      <div style={{display:"flex",flexWrap:"wrap",gap:5}}>
+                        {POT_ICONS.map(ic=><button key={ic} style={{...BTN,width:34,height:34,borderRadius:8,fontSize:17,background:pot.icon===ic?`${color}33`:T.surface2,border:`1px solid ${pot.icon===ic?color:T.border}`,transition:"all 0.15s"}} onClick={()=>setData(p=>({...p,potsList:(p.potsList||[]).map(pt=>pt.id===pot.id?{...pt,icon:ic}:pt)}))}>{ic}</button>)}
                       </div>
                     </div>
-                    <div>
+                    <div style={{marginBottom:12}}>
                       <div style={{fontSize:9,color:T.muted,marginBottom:6,letterSpacing:1}}>COLOR</div>
-                      <div style={{display:"flex",gap:6,flexWrap:"wrap"}}>
-                        {POT_COLORS.map(c=><button key={c} style={{...BTN,width:24,height:24,borderRadius:"50%",background:c,border:pot.color===c?`3px solid ${T.text}`:`2px solid transparent`,transform:pot.color===c?"scale(1.2)":"scale(1)",transition:"all 0.15s"}} onClick={()=>setData(p=>({...p,potsList:(p.potsList||[]).map(pt=>pt.id===pot.id?{...pt,color:c}:pt)}))}/>)}
+                      <div style={{display:"flex",gap:7,flexWrap:"wrap"}}>
+                        {POT_COLORS.map(c=><button key={c} style={{...BTN,width:26,height:26,borderRadius:"50%",background:c,border:pot.color===c?`3px solid ${T.text}`:`2px solid transparent`,transform:pot.color===c?"scale(1.25)":"scale(1)",transition:"all 0.15s"}} onClick={()=>setData(p=>({...p,potsList:(p.potsList||[]).map(pt=>pt.id===pot.id?{...pt,color:c}:pt)}))}/>)}
                       </div>
                     </div>
+                    <button style={{...BTN,width:"100%",padding:"10px",background:"#238636",color:"#fff",fontSize:13,fontWeight:700,borderRadius:10}}
+                      onClick={()=>setEditingPotId(null)}>✓ Save</button>
                   </div>}
                 </div>);
               })}
 
               {/* Add new pot */}
-              <button style={{...BTN,width:"100%",padding:"11px",marginBottom:16,background:`${T.accent}10`,color:T.accent,fontSize:13,fontWeight:600,border:`1px dashed ${T.accent}44`,borderRadius:12,display:"flex",alignItems:"center",justifyContent:"center",gap:6}}
+              <button style={{...BTN,width:"100%",padding:"10px",marginBottom:14,background:`${T.accent}0d`,color:T.accent,fontSize:13,fontWeight:600,border:`1px dashed ${T.accent}33`,borderRadius:12,display:"flex",alignItems:"center",justifyContent:"center",gap:6}}
                 onClick={()=>{
                   const newId="pot_"+Date.now();
                   const icons=["🪣","✈️","🚗","🏖️","🎯","💊"];
                   const colors=["#58a6ff","#a78bfa","#f97316","#ec4899","#10b981","#d29922"];
                   const idx=(data.potsList||[]).length%6;
                   setData(p=>({...p,potsList:[...(p.potsList||[]),{id:newId,name:"New Pot",icon:icons[idx],color:colors[idx],balance:0}]}));
-                  setMoveTo(newId);
-                  setEditingPotId(newId);
+                  setMoveTo(newId);setEditingPotId(newId);
                 }}>
                 + Add Pot
               </button>
 
-              {/* Transaction section — only when a pot is selected */}
-              {selPot&&<>
+              {/* Transaction section */}
+              {selPot&&!editingPotId&&<>
                 <div style={{borderTop:`1px solid ${T.border}`,paddingTop:14,marginBottom:12}}>
                   <div style={{fontSize:10,color:T.muted,letterSpacing:1.5,fontWeight:700,marginBottom:10}}>TRANSACTION — {selPot.name}</div>
-                  {/* Mode selector */}
                   <div style={{display:"flex",gap:5,background:T.surface2,borderRadius:11,padding:3,marginBottom:12}}>
                     {[{id:"add",label:"+ Add",color:"#3fb950"},{id:"use",label:"− Use",color:"#f85149"},{id:"transfer",label:"↔ Transfer",color:"#58a6ff"}].map(m=>(
                       <button key={m.id} style={{...BTN,flex:1,padding:"8px 4px",fontSize:11,borderRadius:9,background:moveMode===m.id?T.bg:"transparent",color:moveMode===m.id?m.color:T.muted,border:moveMode===m.id?`1px solid ${m.color}`:"1px solid transparent",transition:"all 0.15s"}}
@@ -1951,7 +1949,6 @@ function App(){
                     ))}
                   </div>
 
-                  {/* Transfer target */}
                   {moveMode==="transfer"&&potsList.length>1&&<div style={{marginBottom:12}}>
                     <div style={{fontSize:9,color:T.muted,marginBottom:5,letterSpacing:1}}>TRANSFER TO</div>
                     <div style={{display:"flex",gap:6,flexWrap:"wrap"}}>
@@ -1962,16 +1959,15 @@ function App(){
                     </div>
                   </div>}
 
-                  {/* Amount */}
                   <div style={{marginBottom:10}}>
                     <div style={{fontSize:9,color:T.muted,marginBottom:5,letterSpacing:1}}>AMOUNT ($)</div>
-                    <div className="amt-wrap"><span className="amt-prefix" style={{fontSize:20,color:moveAmt?T.accent+"99":T.muted+"55"}}>$</span>
+                    <div className="amt-wrap">
+                      <span className="amt-prefix" style={{fontSize:20,color:moveAmt?T.accent+"99":T.muted+"55"}}>$</span>
                       <input ref={moveAmtRef} style={{...INP,fontFamily:"monospace",fontWeight:700,fontSize:22,paddingLeft:28}} type="number" inputMode="decimal" value={moveAmt} onChange={e=>setMoveAmt(e.target.value)} placeholder="0"/>
                     </div>
                   </div>
 
-                  {/* Preview */}
-                  <div style={{height:36,marginBottom:12,display:"flex",alignItems:"center"}}>
+                  <div style={{height:34,marginBottom:12,display:"flex",alignItems:"center"}}>
                     {(()=>{
                       const m=parseFloat(moveAmt)||0;
                       if(!m)return<span style={{fontSize:11,color:T.muted}}>Balance: <span style={{fontFamily:"monospace",fontWeight:700,color:selPot.color||"#58a6ff"}}>{fmt(selBal)}</span></span>;
@@ -1992,17 +1988,16 @@ function App(){
                     })()}
                   </div>
 
-                  <button style={{...BTN,width:"100%",padding:"13px",background:moveMode==="add"?"#238636":moveMode==="transfer"?"rgba(88,166,255,0.2)":"rgba(248,81,73,0.85)",color:moveMode==="transfer"?"#58a6ff":"#fff",fontSize:14,fontWeight:700,borderRadius:11,border:moveMode==="transfer"?"1px solid rgba(88,166,255,0.4)":"none"}}
+                  <button style={{...BTN,width:"100%",padding:"13px",background:moveMode==="add"?"#238636":moveMode==="transfer"?"rgba(88,166,255,0.15)":"rgba(248,81,73,0.85)",color:moveMode==="transfer"?"#58a6ff":"#fff",fontSize:14,fontWeight:700,borderRadius:11,border:moveMode==="transfer"?"1px solid rgba(88,166,255,0.35)":"none"}}
                     onMouseDown={e=>e.preventDefault()} onClick={doMoveMoney}>
                     {moveMode==="add"?`💸 Add to ${selPot.name}`:moveMode==="transfer"?`↔ Transfer from ${selPot.name}`:`💳 Use from ${selPot.name}`}
                   </button>
                 </div>
 
-                {/* Recent movements */}
                 {(data.potMovements||[]).filter(mv=>mv.potKey===selPot.id).slice(0,3).length>0&&<div style={{marginTop:4}}>
                   <div style={{fontSize:9,color:T.muted,letterSpacing:1,marginBottom:6}}>RECENT</div>
                   {(data.potMovements||[]).filter(mv=>mv.potKey===selPot.id).slice(0,3).map((mv,i)=>(
-                    <div key={mv.id||i} style={{display:"flex",justifyContent:"space-between",fontSize:10,padding:"3px 0",borderBottom:`1px solid ${T.border}`}}>
+                    <div key={mv.id||i} style={{display:"flex",justifyContent:"space-between",fontSize:10,padding:"4px 0",borderBottom:`1px solid ${T.border}`}}>
                       <span style={{color:T.muted}}>{mv.date} · {mv.note}</span>
                       <span style={{fontFamily:"monospace",fontWeight:700,color:mv.amount>=0?"#3fb950":"#f85149"}}>{mv.amount>=0?"+":""}{fmt(Math.abs(mv.amount))}</span>
                     </div>
