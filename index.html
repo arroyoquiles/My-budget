@@ -157,6 +157,13 @@ const POTS = {
   emergency:   {label:"Emergency", icon:"🆘",color:"#06b6d4",bg:"rgba(6,182,212,0.1)"},
   investment:  {label:"Investment",icon:"📈",color:"#10b981",bg:"rgba(16,185,129,0.1)"},
 };
+// Helper: get pot info (works for both legacy keys and dynamic pots)
+const getPotInfo=(potsList,keyOrId)=>{
+  if(!potsList)return POTS[keyOrId]||{label:keyOrId,icon:"🪣",color:"#58a6ff",bg:"rgba(88,166,255,0.1)"};
+  const found=potsList.find(p=>p.id===keyOrId||p.id===keyOrId);
+  if(found)return{label:found.name,icon:found.icon||"🪣",color:found.color||"#58a6ff",bg:(found.color||"#58a6ff")+"1a"};
+  return POTS[keyOrId]||{label:keyOrId,icon:"🪣",color:"#58a6ff",bg:"rgba(88,166,255,0.1)"};
+};
 const CC = {
   "BJ's Card":  {color:"#f85149",bg:"rgba(248,81,73,0.12)",  border:"rgba(248,81,73,0.35)",  dot:"🔴"},
   "Quicksilver":{color:"#a78bfa",bg:"rgba(167,139,250,0.12)",border:"rgba(167,139,250,0.35)",dot:"🟣"},
@@ -216,7 +223,13 @@ const getLoanColor=(nombre)=>{
 };
 const DORDER=["savings_acct","emergency","investment","rent","auto","insurance","utilities","gas","credit_card","groceries","subscription","dining","entertainment","medical","lifestyle","temp","other"];
 const DUE_DAY_CATS=new Set(["credit_card","rent","utilities","insurance","subscription","auto","medical"]);
-const gds=(d,r,cardObj)=>{if(d==="credit_card"&&r&&CC[r])return{...DEST.credit_card,...CC[r],label:r};if(d==="credit_card"&&cardObj&&cardObj._vc)return{...DEST.credit_card,...cardObj._vc,label:r||cardObj.nombre||"Credit Card"};if(d==="credit_card"&&r)return{...DEST.credit_card,label:r};return DEST[d]||DEST.other;};
+const gds=(d,r,cardObj,potsList)=>{
+  if(d==="credit_card"&&r&&CC[r])return{...DEST.credit_card,...CC[r],label:r};
+  if(d==="credit_card"&&cardObj&&cardObj._vc)return{...DEST.credit_card,...cardObj._vc,label:r||cardObj.nombre||"Credit Card"};
+  if(d==="credit_card"&&r)return{...DEST.credit_card,label:r};
+  if(potsList&&d){const pot=(potsList).find(p=>p.id===d);if(pot){const c=pot.color||"#58a6ff";return{label:pot.name,icon:pot.icon||"🪣",color:c,bg:c+"1a",border:c+"44"};}}
+  return DEST[d]||DEST.other;
+};
 const fmt=v=>new Intl.NumberFormat("en-US",{style:"currency",currency:"USD",maximumFractionDigits:0}).format(v||0);
 const fmtD=v=>new Intl.NumberFormat("en-US",{style:"currency",currency:"USD",minimumFractionDigits:2,maximumFractionDigits:2}).format(v||0);
 const n=v=>parseFloat(v)||0;
@@ -419,6 +432,12 @@ const migrate=raw=>{
     pots:raw.pots||{savings_acct:0,emergency:0,investment:0},
     potTargets:raw.potTargets||{},
     potMovements:raw.potMovements||[],
+    potsList:raw.potsList||[
+      {id:"savings_acct", name:"Savings",    icon:"🏦", color:"#3fb950", balance:n(raw.pots?.savings_acct)||0},
+      {id:"emergency",    name:"Emergency",  icon:"🆘", color:"#06b6d4", balance:n(raw.pots?.emergency)||0},
+      {id:"investment",   name:"Investment", icon:"📈", color:"#10b981", balance:n(raw.pots?.investment)||0},
+    ],
+    potsHidden:raw.potsHidden||false,
     snapshots:raw.snapshots||[],
     ahorro:raw.ahorro||null,
     _sa:raw._sa||"",
@@ -432,7 +451,13 @@ const DD={
   loans:[],
   pots:{savings_acct:0,emergency:0,investment:0},
   potTargets:{},
-  potMovements:[],snapshots:[],ahorro:null,_sa:"",
+  potMovements:[],
+  potsList:[
+    {id:"savings_acct", name:"Savings",    icon:"🏦", color:"#3fb950", balance:0},
+    {id:"emergency",    name:"Emergency",  icon:"🆘", color:"#06b6d4", balance:0},
+    {id:"investment",   name:"Investment", icon:"📈", color:"#10b981", balance:0},
+  ],
+  potsHidden:false,snapshots:[],ahorro:null,_sa:"",
   notifEnabled:true,
 };
 const loadData=()=>{
@@ -480,8 +505,8 @@ const DragList=memo(({items,renderItem})=>{
   return(<div>{items.map((item,i)=>(<div key={item.id}>{renderItem(item,i,{})}</div>))}</div>);
 });
 const getCatIcon=(cat)=>CICONS[cat]||"📌";
-const GastoItem=memo(({item,pid,editId,setEditId,tarjetas,onCycle,onLongPress,onUpdate,onBatchUpdate,onRemove,T})=>{
-  const dest=gds(item.destino,item.tarjetaRef);
+const GastoItem=memo(({item,pid,editId,setEditId,tarjetas,potsList,onCycle,onLongPress,onUpdate,onBatchUpdate,onRemove,T})=>{
+  const dest=gds(item.destino,item.tarjetaRef,null,potsList);
   const INP=mkINP(T),BTN=mkBTN(),CARD=mkCARD(T);
   const [swipeX,setSwipeX]=useState(0);
   // Local edit state - buffers changes, commits on save
@@ -553,6 +578,14 @@ const GastoItem=memo(({item,pid,editId,setEditId,tarjetas,onCycle,onLongPress,on
             return(<button key={k} style={{cursor:"pointer",border:"none",borderRadius:10,fontFamily:"inherit",fontWeight:600,WebkitTapHighlightColor:"transparent",padding:"7px 9px",fontSize:11,textAlign:"left",background:isSelected?d.bg:"#21262d",color:isSelected?d.color:T.muted,border:`1px solid ${isSelected?d.border:T.border}`,transition:"background 0.1s, color 0.1s, border-color 0.1s",whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}
               onMouseDown={e=>{e.preventDefault();setLocalDestino(k);if(k!=="credit_card")setLocalTarjetaRef("");}}>
               {d.icon} {d.label}
+            </button>);
+          })}
+          {(potsList||[]).map(pot=>{
+            const isSelected=localDestino===pot.id;
+            const color=pot.color||"#58a6ff";
+            return(<button key={pot.id} style={{cursor:"pointer",border:"none",borderRadius:10,fontFamily:"inherit",fontWeight:600,WebkitTapHighlightColor:"transparent",padding:"7px 9px",fontSize:11,textAlign:"left",background:isSelected?color+"22":"#21262d",color:isSelected?color:T.muted,border:`1px solid ${isSelected?color+"66":T.border}`,transition:"background 0.1s, color 0.1s, border-color 0.1s",whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}
+              onMouseDown={e=>{e.preventDefault();setLocalDestino(pot.id);setLocalTarjetaRef("");}}>
+              {pot.icon||"🪣"} {pot.name}
             </button>);
           })}
         </div>
@@ -644,7 +677,7 @@ const GastoItem=memo(({item,pid,editId,setEditId,tarjetas,onCycle,onLongPress,on
           </div>
         </div>
         <div style={{fontFamily:"monospace",fontWeight:700,fontSize:13,color:item.state==="paid"?"#3fb950":item.state==="reserved"?"#d29922":dest.color||"#f85149",flexShrink:0}}>{fmt(item.monto)}</div>
-        {(item.destino==="savings_acct"||item.destino==="emergency"||item.destino==="investment")&&item.monto>0&&(
+        {(item.destino==="savings_acct"||item.destino==="emergency"||item.destino==="investment"||(item.destino&&item.destino.startsWith("pot_"))||((potsList||[]).some(p=>p.id===item.destino)))&&item.monto>0&&(
           <button
             style={{...mkBTN(),
               background:item._potAdded?"rgba(63,185,80,0.15)":"transparent",
@@ -964,7 +997,7 @@ const DestinoSummary=memo(({gastos,T})=>{
   return(<div style={{marginBottom:14}}>
     <div style={{fontSize:10,color:T.muted,letterSpacing:1.5,fontWeight:700,marginBottom:8}}>BREAKDOWN BY DESTINATION</div>
     <div style={{border:`1px solid ${T.border}`,borderRadius:12,overflow:"hidden"}}>
-      {entries.map(([k,v],i)=>{const d=gds(v.d,v.r);return(
+      {entries.map(([k,v],i)=>{const d=gds(v.d,v.r,null,[]);return(
         <div key={k} style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"9px 12px",background:i%2===0?T.surface:T.bg,borderBottom:i<entries.length-1?`1px solid ${T.border}`:"none"}}>
           <span style={{fontSize:12,color:d.color,fontWeight:600}}>{d.icon} {d.label}</span>
           <span style={{fontFamily:"monospace",fontWeight:800,color:d.color,fontSize:13}}>{fmt(v.total)}</span>
@@ -1031,9 +1064,11 @@ function App(){
   const [quickApplyTo,setQuickApplyTo]=useState("check");
   const [quickCardId,setQuickCardId]=useState("");
   const [moveOpen,setMoveOpen]=useState(false);
-  const [moveTo,setMoveTo]=useState("savings_acct");
+  const [moveTo,setMoveTo]=useState("");
+  const [moveTransferTo,setMoveTransferTo]=useState("");
   const [moveAmt,setMoveAmt]=useState("");
   const [moveMode,setMoveMode]=useState("add");
+  const [editingPotId,setEditingPotId]=useState(null);
   const moveAmtRef=useRef(null);
   const [kbHeight,setKbHeight]=useState(0);
   const kbHeightRef=useRef(0);
@@ -1206,22 +1241,22 @@ function App(){
   const interesTotal=allDebts.reduce((s,d)=>s+(n(d.interes)/100/12)*n(d.balance),0);
   const urgentDebts=allDebts.filter(d=>getDU(d.fechaPago)!==null&&getDU(d.fechaPago)<=3);
   const pots=data.pots||{};
+  const potsList=data.potsList||[];
   // Global pot handler for GastoItem → Pot button
   React.useEffect(()=>{
-    window._addToPot=(potKey,amount,itemId)=>{
-      const pot=POTS[potKey];
+    window._addToPot=(potId,amount,itemId)=>{
+      const potsList=data.potsList||[];
+      const pot=potsList.find(p=>p.id===potId)||getPotInfo(null,potId);
       if(!pot)return;
       setData(p=>{
-        // Add to pot
-        const newPots={...(p.pots||{}),[potKey]:(n((p.pots||{})[potKey])||0)+n(amount)};
-        // Mark item as _potAdded in all periods
+        const newPotsList=(p.potsList||[]).map(pt=>pt.id===potId?{...pt,balance:(n(pt.balance)||0)+n(amount)}:pt);
         const newPeriods={};
         Object.entries(p.periods||{}).forEach(([pid,per])=>{
           newPeriods[pid]={...per,gastos:(per.gastos||[]).map(g=>g.id===itemId?{...g,_potAdded:true}:g)};
         });
-        return{...p,pots:newPots,periods:newPeriods};
+        return{...p,potsList:newPotsList,periods:newPeriods};
       });
-      toast_(`✓ +${fmt(amount)} → ${pot.icon} ${pot.label}`);
+      toast_(`✓ +${fmt(amount)} → ${pot.icon||"🪣"} ${pot.name||pot.label}`);
       haptic(20);
     };
     return()=>{delete window._addToPot;};
@@ -1435,15 +1470,29 @@ function App(){
 
   const doMoveMoney=()=>{
     const m=parseFloat(moveAmt);if(!m||m<=0)return toast_("Invalid amount","err");
-    const pot=POTS[moveTo];
+    const potsList=data.potsList||[];
+    if(moveMode==="transfer"){
+      if(moveTo===moveTransferTo)return toast_("Select different pots","err");
+      const fromPot=potsList.find(p=>p.id===moveTo);
+      const toPot=potsList.find(p=>p.id===moveTransferTo);
+      if(!fromPot||!toPot)return toast_("Invalid pot","err");
+      if(m>n(fromPot.balance))return toast_("Not enough in "+fromPot.name,"err");
+      const mvId=Date.now();
+      setData(p=>({...p,
+        potsList:(p.potsList||[]).map(pt=>pt.id===moveTo?{...pt,balance:Math.max(0,n(pt.balance)-m)}:pt.id===moveTransferTo?{...pt,balance:n(pt.balance)+m}:pt),
+        potMovements:[...(p.potMovements||[]),{id:mvId,potKey:moveTo,amount:-m,date:new Date().toLocaleDateString("en-US",{month:"short",day:"numeric"}),note:"Transfer to "+toPot.name},{id:mvId+1,potKey:moveTransferTo,amount:m,date:new Date().toLocaleDateString("en-US",{month:"short",day:"numeric"}),note:"Transfer from "+fromPot.name}]}));
+      setMoveAmt("");toast_("↔️ "+fmt(m)+" transferred");return;
+    }
+    const pot=potsList.find(p=>p.id===moveTo);
     const isUse=moveMode==="use";
-    const curBal=n((data.pots||{})[moveTo])||0;
-    if(isUse&&m>curBal)return toast_(`Not enough in ${pot?.label||moveTo}`,"err");
-    const newBal=isUse?Math.max(0,curBal-m):curBal+m;
+    const curBal=n(pot?.balance)||0;
+    if(isUse&&m>curBal)return toast_("Not enough in "+(pot?.name||moveTo),"err");
     const mvId=Date.now();
-    setData(p=>({...p,pots:{...p.pots,[moveTo]:newBal},potMovements:[...(p.potMovements||[]),{id:mvId,potKey:moveTo,amount:isUse?-m:m,date:new Date().toLocaleDateString("en-US",{month:"short",day:"numeric"}),note:(isUse?"Used from ":"Added to ")+(pot?.label||moveTo)}]}));
+    setData(p=>({...p,
+      potsList:(p.potsList||[]).map(pt=>pt.id===moveTo?{...pt,balance:isUse?Math.max(0,n(pt.balance)-m):n(pt.balance)+m}:pt),
+      potMovements:[...(p.potMovements||[]),{id:mvId,potKey:moveTo,amount:isUse?-m:m,date:new Date().toLocaleDateString("en-US",{month:"short",day:"numeric"}),note:(isUse?"Used from ":"Added to ")+(pot?.name||moveTo)}]}));
     setMoveAmt("");
-    toast_(isUse?`💳 ${fmt(m)} used from ${pot?.label||moveTo}`:`💸 ${fmt(m)} added to ${pot?.label||moveTo}`);
+    toast_(isUse?"💳 "+fmt(m)+" used from "+(pot?.name||moveTo):"💸 "+fmt(m)+" added to "+(pot?.name||moveTo));
   };
   const exportData=useCallback(()=>{
     const b=new Blob([JSON.stringify(data,null,2)],{type:"application/json"});
@@ -1482,14 +1531,14 @@ function App(){
       }
     }
     return Object.keys(groups).sort((a,b)=>(DORDER.indexOf(groups[a].d)+1||99)-(DORDER.indexOf(groups[b].d)+1||99)).map(k=>{
-      const{d,r,items}=groups[k];const dst=gds(d,r);const sub=items.reduce((s,g)=>s+n(g.monto),0);
+      const{d,r,items}=groups[k];const dst=gds(d,r,null,potsList||[]);const sub=items.reduce((s,g)=>s+n(g.monto),0);
       return(<div key={k} style={{marginBottom:14}}>
         <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"6px 10px",marginBottom:5,background:dst.bg,borderRadius:9,border:`1px solid ${dst.border}`}}>
           <span style={{fontSize:12,fontWeight:700,color:dst.color}}>{dst.icon} {dst.label}</span>
           <span style={{fontFamily:"monospace",fontSize:13,fontWeight:800,color:dst.color}}>{fmt(sub)}</span>
         </div>
         <DragList items={items}
-          renderItem={(item)=>(<GastoItem key={item.id} item={item} pid={pid} editId={editId} setEditId={(id)=>openEditId(id,gastos)} tarjetas={data.tarjetas}
+          renderItem={(item)=>(<GastoItem key={item.id} item={item} pid={pid} editId={editId} setEditId={(id)=>openEditId(id,gastos)} tarjetas={data.tarjetas} potsList={potsList}
             onCycle={id=>cycleState(pid,id)} onLongPress={id=>setReserved(pid,id)}
             onUpdate={(id,f,v)=>updateGasto(pid,id,f,v)}
             onBatchUpdate={(id,fields)=>batchUpdateGasto(pid,id,fields)}
@@ -1498,7 +1547,7 @@ function App(){
     });
   };
   // Categories considered "Fixed" for visual grouping in Checks
-  const FIXED_CATS=new Set(["rent","insurance","subscription","utilities","auto","credit_card","savings_acct","emergency","investment","medical","loan"]);
+  const FIXED_CATS=new Set(["rent","insurance","subscription","utilities","auto","credit_card","savings_acct","emergency","investment","medical","loan",...(data.potsList||[]).map(p=>p.id)]);
   // Categories considered "Flexible"
   const FLEXIBLE_CATS=new Set(["gas","groceries","dining","entertainment","temp","lifestyle","other"]);
 
@@ -1541,7 +1590,7 @@ function App(){
           <div style={{flex:1,height:1,background:sectionColor,opacity:0.2}}/>
         </div>
         {Object.keys(groups).sort((a,b)=>(DORDER.indexOf(groups[a].d)+1||99)-(DORDER.indexOf(groups[b].d)+1||99)).map(k=>{
-          const{d,r,items}=groups[k];const dst=gds(d,r);const sub=items.reduce((s,g)=>s+n(g.monto),0);
+          const{d,r,items}=groups[k];const dst=gds(d,r,null,potsList||[]);const sub=items.reduce((s,g)=>s+n(g.monto),0);
           // Sort items by diaPago ascending (items with no due date stay at end)
           const sortedItems=[...items].sort((a,b)=>{
             const hasA=a.diaPago!=null&&a.diaPago!=="";
@@ -1557,7 +1606,7 @@ function App(){
               <span style={{fontFamily:"monospace",fontSize:13,fontWeight:800,color:dst.color}}>{fmt(sub)}</span>
             </div>
             <DragList items={sortedItems}
-              renderItem={(item,_,touch)=>(<GastoItem key={item.id} item={item} pid={pid} editId={editId} setEditId={(id)=>openEditId(id,gastos)} tarjetas={data.tarjetas}
+              renderItem={(item,_,touch)=>(<GastoItem key={item.id} item={item} pid={pid} editId={editId} setEditId={(id)=>openEditId(id,gastos)} tarjetas={data.tarjetas} potsList={potsList}
                 onCycle={id=>cycleState(pid,id)} onLongPress={id=>setReserved(pid,id)}
                 onUpdate={(id,f,v)=>updateGasto(pid,id,f,v)}
                 onBatchUpdate={(id,fields)=>batchUpdateGasto(pid,id,fields)}
@@ -1801,50 +1850,165 @@ function App(){
         </div>
       )}
       {moveOpen&&(()=>{
-        const selPot=POTS[moveTo];
-        const selBal=n(pots[moveTo])||0;
+        const potsList=data.potsList||[];
+        const selPot=potsList.find(p=>p.id===moveTo);
+        const selBal=n(selPot?.balance)||0;
+        const POT_ICONS=["🪣","🏦","✈️","🚗","🏠","🎓","💊","🏖️","🎯","💍","🐾","🎮","👶","🛳️","💰","🔧","🌱","🎸"];
+        const POT_COLORS=["#3fb950","#58a6ff","#a78bfa","#ec4899","#f97316","#d29922","#06b6d4","#f43f5e","#10b981","#8b5cf6"];
         return(
-        <div style={{position:"fixed",inset:0,zIndex:300,background:"rgba(0,0,0,0.72)",display:"flex",flexDirection:"column",justifyContent:"flex-end"}} onClick={e=>{if(e.target===e.currentTarget)setMoveOpen(false);}} onTouchMove={e=>e.preventDefault()} onTouchStart={e=>e.stopPropagation()}>          <div style={{width:"100%",maxWidth:500,margin:"0 auto",background:T.surface,borderRadius:"20px 20px 0 0",border:`1px solid ${T.border}`,transform:`translateY(-${kbHeight}px)`,transition:"transform 0.0s",willChange:"transform"}}>
-            {/* Fixed header */}
-            <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",padding:"16px 18px 12px",borderBottom:`1px solid ${T.border}`}}>
-              <div style={{fontSize:14,fontWeight:700}}>💰 Pot Transaction</div>
-              <button style={{...BTN,background:"transparent",color:T.muted,fontSize:18,padding:"2px 6px",lineHeight:1}} onClick={()=>setMoveOpen(false)}>✕</button>
+        <div style={{position:"fixed",inset:0,zIndex:300,background:"rgba(0,0,0,0.75)",display:"flex",flexDirection:"column",justifyContent:"flex-end"}} onClick={e=>{if(e.target===e.currentTarget){setMoveOpen(false);setEditingPotId(null);}}} onTouchMove={e=>e.preventDefault()} onTouchStart={e=>e.stopPropagation()}>
+          <div style={{width:"100%",maxWidth:500,margin:"0 auto",background:T.surface,borderRadius:"20px 20px 0 0",border:`1px solid ${T.border}`,maxHeight:"88vh",display:"flex",flexDirection:"column"}}>
+            {/* Header */}
+            <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",padding:"16px 18px 12px",borderBottom:`1px solid ${T.border}`,flexShrink:0}}>
+              <div style={{fontSize:14,fontWeight:700}}>🪣 Manage Pots</div>
+              <div style={{display:"flex",gap:8,alignItems:"center"}}>
+                <button style={{...BTN,padding:"4px 10px",fontSize:11,fontWeight:700,borderRadius:8,background:`${T.accent}18`,color:T.accent,border:`1px solid ${T.accent}33`}}
+                  onClick={()=>setData(p=>({...p,potsHidden:!p.potsHidden}))}>
+                  {data.potsHidden?"👁 Show":"🙈 Hide"}
+                </button>
+                <button style={{...BTN,background:"transparent",color:T.muted,fontSize:18,padding:"2px 6px",lineHeight:1,border:"none"}} onClick={()=>{setMoveOpen(false);setEditingPotId(null);}}>✕</button>
+              </div>
             </div>
-            {/* Content — fixed structure, no overflow scroll to prevent jump */}
-            <div style={{padding:"14px 18px",paddingBottom:"max(24px,env(safe-area-inset-bottom,24px))"}}>
-              {/* Mode selector */}
-              <div style={{display:"flex",gap:6,background:T.surface2,borderRadius:11,padding:3,marginBottom:12}}>
-                {[{id:"add",label:"+ Add funds",color:"#3fb950"},{id:"use",label:"− Use funds",color:"#f85149"}].map(m=>(
-                  <button key={m.id} style={{...BTN,flex:1,padding:"9px",fontSize:12,borderRadius:9,background:moveMode===m.id?T.bg:"transparent",color:moveMode===m.id?m.color:T.muted,border:moveMode===m.id?`1px solid ${m.color}`:"1px solid transparent",transition:"all 0.15s"}}
-                    onMouseDown={e=>{e.preventDefault();setMoveMode(m.id);requestAnimationFrame(()=>{if(moveAmtRef.current)moveAmtRef.current.focus({preventScroll:true});});}}>
-                    {m.label}
-                  </button>
-                ))}
-              </div>
-              {/* Pot selector — only Savings + Emergency */}
-              <div style={{display:"flex",gap:7,marginBottom:12}}>
-                {[["savings_acct",POTS.savings_acct],["emergency",POTS.emergency]].map(([k,p])=>{
-                  const bal=n(pots[k])||0;
-                  return(<button key={k} style={{...BTN,flex:1,padding:"10px 9px 8px",fontSize:12,background:moveTo===k?p.bg||"rgba(63,185,80,0.1)":T.surface2,color:moveTo===k?p.color:T.muted,border:`1px solid ${moveTo===k?p.color:T.border}`,display:"flex",flexDirection:"column",alignItems:"center",gap:2,borderRadius:10}}
-                    onMouseDown={e=>{e.preventDefault();setMoveTo(k);requestAnimationFrame(()=>{if(moveAmtRef.current)moveAmtRef.current.focus({preventScroll:true});});}}>
-                    <span>{p.icon} {p.label}</span>
-                    <span style={{fontFamily:"monospace",fontSize:11,fontWeight:700,color:moveTo===k?p.color:T.muted}}>{fmt(bal)}</span>
-                  </button>);
-                })}
-              </div>
-              {/* Amount input — single stable element, never recreated */}
-              <div style={{marginBottom:10}}>
-                <div style={{fontSize:10,color:T.muted,marginBottom:5,letterSpacing:1.2,fontWeight:700}}>AMOUNT ($)</div>
-                <div className="amt-wrap"><span className="amt-prefix" style={{fontSize:20,color:moveAmt?T.accent+"99":T.muted+"55"}}>$</span><input ref={moveAmtRef} style={{...INP,fontFamily:"monospace",fontWeight:700,fontSize:22,paddingLeft:28}} type="number" inputMode="decimal" value={moveAmt} onChange={e=>setMoveAmt(e.target.value)} placeholder="0" autoFocus/></div>
-              </div>
-              {/* Balance preview — fixed height container to avoid layout shift */}
-              <div style={{height:36,marginBottom:14,display:"flex",alignItems:"center"}}>
-                {(()=>{const m=parseFloat(moveAmt)||0;if(!m)return<span style={{fontSize:11,color:T.muted}}>Current: <span style={{fontFamily:"monospace",fontWeight:700,color:selPot?.color}}>{fmt(selBal)}</span></span>;const newBal=moveMode==="add"?selBal+m:Math.max(0,selBal-m);const color=moveMode==="add"?"#3fb950":"#f85149";return(<div style={{width:"100%",padding:"8px 11px",borderRadius:9,background:moveMode==="add"?"rgba(63,185,80,0.06)":"rgba(248,81,73,0.06)",border:`1px solid ${moveMode==="add"?"rgba(63,185,80,0.25)":"rgba(248,81,73,0.25)"}`}}><div style={{display:"flex",justifyContent:"space-between",fontSize:11}}><span style={{color:T.muted}}>{selPot?.label} → new balance</span><span style={{fontFamily:"monospace",fontWeight:700,color}}>{fmt(newBal)}</span></div></div>);})()}
-              </div>
-              {/* Action */}
-              <button style={{...BTN,width:"100%",padding:"13px",background:moveMode==="add"?"#238636":"rgba(248,81,73,0.85)",color:"#fff",fontSize:14,fontWeight:700,borderRadius:11}} onMouseDown={e=>e.preventDefault()} onClick={doMoveMoney}>
-                {moveMode==="add"?`💸 Add to ${selPot?.label||moveTo}`:`💳 Use from ${selPot?.label||moveTo}`}
+
+            {/* Scrollable body */}
+            <div style={{overflowY:"auto",WebkitOverflowScrolling:"touch",padding:"14px 18px",paddingBottom:"max(24px,env(safe-area-inset-bottom,24px))",flex:1}}>
+
+              {/* Pot list */}
+              {potsList.map(pot=>{
+                const bal=n(pot.balance)||0;
+                const color=pot.color||"#58a6ff";
+                const isEditing=editingPotId===pot.id;
+                const isSelected=moveTo===pot.id;
+                return(
+                <div key={pot.id} style={{marginBottom:8,borderRadius:12,border:`1px solid ${isSelected?color+"66":T.border}`,background:isSelected?color+"0d":T.surface2,overflow:"hidden",transition:"all 0.2s"}}>
+                  {/* Pot row */}
+                  <div style={{display:"flex",alignItems:"center",gap:10,padding:"10px 12px",cursor:"pointer"}} onClick={()=>{setMoveTo(pot.id);setEditingPotId(null);}}>
+                    <span style={{fontSize:20}}>{pot.icon||"🪣"}</span>
+                    <div style={{flex:1,minWidth:0}}>
+                      <div style={{fontSize:13,fontWeight:700,color:T.text}}>{pot.name}</div>
+                      <div style={{fontSize:11,fontFamily:"monospace",fontWeight:700,color:data.potsHidden?"#8b949e":color,transition:"opacity 0.12s",opacity:data.potsHidden?0.5:1}}>
+                        {data.potsHidden?"••••":fmt(bal)}
+                      </div>
+                    </div>
+                    <div style={{display:"flex",gap:6,alignItems:"center"}}>
+                      <button style={{...BTN,padding:"5px 8px",fontSize:10,borderRadius:7,background:"transparent",color:T.muted,border:`1px solid ${T.border}`}}
+                        onMouseDown={e=>e.stopPropagation()} onClick={e=>{e.stopPropagation();setEditingPotId(isEditing?null:pot.id);}}>✏️</button>
+                      <button style={{...BTN,padding:"5px 8px",fontSize:10,borderRadius:7,background:"rgba(248,81,73,0.1)",color:"#f85149",border:"1px solid rgba(248,81,73,0.25)"}}
+                        onMouseDown={e=>e.stopPropagation()} onClick={e=>{e.stopPropagation();
+                          if(window.confirm(`Delete "${pot.name}"? Balance of ${fmt(bal)} will be lost.`)){
+                            setData(p=>({...p,potsList:(p.potsList||[]).filter(pt=>pt.id!==pot.id)}));
+                            if(moveTo===pot.id)setMoveTo(potsList.find(p2=>p2.id!==pot.id)?.id||"");
+                          }
+                        }}>🗑</button>
+                    </div>
+                  </div>
+
+                  {/* Edit panel */}
+                  {isEditing&&<div style={{padding:"0 12px 12px",borderTop:`1px solid ${T.border}`,background:T.surface}}>
+                    <div style={{marginTop:10,marginBottom:8}}>
+                      <div style={{fontSize:9,color:T.muted,marginBottom:4,letterSpacing:1}}>NAME</div>
+                      <input style={{...INP,fontSize:13}} value={pot.name} onChange={e=>setData(p=>({...p,potsList:(p.potsList||[]).map(pt=>pt.id===pot.id?{...pt,name:e.target.value}:pt)}))} placeholder="Pot name"/>
+                    </div>
+                    <div style={{marginBottom:8}}>
+                      <div style={{fontSize:9,color:T.muted,marginBottom:6,letterSpacing:1}}>ICON</div>
+                      <div style={{display:"flex",flexWrap:"wrap",gap:6}}>
+                        {POT_ICONS.map(ic=><button key={ic} style={{...BTN,width:32,height:32,borderRadius:8,fontSize:16,background:pot.icon===ic?`${color}33`:T.surface2,border:`1px solid ${pot.icon===ic?color:T.border}`}} onClick={()=>setData(p=>({...p,potsList:(p.potsList||[]).map(pt=>pt.id===pot.id?{...pt,icon:ic}:pt)}))}>{ic}</button>)}
+                      </div>
+                    </div>
+                    <div>
+                      <div style={{fontSize:9,color:T.muted,marginBottom:6,letterSpacing:1}}>COLOR</div>
+                      <div style={{display:"flex",gap:6,flexWrap:"wrap"}}>
+                        {POT_COLORS.map(c=><button key={c} style={{...BTN,width:24,height:24,borderRadius:"50%",background:c,border:pot.color===c?`3px solid ${T.text}`:`2px solid transparent`,transform:pot.color===c?"scale(1.2)":"scale(1)",transition:"all 0.15s"}} onClick={()=>setData(p=>({...p,potsList:(p.potsList||[]).map(pt=>pt.id===pot.id?{...pt,color:c}:pt)}))}/>)}
+                      </div>
+                    </div>
+                  </div>}
+                </div>);
+              })}
+
+              {/* Add new pot */}
+              <button style={{...BTN,width:"100%",padding:"11px",marginBottom:16,background:`${T.accent}10`,color:T.accent,fontSize:13,fontWeight:600,border:`1px dashed ${T.accent}44`,borderRadius:12,display:"flex",alignItems:"center",justifyContent:"center",gap:6}}
+                onClick={()=>{
+                  const newId="pot_"+Date.now();
+                  const icons=["🪣","✈️","🚗","🏖️","🎯","💊"];
+                  const colors=["#58a6ff","#a78bfa","#f97316","#ec4899","#10b981","#d29922"];
+                  const idx=(data.potsList||[]).length%6;
+                  setData(p=>({...p,potsList:[...(p.potsList||[]),{id:newId,name:"New Pot",icon:icons[idx],color:colors[idx],balance:0}]}));
+                  setMoveTo(newId);
+                  setEditingPotId(newId);
+                }}>
+                + Add Pot
               </button>
+
+              {/* Transaction section — only when a pot is selected */}
+              {selPot&&<>
+                <div style={{borderTop:`1px solid ${T.border}`,paddingTop:14,marginBottom:12}}>
+                  <div style={{fontSize:10,color:T.muted,letterSpacing:1.5,fontWeight:700,marginBottom:10}}>TRANSACTION — {selPot.name}</div>
+                  {/* Mode selector */}
+                  <div style={{display:"flex",gap:5,background:T.surface2,borderRadius:11,padding:3,marginBottom:12}}>
+                    {[{id:"add",label:"+ Add",color:"#3fb950"},{id:"use",label:"− Use",color:"#f85149"},{id:"transfer",label:"↔ Transfer",color:"#58a6ff"}].map(m=>(
+                      <button key={m.id} style={{...BTN,flex:1,padding:"8px 4px",fontSize:11,borderRadius:9,background:moveMode===m.id?T.bg:"transparent",color:moveMode===m.id?m.color:T.muted,border:moveMode===m.id?`1px solid ${m.color}`:"1px solid transparent",transition:"all 0.15s"}}
+                        onMouseDown={e=>e.preventDefault()} onClick={()=>setMoveMode(m.id)}>{m.label}</button>
+                    ))}
+                  </div>
+
+                  {/* Transfer target */}
+                  {moveMode==="transfer"&&potsList.length>1&&<div style={{marginBottom:12}}>
+                    <div style={{fontSize:9,color:T.muted,marginBottom:5,letterSpacing:1}}>TRANSFER TO</div>
+                    <div style={{display:"flex",gap:6,flexWrap:"wrap"}}>
+                      {potsList.filter(p=>p.id!==moveTo).map(p=>(
+                        <button key={p.id} style={{...BTN,padding:"7px 12px",fontSize:11,borderRadius:9,background:moveTransferTo===p.id?(p.color||"#58a6ff")+"22":T.surface2,color:moveTransferTo===p.id?(p.color||"#58a6ff"):T.muted,border:`1px solid ${moveTransferTo===p.id?(p.color||"#58a6ff"):T.border}`}}
+                          onClick={()=>setMoveTransferTo(p.id)}>{p.icon||"🪣"} {p.name}</button>
+                      ))}
+                    </div>
+                  </div>}
+
+                  {/* Amount */}
+                  <div style={{marginBottom:10}}>
+                    <div style={{fontSize:9,color:T.muted,marginBottom:5,letterSpacing:1}}>AMOUNT ($)</div>
+                    <div className="amt-wrap"><span className="amt-prefix" style={{fontSize:20,color:moveAmt?T.accent+"99":T.muted+"55"}}>$</span>
+                      <input ref={moveAmtRef} style={{...INP,fontFamily:"monospace",fontWeight:700,fontSize:22,paddingLeft:28}} type="number" inputMode="decimal" value={moveAmt} onChange={e=>setMoveAmt(e.target.value)} placeholder="0"/>
+                    </div>
+                  </div>
+
+                  {/* Preview */}
+                  <div style={{height:36,marginBottom:12,display:"flex",alignItems:"center"}}>
+                    {(()=>{
+                      const m=parseFloat(moveAmt)||0;
+                      if(!m)return<span style={{fontSize:11,color:T.muted}}>Balance: <span style={{fontFamily:"monospace",fontWeight:700,color:selPot.color||"#58a6ff"}}>{fmt(selBal)}</span></span>;
+                      if(moveMode==="transfer"){
+                        const toPot=potsList.find(p=>p.id===moveTransferTo);
+                        if(!toPot)return<span style={{fontSize:11,color:T.muted}}>Select destination pot</span>;
+                        return<div style={{width:"100%",padding:"6px 10px",borderRadius:9,background:"rgba(88,166,255,0.06)",border:"1px solid rgba(88,166,255,0.2)",fontSize:11,display:"flex",justifyContent:"space-between"}}>
+                          <span style={{color:T.muted}}>{selPot.name} → {fmt(Math.max(0,selBal-m))}</span>
+                          <span style={{color:"#58a6ff",fontWeight:700}}>{toPot.name} → {fmt(n(toPot.balance)+m)}</span>
+                        </div>;
+                      }
+                      const newBal=moveMode==="add"?selBal+m:Math.max(0,selBal-m);
+                      const color=moveMode==="add"?"#3fb950":"#f85149";
+                      return<div style={{width:"100%",padding:"6px 10px",borderRadius:9,background:moveMode==="add"?"rgba(63,185,80,0.06)":"rgba(248,81,73,0.06)",border:`1px solid ${moveMode==="add"?"rgba(63,185,80,0.25)":"rgba(248,81,73,0.25)"}`,display:"flex",justifyContent:"space-between",fontSize:11}}>
+                        <span style={{color:T.muted}}>New balance</span>
+                        <span style={{fontFamily:"monospace",fontWeight:700,color}}>{fmt(newBal)}</span>
+                      </div>;
+                    })()}
+                  </div>
+
+                  <button style={{...BTN,width:"100%",padding:"13px",background:moveMode==="add"?"#238636":moveMode==="transfer"?"rgba(88,166,255,0.2)":"rgba(248,81,73,0.85)",color:moveMode==="transfer"?"#58a6ff":"#fff",fontSize:14,fontWeight:700,borderRadius:11,border:moveMode==="transfer"?"1px solid rgba(88,166,255,0.4)":"none"}}
+                    onMouseDown={e=>e.preventDefault()} onClick={doMoveMoney}>
+                    {moveMode==="add"?`💸 Add to ${selPot.name}`:moveMode==="transfer"?`↔ Transfer from ${selPot.name}`:`💳 Use from ${selPot.name}`}
+                  </button>
+                </div>
+
+                {/* Recent movements */}
+                {(data.potMovements||[]).filter(mv=>mv.potKey===selPot.id).slice(0,3).length>0&&<div style={{marginTop:4}}>
+                  <div style={{fontSize:9,color:T.muted,letterSpacing:1,marginBottom:6}}>RECENT</div>
+                  {(data.potMovements||[]).filter(mv=>mv.potKey===selPot.id).slice(0,3).map((mv,i)=>(
+                    <div key={mv.id||i} style={{display:"flex",justifyContent:"space-between",fontSize:10,padding:"3px 0",borderBottom:`1px solid ${T.border}`}}>
+                      <span style={{color:T.muted}}>{mv.date} · {mv.note}</span>
+                      <span style={{fontFamily:"monospace",fontWeight:700,color:mv.amount>=0?"#3fb950":"#f85149"}}>{mv.amount>=0?"+":""}{fmt(Math.abs(mv.amount))}</span>
+                    </div>
+                  ))}
+                </div>}
+              </>}
             </div>
           </div>
         </div>
@@ -2133,32 +2297,41 @@ function App(){
           })()}
           {/* RESERVES */}
           {(()=>{
-            const reservePots=[
-              {key:"savings_acct",p:POTS.savings_acct},
-              {key:"emergency",  p:POTS.emergency},
-            ];
+            const potsList=data.potsList||[];
+            const hidden=data.potsHidden||false;
+            const totalPots=potsList.reduce((s,p)=>s+n(p.balance),0);
             return(<div style={{...CARD,padding:"13px 16px",marginBottom:12}}>
-              <div style={{fontSize:10,color:T.muted,letterSpacing:1.5,fontWeight:700,marginBottom:10}}>🏦 RESERVES</div>
-              {reservePots.map(({key,p},i)=>{
-                const bal=n(pots[key])||0;
-                const target=n((data.potTargets||{})[key])||0;
-                const hasTgt=target>0;
-                const pct=hasTgt?Math.min(100,Math.round((bal/target)*100)):0;
-                return(<div key={key} style={{paddingBottom:i<reservePots.length-1?9:0,marginBottom:i<reservePots.length-1?9:0,borderBottom:i<reservePots.length-1?`1px solid ${T.border}`:"none"}}>
+              <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:10}}>
+                <div style={{fontSize:10,color:T.muted,letterSpacing:1.5,fontWeight:700}}>🪣 POTS</div>
+                <div style={{display:"flex",alignItems:"center",gap:8}}>
+                  <button style={{...BTN,padding:"3px 8px",fontSize:10,background:T.surface2,color:T.muted,border:`1px solid ${T.border}`,borderRadius:7}} onClick={()=>setData(p=>({...p,potsHidden:!p.potsHidden}))}>{hidden?"👁 Show":"🙈 Hide"}</button>
+                  <button style={{...BTN,padding:"3px 8px",fontSize:10,background:`${T.accent}14`,color:T.accent,border:`1px solid ${T.accent}33`,borderRadius:7}} onClick={()=>{setMoveTo(potsList[0]?.id||"");setMoveTransferTo("");setMoveMode("add");setMoveOpen(true);}}>Manage</button>
+                </div>
+              </div>
+              {potsList.length===0&&<div style={{fontSize:11,color:T.muted,textAlign:"center",padding:"8px 0"}}>No pots yet — tap Manage to add one</div>}
+              {potsList.map((pot,i)=>{
+                const bal=n(pot.balance)||0;
+                const color=pot.color||"#58a6ff";
+                const displayBal=hidden?"••••":fmt(bal);
+                return(<div key={pot.id} style={{paddingBottom:i<potsList.length-1?9:0,marginBottom:i<potsList.length-1?9:0,borderBottom:i<potsList.length-1?`1px solid ${T.border}`:"none"}}>
                   <div style={{display:"flex",alignItems:"center",gap:0}}>
-                    <span style={{fontSize:12,marginRight:5,flexShrink:0}}>{p.icon}</span>
-                    <span style={{fontSize:11,fontWeight:600,color:T.text,flex:1}}>{p.label}</span>
+                    <span style={{fontSize:12,marginRight:5,flexShrink:0}}>{pot.icon||"🪣"}</span>
+                    <span style={{fontSize:11,fontWeight:600,color:T.text,flex:1}}>{pot.name}</span>
                     <div style={{display:"flex",alignItems:"center",gap:6,flexShrink:0}}>
-                      <button style={{...BTN,width:34,height:34,borderRadius:9,background:"rgba(63,185,80,0.12)",color:"#3fb950",border:"1px solid rgba(63,185,80,0.35)",fontSize:20,fontWeight:700,display:"flex",alignItems:"center",justifyContent:"center"}} onClick={()=>{setMoveTo(key);setMoveMode("add");setMoveOpen(true);}}>+</button>
-                      <span style={{fontFamily:"monospace",fontWeight:800,fontSize:13,color:bal>0?p.color:T.muted,minWidth:52,textAlign:"center"}}>{fmt(bal)}</span>
-                      <button style={{...BTN,width:34,height:34,borderRadius:9,background:"rgba(248,81,73,0.1)",color:"#f85149",border:"1px solid rgba(248,81,73,0.3)",fontSize:20,fontWeight:700,display:"flex",alignItems:"center",justifyContent:"center"}} onClick={()=>{setMoveTo(key);setMoveMode("use");setMoveOpen(true);}}>−</button>
+                      <button style={{...BTN,width:28,height:28,borderRadius:8,background:"rgba(63,185,80,0.12)",color:"#3fb950",border:"1px solid rgba(63,185,80,0.3)",fontSize:16,display:"flex",alignItems:"center",justifyContent:"center"}} onClick={()=>{setMoveTo(pot.id);setMoveMode("add");setMoveOpen(true);}}>+</button>
+                      <button onClick={()=>setData(p=>({...p,potsHidden:!p.potsHidden}))}
+                        style={{...BTN,fontFamily:"monospace",fontWeight:800,fontSize:13,color:bal>0?color:T.muted,minWidth:56,textAlign:"center",background:"transparent",border:"none",padding:"2px 4px",transition:"opacity 0.12s",opacity:hidden?0.5:1}}>
+                        {displayBal}
+                      </button>
+                      <button style={{...BTN,width:28,height:28,borderRadius:8,background:"rgba(248,81,73,0.1)",color:"#f85149",border:"1px solid rgba(248,81,73,0.25)",fontSize:16,display:"flex",alignItems:"center",justifyContent:"center"}} onClick={()=>{setMoveTo(pot.id);setMoveMode("use");setMoveOpen(true);}}>−</button>
                     </div>
                   </div>
-                  {hasTgt&&(<div style={{height:3,background:T.surface2,borderRadius:3,overflow:"hidden",marginTop:5}}>
-                    <div style={{height:"100%",width:`${pct}%`,background:p.color,borderRadius:3,opacity:0.7,transition:"width 0.5s"}}/>
-                  </div>)}
                 </div>);
               })}
+              {potsList.length>0&&<div style={{marginTop:10,paddingTop:8,borderTop:`1px solid ${T.border}`,display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+                <span style={{fontSize:10,color:T.muted}}>Total</span>
+                <span style={{fontFamily:"monospace",fontWeight:800,fontSize:13,color:T.accent,transition:"opacity 0.12s",opacity:hidden?0.5:1}}>{hidden?"••••":fmt(totalPots)}</span>
+              </div>}
             </div>);
           })()}
           <button style={{...BTN,width:"100%",padding:"12px",background:"#238636",color:"#fff",fontSize:13,border:"1px solid #2ea043"}} onClick={()=>{
@@ -2846,7 +3019,26 @@ function App(){
               <div style={{marginTop:8,fontSize:10,color:"#f85149"}}>⚠️ Blocked in browser — enable in device Settings</div>
             )}
           </div>
-          {/* 4. Backup */}
+          {/* 4. Privacy */}
+          <div style={{...CARD,padding:"12px 14px",marginBottom:10}}>
+            <div style={{fontSize:10,color:T.accent,letterSpacing:1.5,fontWeight:700,marginBottom:8}}>🔒 PRIVACY</div>
+            <div style={{display:"flex",alignItems:"center",justifyContent:"space-between"}}>
+              <div>
+                <div style={{fontSize:12,color:T.text,fontWeight:600,marginBottom:2}}>Hide pot balances</div>
+                <div style={{fontSize:10,color:T.muted}}>{data.potsHidden?"Balances hidden — tap any amount to reveal":"Balances visible"}</div>
+              </div>
+              <button style={{...BTN,width:52,height:28,borderRadius:14,padding:0,position:"relative",
+                background:data.potsHidden?T.accent:"rgba(255,255,255,0.1)",
+                border:`1px solid ${data.potsHidden?T.accent:T.border}`,
+                transition:"background 0.25s, border-color 0.25s"}}
+                onClick={()=>{setData(p=>({...p,potsHidden:!p.potsHidden}));toast_(data.potsHidden?"👁 Balances visible":"🙈 Balances hidden");}}>
+                <div style={{position:"absolute",top:3,left:data.potsHidden?26:3,width:20,height:20,borderRadius:"50%",
+                  background:"#fff",transition:"left 0.25s cubic-bezier(0.34,1.56,0.64,1)",
+                  boxShadow:"0 1px 4px rgba(0,0,0,0.3)"}}/>
+              </button>
+            </div>
+          </div>
+          {/* 5. Backup */}
           <div style={{...CARD,padding:"12px 14px",marginBottom:10}}>
             <div style={{fontSize:10,color:T.accent,letterSpacing:1.5,fontWeight:700,marginBottom:8}}>💾 DATA BACKUP</div>
             <div style={{display:"flex",gap:8}}>
