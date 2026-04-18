@@ -2018,14 +2018,14 @@ function App(){
 
                   return(
                   <div key={pot.id} className="expense-row" style={{marginBottom:6,position:"relative",borderRadius:12,overflow:"hidden",border:`1.5px solid ${isSelected?color+"88":T.border}`,transition:"border-color 0.2s"}}>
-                    {/* ✏️ on LEFT (revealed by swiping right), 🗑 on RIGHT (revealed by swiping left) */}
-                    <div style={{position:"absolute",inset:0,display:"flex"}}>
+                    {/* Hints — hidden when editing */}
+                    {!isEditing&&<div style={{position:"absolute",inset:0,display:"flex"}}>
                       <div style={{width:70,background:`${T.accent}dd`,display:"flex",alignItems:"center",justifyContent:"center",fontSize:18,cursor:"pointer",flexShrink:0}}
                         onClick={()=>{setEditingPotId(isEditing?null:pot.id);setMoveTo(pot.id);}}>✏️</div>
                       <div style={{flex:1,background:T.surface2}}/>
                       <div style={{width:70,background:"rgba(248,81,73,0.92)",display:"flex",alignItems:"center",justifyContent:"center",fontSize:18,cursor:"pointer",flexShrink:0}}
                         onClick={()=>{if(window.confirm(`Delete "${pot.name}"?`)){setData(p=>({...p,potsList:(p.potsList||[]).filter(pt=>pt.id!==pot.id)}));if(moveTo===pot.id)setMoveTo(potsList.find(p2=>p2.id!==pot.id)?.id||"");}}}>🗑</div>
-                    </div>
+                    </div>}
 
                     {/* Main row — NO border, NO borderRadius, clips to parent */}
                     <div id={"pot-row-"+pot.id}
