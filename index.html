@@ -857,7 +857,7 @@ const GastoItem=memo(({item,pid,editId,setEditId,tarjetas,potsList,periodDate,on
 
       {/* ── Edit fields ── */}
       {showEdit&&(<>
-        <div style={{animation:"editOpen 0.45s ease both"}} onMouseDown={e=>e.stopPropagation()} onTouchStart={e=>e.stopPropagation()}>
+        <div style={{animation:"editOpen 0.28s cubic-bezier(0.4,0,0.2,1) both"}} onMouseDown={e=>e.stopPropagation()} onTouchStart={e=>e.stopPropagation()}>
 
           {/* MAIN DATA */}
           <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8,marginBottom:14}}>
@@ -1816,23 +1816,23 @@ function App(){
       onTouchEnd={handleSwipeTouchEnd}
       style={{minHeight:"100vh",background:T.bg,color:T.text,fontFamily:"-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif",paddingTop:urgentDebts.length>0&&!alertDim&&tab!=="debts"?34:0,transition:"padding-top 0.2s"}}>
       <style>{`
-        @keyframes tabEnter{from{opacity:0;transform:scale(0.99);}to{opacity:1;transform:scale(1);}}.anim{animation:tabEnter 0.5s cubic-bezier(0.25,0.46,0.45,0.94) both;}@keyframes onboardPulse{0%,100%{box-shadow:0 0 0 0 rgba(88,166,255,0.5);}50%{box-shadow:0 0 0 8px rgba(88,166,255,0);}}.onboard-pulse{animation:onboardPulse 1.8s ease-in-out infinite;border-radius:inherit;}
+        @keyframes tabEnter{from{opacity:0;transform:translateY(4px);}to{opacity:1;transform:translateY(0);}}.anim{animation:tabEnter 0.35s cubic-bezier(0.4,0,0.2,1) both;}@keyframes onboardPulse{0%,100%{box-shadow:0 0 0 0 rgba(88,166,255,0.5);}50%{box-shadow:0 0 0 8px rgba(88,166,255,0);}}.onboard-pulse{animation:onboardPulse 1.8s ease-in-out infinite;border-radius:inherit;}
         @keyframes itemEnter{from{opacity:0;}to{opacity:1;}}
-        @keyframes itemExit{0%{opacity:1;transform:translateX(0);max-height:120px;margin-bottom:7px;}100%{opacity:0;transform:translateX(60px);max-height:0;margin-bottom:0;}}.expense-row-exit{animation:itemExit 0.28s ease forwards;}
-        @keyframes modalEnter{from{opacity:0;transform:scale(0.95) translateY(8px);}to{opacity:1;transform:scale(1) translateY(0);}}.modal-anim{animation:modalEnter 0.3s cubic-bezier(0.34,1.2,0.64,1) both;}
+        @keyframes itemExit{0%{opacity:1;transform:translateX(0);max-height:120px;margin-bottom:7px;}100%{opacity:0;transform:translateX(60px);max-height:0;margin-bottom:0;}}.expense-row-exit{animation:itemExit 0.25s cubic-bezier(0.4,0,1,1) forwards;}
+        @keyframes modalEnter{from{opacity:0;transform:scale(0.97) translateY(6px);}to{opacity:1;transform:scale(1) translateY(0);}}.modal-anim{animation:modalEnter 0.28s cubic-bezier(0.4,0,0.2,1) both;}
         @keyframes pop{from{opacity:0.6;transform:scale(0.97);}to{opacity:1;transform:scale(1);}}
         @keyframes dotPop{0%{transform:scale(1);}40%{transform:scale(2.0);}70%{transform:scale(0.88);}100%{transform:scale(1);}}
         @keyframes donutFill{from{stroke-dashoffset:var(--dash-full);}to{stroke-dashoffset:0;}}
-        .donut-arc{animation:donutFill 0.8s cubic-bezier(0.34,1.0,0.64,1) both;}
+        .donut-arc{animation:donutFill 0.8s cubic-bezier(0.4,0,0.2,1) both;}
         .amt-wrap{position:relative;display:block;}.amt-prefix{position:absolute;left:11px;top:50%;transform:translateY(-50%);font-family:monospace;font-weight:700;pointer-events:none;z-index:1;}
-        @keyframes editOpen{from{opacity:0;transform:translateY(-6px);}to{opacity:1;transform:translateY(0);}}
-        @keyframes debtExit{0%{opacity:1;max-height:200px;margin-bottom:9px;}100%{opacity:0;max-height:0;margin-bottom:0;}}.debt-exit{animation:debtExit 0.3s ease forwards;}
+        @keyframes editOpen{from{opacity:0;transform:translateY(-4px);}to{opacity:1;transform:translateY(0);}}
+        @keyframes debtExit{0%{opacity:1;max-height:200px;margin-bottom:9px;}100%{opacity:0;max-height:0;margin-bottom:0;}}.debt-exit{animation:debtExit 0.28s cubic-bezier(0.4,0,1,1) forwards;}
         .expense-row:active{transform:scale(0.99);transition:transform 0.08s ease;}
         input,select,textarea{scroll-margin-bottom:200px;}
         input[type=number]:focus,input[type=text]:focus{border-color:${T.accent}!important;box-shadow:0 0 0 3px ${T.accent}26!important;outline:none;transition:border-color 0.15s,box-shadow 0.15s;}
         .debt-card-tap:active{transform:scale(0.988);transition:transform 0.08s ease;}
         @keyframes slideInDown{from{opacity:0;transform:translateY(-8px);}to{opacity:1;transform:translateY(0);}}
-        @keyframes slideInUp{from{opacity:0;transform:translateY(20px);}to{opacity:1;transform:translateY(0);}}
+        @keyframes slideInUp{from{opacity:0;transform:translateY(100%);}to{opacity:1;transform:translateY(0);}}
         @keyframes pulse{0%,100%{opacity:1;}50%{opacity:0.6;}}
         input[type=range]{width:100%;accent-color:#58a6ff;}
         input[type=date]::-webkit-calendar-picker-indicator{width:12px;height:12px;opacity:0.35;filter:invert(0.7);cursor:pointer;padding:0;margin:0;}
@@ -1843,13 +1843,13 @@ function App(){
         .g2{display:grid;grid-template-columns:1fr 1fr;gap:10px;}
         .tabs{display:flex;gap:4px;overflow-x:auto;padding-bottom:2px;-webkit-overflow-scrolling:touch;scrollbar-width:none;margin-bottom:14px;}
         .tabs::-webkit-scrollbar{display:none;}
-        .quick-modal-fullscreen{animation:slideInUp 0.22s ease;}
+        .quick-modal-fullscreen{animation:slideInUp 0.32s cubic-bezier(0.4,0,0.2,1) both;}
         @keyframes potsSlideUp{from{opacity:0;transform:translateY(100%);}to{opacity:1;transform:translateY(0);}}
-        .pots-modal{animation:potsSlideUp 0.3s cubic-bezier(0.32,0.72,0,1) both;}
+        .pots-modal{animation:potsSlideUp 0.32s cubic-bezier(0.4,0,0.2,1) both;}
       `}</style>
-      {toast&&<div style={{position:"fixed",top:"max(16px, env(safe-area-inset-top, 16px))",left:"50%",transform:"translateX(-50%)",zIndex:9999,background:toast.type==="err"?"#da3633":"#238636",color:"#fff",padding:"10px 20px",borderRadius:24,fontWeight:600,fontSize:13,boxShadow:"0 8px 32px rgba(0,0,0,0.4)",border:`1px solid ${toast.type==="err"?"rgba(248,81,73,0.4)":"rgba(46,160,67,0.4)"}`,whiteSpace:"nowrap",animation:"slideInDown 0.2s ease"}}>{toast.msg}</div>}
+      {toast&&<div style={{position:"fixed",top:"max(16px, env(safe-area-inset-top, 16px))",left:"50%",transform:"translateX(-50%)",zIndex:9999,background:toast.type==="err"?"#da3633":"#238636",color:"#fff",padding:"10px 20px",borderRadius:24,fontWeight:600,fontSize:13,boxShadow:"0 8px 32px rgba(0,0,0,0.4)",border:`1px solid ${toast.type==="err"?"rgba(248,81,73,0.4)":"rgba(46,160,67,0.4)"}`,whiteSpace:"nowrap",animation:"slideInDown 0.25s cubic-bezier(0.4,0,0.2,1)"}}>{toast.msg}</div>}
       <div id="confetti-container" style={{position:"fixed",inset:0,pointerEvents:"none",zIndex:9998,overflow:"hidden"}}/>
-      <style>{`@keyframes slideInDown{from{opacity:0;transform:translateX(-50%) translateY(-12px);}to{opacity:1;transform:translateX(-50%) translateY(0);}}`}</style>
+      <style>{`@keyframes slideInDown{from{opacity:0;transform:translateX(-50%) translateY(-8px);}to{opacity:1;transform:translateX(-50%) translateY(0);}}`}</style>
       {urgentDebts.length>0&&!alertDim&&tab!=="debts"&&(
         <div style={{background:"rgba(18,12,12,0.92)",backdropFilter:"blur(12px)",WebkitBackdropFilter:"blur(12px)",borderBottom:"1px solid rgba(248,81,73,0.2)",padding:"7px 16px",position:"fixed",top:0,left:0,right:0,zIndex:150,display:"flex",alignItems:"center",justifyContent:"space-between"}}>
           <div style={{display:"flex",alignItems:"center",gap:8}}>
@@ -2018,8 +2018,8 @@ function App(){
 
                   return(
                   <div key={pot.id} className="expense-row" style={{marginBottom:6,position:"relative",borderRadius:12,overflow:"hidden",border:`1.5px solid ${isSelected?color+"88":T.border}`,transition:"border-color 0.2s"}}>
-                    {/* Hints — instantly invisible when editing */}
-                    <div style={{position:"absolute",inset:0,display:"flex",visibility:isEditing?"hidden":"visible"}}>
+                    {/* Hints — fixed height 44px = row only, never bleeds into edit panel */}
+                    <div style={{position:"absolute",top:0,left:0,right:0,height:44,display:"flex",pointerEvents:isEditing?"none":"auto",opacity:isEditing?0:1}}>
                       <div style={{width:70,background:`${T.accent}dd`,display:"flex",alignItems:"center",justifyContent:"center",fontSize:18,cursor:"pointer",flexShrink:0}}
                         onClick={()=>{setEditingPotId(isEditing?null:pot.id);setMoveTo(pot.id);}}>✏️</div>
                       <div style={{flex:1,background:T.surface2}}/>
@@ -2045,7 +2045,7 @@ function App(){
                     </div>
 
                     {/* Edit panel */}
-                    {isEditing&&<div style={{padding:"0 12px 12px",borderTop:`1px solid ${T.border}`,background:T.surface,animation:"editOpen 0.25s ease both"}}>
+                    {isEditing&&<div style={{padding:"0 12px 12px",borderTop:`1px solid ${T.border}`,background:T.surface,animation:"editOpen 0.28s cubic-bezier(0.4,0,0.2,1) both"}}>
                       <div style={{marginTop:10,marginBottom:8}}>
                         <div style={{fontSize:9,color:T.muted,marginBottom:4,letterSpacing:1}}>NAME</div>
                         <input style={{...INP,fontSize:13}} value={pot.name}
@@ -2617,7 +2617,7 @@ function App(){
                 <button ref={sortBtnRef} style={{...BTN,width:52,height:26,padding:0,borderRadius:8,background:sortStrategy?`${T.accent}1f`:"transparent",color:sortStrategy?T.accent:T.muted,border:`1px solid ${sortStrategy?T.accent:T.border}`,fontSize:10,fontWeight:700,display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0}} onClick={()=>setSortMenuOpen(o=>!o)}>
                   {sortStrategy?<span>{sortLabels[sortStrategy]}</span>:<span style={{fontSize:11}}>⇅</span>}
                 </button>
-                {sortMenuOpen&&<div style={{position:"absolute",right:0,top:"100%",marginTop:4,zIndex:99999,background:T.surface,border:`1px solid ${T.border}`,borderRadius:10,overflow:"hidden",width:80,boxShadow:`0 4px 16px rgba(0,0,0,0.5)`,animation:"tabEnter 0.15s ease both"}}>
+                {sortMenuOpen&&<div style={{position:"absolute",right:0,top:"100%",marginTop:4,zIndex:99999,background:T.surface,border:`1px solid ${T.border}`,borderRadius:10,overflow:"hidden",width:80,boxShadow:`0 4px 16px rgba(0,0,0,0.5)`,animation:"tabEnter 0.2s cubic-bezier(0.4,0,0.2,1) both"}}>
                     {[{v:null,l:"Off"},{v:"apr",l:"APR"},{v:"balance",l:"Small"}].map(({v,l})=>(
                       <button key={l} style={{...BTN,width:"100%",padding:"8px 12px",fontSize:12,borderRadius:0,background:sortStrategy===v?`${T.accent}18`:"transparent",color:sortStrategy===v?T.accent:T.muted,borderBottom:`1px solid ${T.border}`,fontWeight:sortStrategy===v?700:400,textAlign:"left"}} onClick={()=>{setSortStrategy(v);setSortMenuOpen(false);}}>{l}</button>
                     ))}
@@ -3108,10 +3108,10 @@ function App(){
                   </div>
                 </div>
                 {data.useFixedAmount===false&&(
-                  <div style={{marginBottom:10,padding:"8px 10px",background:T.surface2,borderRadius:9,fontSize:11,color:T.muted,animation:"tabEnter 0.3s ease both"}}>✏️ Variable — set the amount per paycheck in the <strong style={{color:T.accent}}>Paychecks</strong> tab</div>
+                  <div style={{marginBottom:10,padding:"8px 10px",background:T.surface2,borderRadius:9,fontSize:11,color:T.muted,animation:"tabEnter 0.28s cubic-bezier(0.4,0,0.2,1) both"}}>✏️ Variable — set the amount per paycheck in the <strong style={{color:T.accent}}>Paychecks</strong> tab</div>
                 )}
                 <div style={{display:"grid",gridTemplateColumns:data.useFixedAmount===true?"1fr 1fr 1fr":"1fr 1fr",gap:8,marginBottom:8}}>
-                  {data.useFixedAmount===true&&<div style={{animation:"tabEnter 0.3s ease both"}}>
+                  {data.useFixedAmount===true&&<div style={{animation:"tabEnter 0.28s cubic-bezier(0.4,0,0.2,1) both"}}>
                     <div style={{fontSize:9,color:T.muted,marginBottom:4,letterSpacing:1}}>AMOUNT ($)</div>
                     <div className="amt-wrap"><span className="amt-prefix" style={{fontSize:14,color:data.checkAmount?T.accent+"99":T.muted+"55"}}>$</span><input className={needsAmount?"onboard-pulse":""} style={{...INP,fontSize:14,fontFamily:"monospace",fontWeight:700,padding:"8px 10px",paddingLeft:20,height:38,boxSizing:"border-box"}} type="number" inputMode="decimal" value={data.checkAmount||""} onChange={e=>setData(p=>({...p,checkAmount:parseFloat(e.target.value)||0}))} placeholder="1500"/></div>
                   </div>}
