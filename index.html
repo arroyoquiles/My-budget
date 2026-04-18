@@ -3057,38 +3057,38 @@ function App(){
               const months=[...new Set(Object.keys(data.periods||{}).map(pid=>pid.slice(0,7)))].filter(Boolean).sort().reverse().slice(0,6);
               const [selMonth,setSelMonth]=React.useState(months[0]||now.toISOString().slice(0,7));
               const [expanded,setExpanded]=React.useState(new Set());
-              const toggleExpand=k=>setExpanded(prev=>{const n=new Set(prev);n.has(k)?n.delete(k):n.add(k);return n;});
+              const toggle=k=>setExpanded(prev=>{const n=new Set(prev);n.has(k)?n.delete(k):n.add(k);return n;});
               const monthGastos=Object.entries(data.periods||{}).filter(([pid])=>pid.slice(0,7)===selMonth).flatMap(([,p])=>p.gastos||[]);
+              if(!monthGastos.length)return null;
               const total=monthGastos.reduce((s,g)=>s+n(g.monto),0);
               const totalPaid=monthGastos.filter(g=>g.state==="paid").reduce((s,g)=>s+n(g.monto),0);
-              if(!monthGastos.length)return null;
-
-              const customLabels=data.customLabels||[];
-              const hierarchy={};
-
+              const cls=data.customLabels||[];
+              const groups={};
+              const add=(key,label,icon,color,g)=>{
+                if(!groups[key])groups[key]={label,icon,color,amt:0,paid:0,items:[]};
+                groups[key].amt+=n(g.monto);
+                if(g.state==="paid")groups[key].paid+=n(g.monto);
+                groups[key].items.push({nombre:g.nombre||"Untitled",amt:n(g.monto),paid:g.state==="paid"});
+              };
               monthGastos.forEach(g=>{
-                const isLoose=g.destino==="other"||g.destino==="temp";
-                const cl=customLabels.find(l=>l.id===g.destino);
-                let parentKey;
-                if(cl&&cl.parent) parentKey=cl.parent;
-                else if(isLoose) parentKey=g.destino;
-                else if(g.destino==="credit_card") parentKey=g.tarjetaRef||"__credit_card__";
-                else parentKey=g.destino;
-
-                if(!hierarchy[parentKey])hierarchy[parentKey]={amt:0,paid:0,items:[]};
-                hierarchy[parentKey].amt+=n(g.monto);
-                if(g.state==="paid")hierarchy[parentKey].paid+=n(g.monto);
-                hierarchy[parentKey].items.push({
-                  nombre:g.nombre||"Untitled",
-                  subLabel:cl?cl.name:null,
-                  amt:n(g.monto),
-                  paid:g.state==="paid"
-                });
+                const cl=cls.find(l=>l.id===g.destino);
+                if(g.destino==="credit_card"){
+                  const cardName=g.tarjetaRef||"Credit Card";
+                  const cc=gds("credit_card",g.tarjetaRef,null,potsList,cls);
+                  add("cc_"+cardName,cardName,cc.icon,cc.color,g);
+                } else if(cl){
+                  if(cl.parent&&DEST[cl.parent]){const pd=DEST[cl.parent];add("cat_"+cl.parent,pd.label,pd.icon,pd.color,g);}
+                  else{add("cl_"+cl.id,cl.name,"🏷️","#a78bfa",g);}
+                } else if(g.destino==="other"||g.destino==="temp"){
+                  add("loose_"+(g.nombre||"other"),g.nombre||"Other","📌",T.muted,g);
+                } else if(DEST[g.destino]){
+                  const d=DEST[g.destino];add("cat_"+g.destino,d.label,d.icon,d.color,g);
+                } else {
+                  add("other","Other","📌",T.muted,g);
+                }
               });
-
-              const sorted=Object.entries(hierarchy).sort((a,b)=>b[1].amt-a[1].amt);
+              const sorted=Object.entries(groups).sort((a,b)=>b[1].amt-a[1].amt);
               const maxAmt=sorted[0]?.[1]?.amt||1;
-
               return(<div style={{...CARD,padding:"16px",marginBottom:14}}>
                 <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:4}}>
                   <div>
@@ -3103,42 +3103,35 @@ function App(){
                   <div style={{height:"100%",width:`${total>0?Math.round((totalPaid/total)*100):0}%`,background:"#3fb950",borderRadius:4,transition:"width 0.6s cubic-bezier(0.4,0,0.2,1)"}}/>
                 </div>
                 <div style={{display:"flex",flexDirection:"column",gap:10}}>
-                  {sorted.map(([parentKey,v])=>{
-                    const isCardRef=!DEST[parentKey]&&!customLabels.find(l=>l.id===parentKey)&&!potsList.find(p=>p.id===parentKey)&&parentKey!=="__credit_card__";
-                    const pDst=parentKey==="__credit_card__"?DEST.credit_card:DEST[parentKey]?DEST[parentKey]:isCardRef?gds("credit_card",parentKey,null,potsList,customLabels):gds(parentKey,null,null,potsList,customLabels);
+                  {sorted.map(([key,v])=>{
                     const barPct=Math.round((v.amt/maxAmt)*100);
                     const paidPct=v.amt>0?Math.round((v.paid/v.amt)*100):0;
                     const pct=Math.round((v.amt/total)*100);
-                    const isExpanded=expanded.has(parentKey);
-                    return(<div key={parentKey}>
-                      {/* Parent row — tappable */}
-                      <div style={{cursor:"pointer",WebkitTapHighlightColor:"transparent"}} onClick={()=>toggleExpand(parentKey)}>
+                    const isExp=expanded.has(key);
+                    return(<div key={key}>
+                      <div style={{cursor:"pointer",WebkitTapHighlightColor:"transparent"}} onClick={()=>toggle(key)}>
                         <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:4}}>
                           <div style={{display:"flex",alignItems:"center",gap:6}}>
-                            <span style={{fontSize:9,color:T.muted,transition:"transform 0.2s",display:"inline-block",transform:isExpanded?"rotate(90deg)":"rotate(0deg)"}}>▶</span>
-                            <span style={{fontSize:13,fontWeight:700,color:T.text}}>{pDst.icon} {pDst.label}</span>
+                            <span style={{fontSize:9,color:T.muted,display:"inline-block",transition:"transform 0.2s",transform:isExp?"rotate(90deg)":"rotate(0deg)"}}>▶</span>
+                            <span style={{fontSize:13,fontWeight:700,color:T.text}}>{v.icon} {v.label}</span>
                           </div>
                           <div style={{display:"flex",alignItems:"center",gap:6}}>
                             {paidPct===100&&<span style={{fontSize:10,color:"#3fb950"}}>✓</span>}
                             {paidPct>0&&paidPct<100&&<span style={{fontSize:9,color:"#3fb950"}}>{paidPct}%</span>}
                             <span style={{fontSize:10,color:T.muted}}>{pct}%</span>
-                            <span style={{fontFamily:"monospace",fontWeight:800,fontSize:14,color:pDst.color}}>{fmt(v.amt)}</span>
+                            <span style={{fontFamily:"monospace",fontWeight:800,fontSize:14,color:v.color}}>{fmt(v.amt)}</span>
                           </div>
                         </div>
                         <div style={{height:7,background:T.surface2,borderRadius:4,overflow:"hidden",position:"relative"}}>
-                          <div style={{position:"absolute",height:"100%",width:`${barPct}%`,background:pDst.color,borderRadius:4,opacity:0.2}}/>
-                          <div style={{position:"absolute",height:"100%",width:`${barPct*(paidPct/100)}%`,background:paidPct===100?"#3fb950":pDst.color,borderRadius:4,transition:"width 0.6s cubic-bezier(0.4,0,0.2,1)"}}/>
+                          <div style={{position:"absolute",height:"100%",width:`${barPct}%`,background:v.color,borderRadius:4,opacity:0.2}}/>
+                          <div style={{position:"absolute",height:"100%",width:`${barPct*(paidPct/100)}%`,background:paidPct===100?"#3fb950":v.color,borderRadius:4,transition:"width 0.6s cubic-bezier(0.4,0,0.2,1)"}}/>
                         </div>
                       </div>
-                      {/* Expanded detail */}
-                      {isExpanded&&<div style={{marginTop:8,paddingLeft:14,borderLeft:`2px solid ${pDst.color}44`,marginLeft:4,display:"flex",flexDirection:"column",gap:5,animation:"editOpen 0.22s cubic-bezier(0.4,0,0.2,1) both"}}>
+                      {isExp&&<div style={{marginTop:8,paddingLeft:12,borderLeft:`2px solid ${v.color}44`,marginLeft:3,display:"flex",flexDirection:"column",gap:5,animation:"editOpen 0.2s cubic-bezier(0.4,0,0.2,1) both"}}>
                         {v.items.sort((a,b)=>b.amt-a.amt).map((it,ii)=>(
-                          <div key={ii} style={{display:"flex",justifyContent:"space-between",alignItems:"center",opacity:it.paid?0.5:1}}>
-                            <span style={{fontSize:12,color:it.paid?T.muted:T.text,flex:1,minWidth:0,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>
-                              {it.paid?"✓ ":""}{it.nombre}
-                              {it.subLabel&&<span style={{fontSize:10,color:T.muted,marginLeft:4}}>· {it.subLabel}</span>}
-                            </span>
-                            <span style={{fontFamily:"monospace",fontWeight:600,fontSize:12,color:it.paid?T.muted:pDst.color,flexShrink:0,marginLeft:8}}>{fmt(it.amt)}</span>
+                          <div key={ii} style={{display:"flex",justifyContent:"space-between",alignItems:"center",opacity:it.paid?0.45:1}}>
+                            <span style={{fontSize:12,color:it.paid?T.muted:T.text}}>{it.paid?"✓ ":""}{it.nombre}</span>
+                            <span style={{fontFamily:"monospace",fontWeight:600,fontSize:12,color:it.paid?T.muted:v.color,marginLeft:8,flexShrink:0}}>{fmt(it.amt)}</span>
                           </div>
                         ))}
                       </div>}
@@ -3147,7 +3140,7 @@ function App(){
                 </div>
               </div>);
             });
-            return React.createElement(SpendingBreakdown);
+                        return React.createElement(SpendingBreakdown);
           })()}
           <div style={{background:`${T.accent}0d`,border:`1px solid ${T.accent}28`,borderRadius:11,padding:"11px 14px",marginBottom:12,fontSize:11,color:T.muted,lineHeight:1.6}}>
             💡 <strong style={{color:T.accent}}>Monthly Snapshot</strong> — save at end of each month.<br/>
