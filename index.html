@@ -225,7 +225,8 @@ const getLoanColor=(nombre)=>{
   const palette=["#f59e0b","#06b6d4","#eab308","#14b8a6","#fb923c","#e879f9"];
   return palette[h%palette.length];
 };
-const DORDER=["rent","auto","insurance","utilities","gas","credit_card","groceries","subscription","dining","entertainment","medical","lifestyle","temp","other"];
+const DORDER=["rent","auto","insurance","utilities","gas","credit_card","groceries","subscription","dining","entertainment","medical","lifestyle","savings_acct","emergency","investment"];
+const DORDER_LAST=["temp","other"];
 const DUE_DAY_CATS=new Set(["credit_card","rent"]);
 const gds=(d,r,cardObj,potsList,customLabels)=>{
   if(d==="credit_card"&&r&&CC[r])return{...DEST.credit_card,...CC[r],label:r};
@@ -1702,7 +1703,7 @@ function App(){
         else{groups[k].d=k;groups[k].r="";}
       }
     }
-    return Object.keys(groups).sort((a,b)=>(DORDER.indexOf(groups[a].d)+1||99)-(DORDER.indexOf(groups[b].d)+1||99)).map(k=>{
+    return Object.keys(groups).sort((a,b)=>((groups[a].d==="other"||groups[a].d==="temp"||a==="__temp__"||a==="__other__")?999:DORDER.indexOf(groups[a].d)+1||50)-((groups[b].d==="other"||groups[b].d==="temp"||b==="__temp__"||b==="__other__")?999:DORDER.indexOf(groups[b].d)+1||50)).map(k=>{
       const{d,r,items}=groups[k];
       const dst=k==="__cards__"?DEST.credit_card:gds(d,r,null,potsList||[],data.customLabels||[]);
       const sub=items.reduce((s,g)=>s+n(g.monto),0);
@@ -1748,7 +1749,7 @@ function App(){
         else{groups[k].d=k;groups[k].r="";}
       }
     }
-    return(<>{Object.keys(groups).sort((a,b)=>(DORDER.indexOf(groups[a].d)+1||99)-(DORDER.indexOf(groups[b].d)+1||99)).map(k=>{
+    return(<>{Object.keys(groups).sort((a,b)=>((groups[a].d==="other"||groups[a].d==="temp"||a==="__temp__"||a==="__other__")?999:DORDER.indexOf(groups[a].d)+1||50)-((groups[b].d==="other"||groups[b].d==="temp"||b==="__temp__"||b==="__other__")?999:DORDER.indexOf(groups[b].d)+1||50)).map(k=>{
       const{d,r,items}=groups[k];const dst=gds(d,r,null,potsList||[],data.customLabels||[]);const sub=items.reduce((s,g)=>s+n(g.monto),0);
       const sortedItems=[...items].sort((a,b)=>{
         const hasA=a.diaPago!=null&&a.diaPago!=="";
@@ -3186,7 +3187,6 @@ function App(){
                           <div key={ii} style={{display:"flex",justifyContent:"space-between",alignItems:"center",opacity:it.paid?0.45:1}}>
                             <span style={{fontSize:12,color:it.paid?T.muted:T.text}}>
                               {it.paid?"✓ ":""}{it.nombre}
-                              {it.sub&&<span style={{fontSize:10,color:T.muted,marginLeft:4}}>· {it.sub}</span>}
                             </span>
                             <span style={{fontFamily:"monospace",fontWeight:600,fontSize:12,color:it.paid?T.muted:v.color,marginLeft:8,flexShrink:0}}>{fmt(it.amt)}</span>
                           </div>
