@@ -658,15 +658,8 @@ const GastoItem=memo(({item,pid,editId,setEditId,tarjetas,potsList,periodDate,cu
           </select>
         </div>
       )}
-      {(DUE_DAY_CATS.has(localDestino)||DUE_DAY_CATS.has(item.cat)||(customLabels||[]).some(l=>l.id===localDestino))&&(
-        <div style={{marginBottom:12}}>
-          <div style={{fontSize:10,color:T.muted,marginBottom:5,display:"flex",alignItems:"center",gap:6}}>📅 DUE DAY <span style={{opacity:0.5,fontWeight:400}}>(day of month, e.g. 15)</span>{localDestino==="credit_card"&&localTarjetaRef&&getCardDueDay(localTarjetaRef)&&(<span style={{marginLeft:4,color:T.accent,fontSize:9}}>← auto-filled</span>)}</div>
-          <input style={{...INP,fontFamily:"monospace",fontWeight:700}} type="number" inputMode="numeric" placeholder="e.g. 7" min="1" max={new Date(new Date().getFullYear(),new Date().getMonth()+1,0).getDate()} value={item.diaPago||""} onChange={e=>{const v=parseInt(e.target.value);const max=new Date(new Date().getFullYear(),new Date().getMonth()+1,0).getDate();const val=e.target.value?Math.min(max,Math.max(1,v)):null;onBatchUpdate(item.id,{diaPago:val,_recurring:val?true:item._recurring});}} onBlur={e=>{if(item.diaPago){const max=new Date(new Date().getFullYear(),new Date().getMonth()+1,0).getDate();onBatchUpdate(item.id,{diaPago:Math.min(max,Math.max(1,parseInt(item.diaPago)||1)),_recurring:true});}}}/>
-
-        </div>
-      )}
-      {/* Recurring toggle */}
-      <button style={{...BTN,width:"100%",marginTop:10,marginBottom:2,padding:"10px 14px",borderRadius:11,display:"flex",alignItems:"center",justifyContent:"space-between",
+      {/* Recurring toggle — first */}
+      <button style={{...BTN,width:"100%",marginBottom:10,padding:"10px 14px",borderRadius:11,display:"flex",alignItems:"center",justifyContent:"space-between",
         background:item._recurring?`${T.accent}10`:"transparent",
         border:`1px solid ${item._recurring?T.accent+"55":T.border}`,
         transition:"all 0.2s"}}
@@ -687,6 +680,13 @@ const GastoItem=memo(({item,pid,editId,setEditId,tarjetas,potsList,periodDate,cu
             boxShadow:"0 1px 3px rgba(0,0,0,0.3)"}}/>
         </div>
       </button>
+      {/* Due date — only show when recurring is ON */}
+      {item._recurring&&(
+        <div style={{marginBottom:12,animation:"editOpen 0.2s cubic-bezier(0.4,0,0.2,1) both"}}>
+          <div style={{fontSize:10,color:T.muted,marginBottom:5,display:"flex",alignItems:"center",gap:6}}>📅 DUE DAY <span style={{opacity:0.5,fontWeight:400}}>(day of month, e.g. 15)</span>{localDestino==="credit_card"&&localTarjetaRef&&getCardDueDay(localTarjetaRef)&&(<span style={{marginLeft:4,color:T.accent,fontSize:9}}>← auto-filled</span>)}</div>
+          <input style={{...INP,fontFamily:"monospace",fontWeight:700}} type="number" inputMode="numeric" placeholder="e.g. 7" min="1" max={new Date(new Date().getFullYear(),new Date().getMonth()+1,0).getDate()} value={item.diaPago||""} onChange={e=>{const v=parseInt(e.target.value);const max=new Date(new Date().getFullYear(),new Date().getMonth()+1,0).getDate();const val=e.target.value?Math.min(max,Math.max(1,v)):null;onUpdate(item.id,"diaPago",val);}} onBlur={e=>{if(item.diaPago){const max=new Date(new Date().getFullYear(),new Date().getMonth()+1,0).getDate();onUpdate(item.id,"diaPago",Math.min(max,Math.max(1,parseInt(item.diaPago)||1)));}}}/>
+        </div>
+      )}
       <div style={{display:"flex",gap:8,marginTop:10}}>
         <button style={{...BTN,flex:1,padding:"12px",background:"#238636",color:"#fff",fontSize:13,fontWeight:700,borderRadius:11,letterSpacing:0.8}} onClick={()=>{const updates={destino:localDestino,cat:localDestino,tarjetaRef:localDestino==="credit_card"?localTarjetaRef:""};onBatchUpdate(item.id,updates);setEditId(null);}}>✓  SAVE</button>
         <button style={{...BTN,padding:"12px 16px",background:"transparent",color:T.muted,fontSize:12,borderRadius:11,border:"none",letterSpacing:0.5,opacity:0.6}} onClick={()=>setEditId(null)}>CANCEL</button>
@@ -3072,7 +3072,7 @@ function App(){
                 let parentKey;
                 if(cl&&cl.parent) parentKey=cl.parent;
                 else if(isLoose) parentKey=g.destino;
-                else if(g.destino==="credit_card") parentKey=g.tarjetaRef||"credit_card";
+                else if(g.destino==="credit_card") parentKey=g.tarjetaRef||"__credit_card__";
                 else parentKey=g.destino;
 
                 if(!hierarchy[parentKey])hierarchy[parentKey]={amt:0,paid:0,items:[]};
@@ -3104,7 +3104,8 @@ function App(){
                 </div>
                 <div style={{display:"flex",flexDirection:"column",gap:10}}>
                   {sorted.map(([parentKey,v])=>{
-                    const pDst=DEST[parentKey]?DEST[parentKey]:gds(parentKey,null,null,potsList,customLabels);
+                    const isCardRef=!DEST[parentKey]&&!customLabels.find(l=>l.id===parentKey)&&!potsList.find(p=>p.id===parentKey)&&parentKey!=="__credit_card__";
+                    const pDst=parentKey==="__credit_card__"?DEST.credit_card:DEST[parentKey]?DEST[parentKey]:isCardRef?gds("credit_card",parentKey,null,potsList,customLabels):gds(parentKey,null,null,potsList,customLabels);
                     const barPct=Math.round((v.amt/maxAmt)*100);
                     const paidPct=v.amt>0?Math.round((v.paid/v.amt)*100):0;
                     const pct=Math.round((v.amt/total)*100);
