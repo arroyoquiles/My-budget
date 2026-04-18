@@ -3167,7 +3167,6 @@ function App(){
                           <div key={ii} style={{display:"flex",justifyContent:"space-between",alignItems:"center",opacity:it.paid?0.45:1}}>
                             <span style={{fontSize:12,color:it.paid?T.muted:T.text}}>
                               {it.paid?"✓ ":""}{it.nombre}
-                              {it.cardName&&<span style={{fontSize:10,color:T.muted,marginLeft:4}}>· {it.cardName}</span>}
                             </span>
                             <span style={{fontFamily:"monospace",fontWeight:600,fontSize:12,color:it.paid?T.muted:v.color,marginLeft:8,flexShrink:0}}>{fmt(it.amt)}</span>
                           </div>
