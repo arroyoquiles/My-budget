@@ -595,90 +595,93 @@ const GastoItem=memo(({item,pid,editId,setEditId,tarjetas,potsList,periodDate,cu
     const card=tarjetas.find(t=>t.nombre===cardName);
     return card&&card.fechaPago?parseInt(card.fechaPago)||null:null;
   };
-  const showDueDay=DUE_DAY_CATS.has(item.destino)||DUE_DAY_CATS.has(item.cat)||(customLabels||[]).some(l=>l.id===item.destino);
+  // isCardPayment = paying the card itself (no category)
+  const isCardPayment=localDestino==="credit_card"&&!localCat;
   if(editId===item.id)return(
     <div style={{marginBottom:8,...CARD,padding:"14px",border:`1px solid ${T.accent}`}}>
+      {/* NAME */}
       <div style={{marginBottom:10}}><div style={{fontSize:10,color:T.muted,marginBottom:5}}>NAME</div><input style={INP} value={item.nombre} onChange={e=>onUpdate(item.id,"nombre",e.target.value)} placeholder="Expense name"/></div>
+      {/* AMOUNT */}
       <div style={{marginBottom:10}}><div style={{fontSize:10,color:T.muted,marginBottom:5}}>AMOUNT ($)</div><div className="amt-wrap"><span className="amt-prefix" style={{fontSize:14,color:item.monto?T.accent+"99":T.muted+"55"}}>$</span><input style={{...INP,paddingLeft:20}} type="number" inputMode="decimal" value={item.monto||""} onChange={e=>onUpdate(item.id,"monto",e.target.value)} placeholder="0"/></div></div>
+
+      {/* CATEGORY — what type of expense is this */}
       <div style={{marginBottom:10}}>
-        <div style={{fontSize:10,color:T.muted,marginBottom:5}}>DESTINATION</div>
+        <div style={{fontSize:10,color:T.muted,marginBottom:5}}>CATEGORY</div>
         <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:5}}>
-          {DEST_ORDER.map(k=>{
-            const d=DEST[k];const isSelected=localDestino===k;
-            return(<button key={k} style={{cursor:"pointer",border:"none",borderRadius:10,fontFamily:"inherit",fontWeight:600,WebkitTapHighlightColor:"transparent",padding:"7px 9px",fontSize:11,textAlign:"left",background:isSelected?d.bg:"#21262d",color:isSelected?d.color:T.muted,border:`1px solid ${isSelected?d.border:T.border}`,transition:"background 0.1s, color 0.1s, border-color 0.1s",whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}
-              onMouseDown={e=>{e.preventDefault();setLocalDestino(k);if(k!=="credit_card")setLocalTarjetaRef("");}}>
+          {/* Fixed categories — exclude credit_card */}
+          {DEST_ORDER.filter(k=>k!=="credit_card").map(k=>{
+            const d=DEST[k];const isSel=localCat===k||(!localCat&&localDestino===k&&localDestino!=="credit_card");
+            return(<button key={k} style={{cursor:"pointer",border:"none",borderRadius:10,fontFamily:"inherit",fontWeight:600,WebkitTapHighlightColor:"transparent",padding:"7px 9px",fontSize:11,textAlign:"left",background:isSel?d.bg:"#21262d",color:isSel?d.color:T.muted,border:`1px solid ${isSel?d.border:T.border}`,transition:"all 0.1s",whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}
+              onMouseDown={e=>{e.preventDefault();setLocalCat(k);if(localDestino==="credit_card"){}else{setLocalDestino(k);setLocalTarjetaRef("");}}}>
               {d.icon} {d.label}
             </button>);
           })}
+          {/* Pots */}
           {(potsList||[]).map(pot=>{
-            const isSelected=localDestino===pot.id;
-            const color=pot.color||"#58a6ff";
-            return(<button key={pot.id} style={{cursor:"pointer",border:"none",borderRadius:10,fontFamily:"inherit",fontWeight:600,WebkitTapHighlightColor:"transparent",padding:"7px 9px",fontSize:11,textAlign:"left",background:isSelected?color+"22":"#21262d",color:isSelected?color:T.muted,border:`1px solid ${isSelected?color+"66":T.border}`,transition:"background 0.1s, color 0.1s, border-color 0.1s",whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}
-              onMouseDown={e=>{e.preventDefault();setLocalDestino(pot.id);setLocalTarjetaRef("");}}>
+            const isSel=localDestino===pot.id;const color=pot.color||"#58a6ff";
+            return(<button key={pot.id} style={{cursor:"pointer",border:"none",borderRadius:10,fontFamily:"inherit",fontWeight:600,WebkitTapHighlightColor:"transparent",padding:"7px 9px",fontSize:11,textAlign:"left",background:isSel?color+"22":"#21262d",color:isSel?color:T.muted,border:`1px solid ${isSel?color+"66":T.border}`,transition:"all 0.1s",whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}
+              onMouseDown={e=>{e.preventDefault();setLocalDestino(pot.id);setLocalCat("");setLocalTarjetaRef("");}}>
               {pot.icon||"🪣"} {pot.name}
             </button>);
           })}
+          {/* Custom labels */}
           {(customLabels||[]).map(cl=>{
-            const isSelected=localDestino===cl.id;
-            return(<button key={cl.id} style={{cursor:"pointer",border:"none",borderRadius:10,fontFamily:"inherit",fontWeight:600,WebkitTapHighlightColor:"transparent",padding:"7px 9px",fontSize:11,textAlign:"left",background:isSelected?"rgba(167,139,250,0.15)":"#21262d",color:isSelected?"#a78bfa":T.muted,border:`1px solid ${isSelected?"rgba(167,139,250,0.5)":T.border}`,transition:"background 0.1s, color 0.1s, border-color 0.1s",whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}
-              onMouseDown={e=>{e.preventDefault();setLocalDestino(cl.id);setLocalTarjetaRef("");}}>
+            const isSel=localDestino===cl.id;
+            return(<button key={cl.id} style={{cursor:"pointer",border:"none",borderRadius:10,fontFamily:"inherit",fontWeight:600,WebkitTapHighlightColor:"transparent",padding:"7px 9px",fontSize:11,textAlign:"left",background:isSel?"rgba(167,139,250,0.15)":"#21262d",color:isSel?"#a78bfa":T.muted,border:`1px solid ${isSel?"rgba(167,139,250,0.5)":T.border}`,transition:"all 0.1s",whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}
+              onMouseDown={e=>{e.preventDefault();setLocalDestino(cl.id);setLocalCat("");setLocalTarjetaRef("");}}>
               {cl.icon||"🏷️"} {cl.name}
             </button>);
           })}
+          {/* + New label */}
           {newLabelInput
             ? <div style={{gridColumn:"1/-1",display:"flex",flexDirection:"column",gap:4}}>
-                <input autoFocus style={{...INP,fontSize:11,padding:"6px 8px"}}
-                  placeholder="Label name (e.g. Oil Change)..."
-                  value={newLabelName}
-                  onChange={e=>setNewLabelName(e.target.value)}
-                  onKeyDown={e=>{if(e.key==="Escape"){setNewLabelInput(false);setNewLabelName("");}}}/>
+                <input autoFocus style={{...INP,fontSize:11,padding:"6px 8px"}} placeholder="Label name..." value={newLabelName} onChange={e=>setNewLabelName(e.target.value)} onKeyDown={e=>{if(e.key==="Escape"){setNewLabelInput(false);setNewLabelName("");}}}/>
                 <select style={{...INP,fontSize:11,padding:"6px 8px"}} value={newLabelParent||""} onChange={e=>setNewLabelParent(e.target.value)}>
                   <option value="">No parent category</option>
                   {PARENT_CATS.map(k=><option key={k} value={k}>{DEST[k].icon} {DEST[k].label}</option>)}
                 </select>
                 <div style={{display:"flex",gap:4}}>
                   <button style={{...{cursor:"pointer",border:"none",borderRadius:8,fontFamily:"inherit",fontWeight:700},flex:1,background:"#238636",color:"#fff",padding:"7px",fontSize:11,WebkitTapHighlightColor:"transparent"}}
-                    onMouseDown={e=>{e.preventDefault();if(newLabelName.trim()){const id="label_"+Date.now();onAddCustomLabel&&onAddCustomLabel(newLabelName.trim(),id,newLabelParent||null);setLocalDestino(id);setNewLabelName("");setNewLabelParent("");setNewLabelInput(false);}}}>✓ Add</button>
+                    onMouseDown={e=>{e.preventDefault();if(newLabelName.trim()){const id="label_"+Date.now();onAddCustomLabel&&onAddCustomLabel(newLabelName.trim(),id,newLabelParent||null);setLocalDestino(id);setLocalCat("");setNewLabelName("");setNewLabelParent("");setNewLabelInput(false);}}}>✓ Add</button>
                   <button style={{...{cursor:"pointer",border:"none",borderRadius:8,fontFamily:"inherit",fontWeight:700},background:T.surface2,color:T.muted,padding:"7px 12px",fontSize:11,WebkitTapHighlightColor:"transparent"}}
                     onMouseDown={e=>{e.preventDefault();setNewLabelInput(false);setNewLabelName("");setNewLabelParent("");}}>✕</button>
                 </div>
               </div>
             : <button style={{cursor:"pointer",border:"none",borderRadius:10,fontFamily:"inherit",fontWeight:600,WebkitTapHighlightColor:"transparent",padding:"7px 9px",fontSize:11,textAlign:"left",background:"transparent",color:T.muted,border:`1px dashed ${T.border}`,whiteSpace:"nowrap"}}
-                onMouseDown={e=>{e.preventDefault();setNewLabelInput(true);}}>
-                + New
-              </button>
+                onMouseDown={e=>{e.preventDefault();setNewLabelInput(true);}}>+ New</button>
           }
         </div>
       </div>
-      {localDestino==="credit_card"&&(
-        <div style={{marginBottom:10}}>
-          <div style={{fontSize:10,color:T.muted,marginBottom:5}}>WHICH CARD?</div>
-          <select style={INP} value={localTarjetaRef} onChange={e=>{const cardName=e.target.value;setLocalTarjetaRef(cardName);}}>
-            <option value="">Select...</option>
-            {tarjetas.map(t=><option key={t.id} value={t.nombre}>{t.nombre}{t.fechaPago?` (due ${t.fechaPago})`:""}</option>)}
-          </select>
+
+      {/* PAID WITH — credit card option */}
+      <div style={{marginBottom:10}}>
+        <div style={{fontSize:10,color:T.muted,marginBottom:6}}>PAID WITH</div>
+        <div style={{display:"flex",gap:6,flexWrap:"wrap"}}>
+          <button style={{...BTN,padding:"6px 12px",fontSize:11,borderRadius:9,background:localDestino!=="credit_card"?"rgba(63,185,80,0.15)":"transparent",color:localDestino!=="credit_card"?"#3fb950":T.muted,border:`1px solid ${localDestino!=="credit_card"?"rgba(63,185,80,0.4)":T.border}`}}
+            onMouseDown={e=>{e.preventDefault();if(localDestino==="credit_card"){setLocalDestino(localCat||"other");setLocalTarjetaRef("");}}}> 
+            💵 Cash / Check
+          </button>
+          {tarjetas.map(t=>{
+            const isSel=localDestino==="credit_card"&&localTarjetaRef===t.nombre;
+            return(<button key={t.id} style={{...BTN,padding:"6px 12px",fontSize:11,borderRadius:9,background:isSel?"rgba(236,72,153,0.15)":"transparent",color:isSel?"#ec4899":T.muted,border:`1px solid ${isSel?"rgba(236,72,153,0.4)":T.border}`}}
+              onMouseDown={e=>{e.preventDefault();setLocalDestino("credit_card");setLocalTarjetaRef(t.nombre);}}>
+              💳 {t.nombre}
+            </button>);
+          })}
         </div>
-      )}
-      {localDestino==="credit_card"&&(
-        <div style={{marginBottom:10}}>
-          <div style={{fontSize:10,color:T.muted,marginBottom:5}}>CATEGORY <span style={{opacity:0.5,fontWeight:400}}>(optional — for reporting)</span></div>
-          <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:4}}>
-            {["subscription","auto","utilities","gas","insurance","rent","other"].map(k=>{
-              const d=DEST[k]||{icon:"📌",label:k};
-              const isSel=localCat===k;
-              return(<button key={k} style={{cursor:"pointer",border:"none",borderRadius:9,fontFamily:"inherit",fontWeight:600,WebkitTapHighlightColor:"transparent",padding:"6px 8px",fontSize:11,textAlign:"left",background:isSel?`${d.color||T.accent}22`:"transparent",color:isSel?d.color||T.accent:T.muted,border:`1px solid ${isSel?d.color||T.accent:T.border}`,transition:"all 0.1s"}}
-                onMouseDown={e=>{e.preventDefault();setLocalCat(isSel?"":k);}}>
-                {d.icon} {d.label}
-              </button>);
-            })}
+        {/* Card payment toggle */}
+        {localDestino==="credit_card"&&(
+          <div style={{marginTop:8}}>
+            <button style={{...BTN,padding:"5px 10px",fontSize:10,borderRadius:8,background:!localCat?"rgba(248,81,73,0.12)":"transparent",color:!localCat?"#f85149":T.muted,border:`1px solid ${!localCat?"rgba(248,81,73,0.3)":T.border}`}}
+              onMouseDown={e=>{e.preventDefault();setLocalCat(localCat?"":"__card_payment__");}}>
+              {!localCat?"💳 This is a card payment (no category)":"← Back to category"}
+            </button>
           </div>
-        </div>
-      )}
-      {/* Recurring toggle — first */}
-      <button style={{...BTN,width:"100%",marginBottom:10,padding:"10px 14px",borderRadius:11,display:"flex",alignItems:"center",justifyContent:"space-between",
-        background:item._recurring?`${T.accent}10`:"transparent",
-        border:`1px solid ${item._recurring?T.accent+"55":T.border}`,
-        transition:"all 0.2s"}}
+        )}
+      </div>
+
+      {/* Recurring toggle */}
+      <button style={{...BTN,width:"100%",marginBottom:10,padding:"10px 14px",borderRadius:11,display:"flex",alignItems:"center",justifyContent:"space-between",background:item._recurring?`${T.accent}10`:"transparent",border:`1px solid ${item._recurring?T.accent+"55":T.border}`,transition:"all 0.2s"}}
         onClick={()=>onUpdate(item.id,"_recurring",!item._recurring)}>
         <div style={{display:"flex",alignItems:"center",gap:8}}>
           <span style={{fontSize:15}}>🔁</span>
@@ -687,24 +690,25 @@ const GastoItem=memo(({item,pid,editId,setEditId,tarjetas,potsList,periodDate,cu
             <div style={{fontSize:10,color:T.muted}}>{item._recurring?"Copies to next paycheck automatically":"One-time expense"}</div>
           </div>
         </div>
-        <div style={{width:36,height:20,borderRadius:10,position:"relative",flexShrink:0,
-          background:item._recurring?T.accent:"rgba(255,255,255,0.1)",
-          border:`1px solid ${item._recurring?T.accent:T.border}`,
-          transition:"background 0.2s"}}>
-          <div style={{position:"absolute",top:2,left:item._recurring?18:2,width:14,height:14,borderRadius:"50%",
-            background:"#fff",transition:"left 0.2s cubic-bezier(0.34,1.56,0.64,1)",
-            boxShadow:"0 1px 3px rgba(0,0,0,0.3)"}}/>
+        <div style={{width:36,height:20,borderRadius:10,position:"relative",flexShrink:0,background:item._recurring?T.accent:"rgba(255,255,255,0.1)",border:`1px solid ${item._recurring?T.accent:T.border}`,transition:"background 0.2s"}}>
+          <div style={{position:"absolute",top:2,left:item._recurring?18:2,width:14,height:14,borderRadius:"50%",background:"#fff",transition:"left 0.2s cubic-bezier(0.34,1.56,0.64,1)",boxShadow:"0 1px 3px rgba(0,0,0,0.3)"}}/>
         </div>
       </button>
-      {/* Due date — only show when recurring is ON */}
+      {/* Due date — only when recurring */}
       {item._recurring&&(
         <div style={{marginBottom:12,animation:"editOpen 0.2s cubic-bezier(0.4,0,0.2,1) both"}}>
-          <div style={{fontSize:10,color:T.muted,marginBottom:5,display:"flex",alignItems:"center",gap:6}}>📅 DUE DAY <span style={{opacity:0.5,fontWeight:400}}>(day of month, e.g. 15)</span>{localDestino==="credit_card"&&localTarjetaRef&&getCardDueDay(localTarjetaRef)&&(<span style={{marginLeft:4,color:T.accent,fontSize:9}}>← auto-filled</span>)}</div>
+          <div style={{fontSize:10,color:T.muted,marginBottom:5}}>📅 DUE DAY <span style={{opacity:0.5,fontWeight:400}}>(day of month, optional)</span></div>
           <input style={{...INP,fontFamily:"monospace",fontWeight:700}} type="number" inputMode="numeric" placeholder="e.g. 7" min="1" max={new Date(new Date().getFullYear(),new Date().getMonth()+1,0).getDate()} value={item.diaPago||""} onChange={e=>{const v=parseInt(e.target.value);const max=new Date(new Date().getFullYear(),new Date().getMonth()+1,0).getDate();const val=e.target.value?Math.min(max,Math.max(1,v)):null;onUpdate(item.id,"diaPago",val);}} onBlur={e=>{if(item.diaPago){const max=new Date(new Date().getFullYear(),new Date().getMonth()+1,0).getDate();onUpdate(item.id,"diaPago",Math.min(max,Math.max(1,parseInt(item.diaPago)||1)));}}}/>
         </div>
       )}
       <div style={{display:"flex",gap:8,marginTop:10}}>
-        <button style={{...BTN,flex:1,padding:"12px",background:"#238636",color:"#fff",fontSize:13,fontWeight:700,borderRadius:11,letterSpacing:0.8}} onClick={()=>{const updates={destino:localDestino,cat:localDestino==="credit_card"?(localCat||"credit_card"):localDestino,tarjetaRef:localDestino==="credit_card"?localTarjetaRef:""};onBatchUpdate(item.id,updates);setEditId(null);}}>✓  SAVE</button>
+        <button style={{...BTN,flex:1,padding:"12px",background:"#238636",color:"#fff",fontSize:13,fontWeight:700,borderRadius:11,letterSpacing:0.8}}
+          onClick={()=>{
+            const cat=localCat==="__card_payment__"?"credit_card":(localCat||localDestino);
+            const dest=localDestino==="credit_card"?"credit_card":(potsList||[]).find(p=>p.id===localDestino)?localDestino:(customLabels||[]).find(l=>l.id===localDestino)?localDestino:cat;
+            const updates={destino:dest,cat,tarjetaRef:localDestino==="credit_card"?localTarjetaRef:""};
+            onBatchUpdate(item.id,updates);setEditId(null);
+          }}>✓  SAVE</button>
         <button style={{...BTN,padding:"12px 16px",background:"transparent",color:T.muted,fontSize:12,borderRadius:11,border:"none",letterSpacing:0.5,opacity:0.6}} onClick={()=>setEditId(null)}>CANCEL</button>
         <button style={{...BTN,padding:"12px 14px",background:"rgba(248,81,73,0.1)",color:"#f85149",fontSize:14,borderRadius:11,border:"1px solid rgba(248,81,73,0.2)"}} onClick={e=>{const row=e.currentTarget.closest(".expense-row");if(row){row.style.animation="itemExit 0.28s ease forwards";setTimeout(()=>{onRemove(item.id);setEditId(null);},260);}else{onRemove(item.id);setEditId(null);}}}>🗑</button>
       </div>
@@ -3074,7 +3078,10 @@ function App(){
               const [selMonth,setSelMonth]=React.useState(months[0]||now.toISOString().slice(0,7));
               const [expanded,setExpanded]=React.useState(new Set());
               const toggle=k=>setExpanded(prev=>{const n=new Set(prev);n.has(k)?n.delete(k):n.add(k);return n;});
-              const monthGastos=Object.entries(data.periods||{}).filter(([pid])=>pid.slice(0,7)===selMonth).flatMap(([,p])=>p.gastos||[]);
+              const validPids=new Set(buildMonthPeriods(data.proximoCobro,data.payFreq).map(p=>p.id));
+              const monthGastos=Object.entries(data.periods||{})
+                .filter(([pid])=>pid.slice(0,7)===selMonth&&(validPids.has(pid)||months.length>1))
+                .flatMap(([,p])=>p.gastos||[]);
               if(!monthGastos.length)return null;
               const total=monthGastos.reduce((s,g)=>s+n(g.monto),0);
               const totalPaid=monthGastos.filter(g=>g.state==="paid").reduce((s,g)=>s+n(g.monto),0);
@@ -3088,27 +3095,28 @@ function App(){
               };
               monthGastos.forEach(g=>{
                 const cl=cls.find(l=>l.id===g.destino);
-                if(g.destino==="credit_card"){
-                  // If has a category set, use that for reporting
-                  if(g.cat&&g.cat!=="credit_card"&&DEST[g.cat]){
-                    const d=DEST[g.cat];
-                    add("cat_"+g.cat,d.label,d.icon,d.color,g);
-                  } else {
-                    // No category — group by card name (payment to card)
-                    const cardName=g.tarjetaRef||"Credit Card";
-                    const cc=gds("credit_card",g.tarjetaRef,null,potsList,cls);
-                    add("cc_"+cardName,cardName,cc.icon,cc.color,g);
-                  }
-                } else if(cl){
+                const cat=g.cat||g.destino;
+                if(cl){
+                  // Custom label
                   if(cl.parent&&DEST[cl.parent]){const pd=DEST[cl.parent];add("cat_"+cl.parent,pd.label,pd.icon,pd.color,g);}
                   else{add("cl_"+cl.id,cl.name,"🏷️","#a78bfa",g);}
-                } else if(g.destino==="other"||g.destino==="temp"){
-                  // Group all temp together, all other together
-                  const grpKey=g.destino==="temp"?"__temp__":"__other__";
-                  const grpLabel=g.destino==="temp"?"Temporary":"Other";
-                  add(grpKey,grpLabel,g.destino==="temp"?"🔄":"📌",T.muted,g);
-                } else if(DEST[g.destino]){
-                  const d=DEST[g.destino];add("cat_"+g.destino,d.label,d.icon,d.color,g);
+                } else if(potsList.find(p=>p.id===g.destino)){
+                  // Pot
+                  const pot=potsList.find(p=>p.id===g.destino);
+                  const c=pot.color||"#58a6ff";
+                  add("pot_"+pot.id,pot.name,pot.icon||"🪣",c,g);
+                } else if(g.destino==="credit_card"&&(cat==="credit_card"||!cat)){
+                  // Card payment — no category set
+                  const cardName=g.tarjetaRef||"Credit Card";
+                  const cc=gds("credit_card",g.tarjetaRef,null,potsList,cls);
+                  add("cc_"+cardName,cardName,cc.icon,cc.color,g);
+                } else if(cat&&cat!=="credit_card"&&DEST[cat]){
+                  // Has a real category (even if paid with card)
+                  const d=DEST[cat];
+                  add("cat_"+cat,d.label,d.icon,d.color,g);
+                } else if(g.destino==="other"||g.destino==="temp"||cat==="other"||cat==="temp"){
+                  const grpKey=cat==="temp"?"__temp__":"__other__";
+                  add(grpKey,cat==="temp"?"Temporary":"Other",cat==="temp"?"🔄":"📌",T.muted,g);
                 } else {
                   add("__other__","Other","📌",T.muted,g);
                 }
