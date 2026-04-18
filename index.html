@@ -609,13 +609,28 @@ const GastoItem=memo(({item,pid,editId,setEditId,tarjetas,loans,potsList,periodD
         <div style={{fontSize:10,color:T.muted,marginBottom:5}}>CATEGORY</div>
         <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:5}}>
           {/* Fixed categories — exclude credit_card */}
-          {DEST_ORDER.filter(k=>k!=="credit_card").map(k=>{
+          {DEST_ORDER.map(k=>{
             const d=DEST[k];const isSel=localCat===k||(!localCat&&localDestino===k&&localDestino!=="credit_card");
             return(<button key={k} style={{cursor:"pointer",border:"none",borderRadius:10,fontFamily:"inherit",fontWeight:600,WebkitTapHighlightColor:"transparent",padding:"7px 9px",fontSize:11,textAlign:"left",background:isSel?d.bg:"#21262d",color:isSel?d.color:T.muted,border:`1px solid ${isSel?d.border:T.border}`,transition:"all 0.1s",whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}
-              onMouseDown={e=>{e.preventDefault();setLocalCat(k);if(localDestino==="credit_card"){}else{setLocalDestino(k);setLocalTarjetaRef("");}}}>
+              onMouseDown={e=>{e.preventDefault();setLocalCat(k);if(localDestino==="credit_card"){}else{setLocalDestino(k==="credit_card"?"credit_card":k);setLocalTarjetaRef("");}}}>
               {d.icon} {d.label}
             </button>);
           })}
+          {/* Card selector when credit_card is category */}
+          {localCat==="credit_card"&&localDestino!=="credit_card"&&(
+            <div style={{gridColumn:"1/-1",marginTop:4}}>
+              <div style={{fontSize:9,color:T.muted,marginBottom:5,letterSpacing:1}}>WHICH CARD?</div>
+              <div style={{display:"flex",gap:5,flexWrap:"wrap"}}>
+                {tarjetas.map(t=>{
+                  const isSel=localTarjetaRef===t.nombre;
+                  return(<button key={t.id} style={{...BTN,padding:"5px 10px",fontSize:11,borderRadius:9,background:isSel?"rgba(236,72,153,0.15)":"transparent",color:isSel?"#ec4899":T.muted,border:`1px solid ${isSel?"rgba(236,72,153,0.4)":T.border}`}}
+                    onMouseDown={e=>{e.preventDefault();setLocalTarjetaRef(t.nombre);}}>
+                    {t.nombre}
+                  </button>);
+                })}
+              </div>
+            </div>
+          )}
           {/* Pots */}
           {(potsList||[]).map(pot=>{
             const isSel=localDestino===pot.id;const color=pot.color||"#58a6ff";
@@ -669,15 +684,6 @@ const GastoItem=memo(({item,pid,editId,setEditId,tarjetas,loans,potsList,periodD
             </button>);
           })}
         </div>
-        {/* Card payment toggle */}
-        {localDestino==="credit_card"&&(
-          <div style={{marginTop:8}}>
-            <button style={{...BTN,padding:"5px 10px",fontSize:10,borderRadius:8,background:!localCat?"rgba(248,81,73,0.12)":"transparent",color:!localCat?"#f85149":T.muted,border:`1px solid ${!localCat?"rgba(248,81,73,0.3)":T.border}`}}
-              onMouseDown={e=>{e.preventDefault();setLocalCat(localCat?"":"__card_payment__");}}>
-              {!localCat?"✓ Card payment — no category needed":"↩ Remove card payment flag"}
-            </button>
-          </div>
-        )}
       </div>
 
       {/* Due date — always available, sets recurring automatically */}
@@ -705,8 +711,13 @@ const GastoItem=memo(({item,pid,editId,setEditId,tarjetas,loans,potsList,periodD
         <button style={{...BTN,flex:1,padding:"12px",background:"#238636",color:"#fff",fontSize:13,fontWeight:700,borderRadius:11,letterSpacing:0.8}}
           onClick={()=>{
             const cat=localCat==="__card_payment__"?"credit_card":(localCat||localDestino);
-            const dest=localDestino==="credit_card"?"credit_card":(potsList||[]).find(p=>p.id===localDestino)?localDestino:(customLabels||[]).find(l=>l.id===localDestino)?localDestino:cat;
-            const updates={destino:dest,cat,tarjetaRef:localDestino==="credit_card"?localTarjetaRef:""};
+            const dest=localCat==="credit_card"&&localDestino!=="credit_card"?"credit_card":
+              localDestino==="credit_card"?"credit_card":
+              (potsList||[]).find(p=>p.id===localDestino)?localDestino:
+              (customLabels||[]).find(l=>l.id===localDestino)?localDestino:cat;
+            const tRef=localCat==="credit_card"&&localDestino!=="credit_card"?localTarjetaRef:
+              localDestino==="credit_card"?localTarjetaRef:"";
+            const updates={destino:dest,cat,tarjetaRef:tRef};
             onBatchUpdate(item.id,updates);setEditId(null);
           }}>✓  SAVE</button>
         <button style={{...BTN,padding:"12px 16px",background:"transparent",color:T.muted,fontSize:12,borderRadius:11,border:"none",letterSpacing:0.5,opacity:0.6}} onClick={()=>setEditId(null)}>CANCEL</button>
@@ -1533,9 +1544,7 @@ function App(){
   },[activeCheckPid]);
   const resetCheck=useCallback((pid,label)=>{
     updPeriodGastos(pid,g=>{
-      const kept=g.filter(x=>x.destino!=="temp"&&!x._quick).map(x=>({...x,state:"pending",pagado:false,_potAdded:false}));
-      const recurring=kept.filter(x=>x._recurring);
-      // Re-add recurring items with new IDs if they were removed
+      const kept=g.filter(x=>x._recurring||x.diaPago).map(x=>({...x,state:"pending",pagado:false,_potAdded:false}));
       return kept;
     });
     toast_(`🔄 ${label} reset`);
