@@ -674,7 +674,7 @@ const GastoItem=memo(({item,pid,editId,setEditId,tarjetas,loans,potsList,periodD
           <div style={{marginTop:8}}>
             <button style={{...BTN,padding:"5px 10px",fontSize:10,borderRadius:8,background:!localCat?"rgba(248,81,73,0.12)":"transparent",color:!localCat?"#f85149":T.muted,border:`1px solid ${!localCat?"rgba(248,81,73,0.3)":T.border}`}}
               onMouseDown={e=>{e.preventDefault();setLocalCat(localCat?"":"__card_payment__");}}>
-              {!localCat?"💳 This is a card payment (no category)":"← Back to category"}
+              {!localCat?"✓ Card payment — no category needed":"↩ Remove card payment flag"}
             </button>
           </div>
         )}
@@ -684,11 +684,11 @@ const GastoItem=memo(({item,pid,editId,setEditId,tarjetas,loans,potsList,periodD
       <div style={{marginBottom:10}}>
         <div style={{fontSize:10,color:T.muted,marginBottom:5}}>📅 DUE DAY <span style={{opacity:0.5,fontWeight:400}}>(day of month, optional)</span></div>
         <input style={{...INP,fontFamily:"monospace",fontWeight:700}} type="number" inputMode="numeric" placeholder="Leave blank if no due date" min="1" max={new Date(new Date().getFullYear(),new Date().getMonth()+1,0).getDate()} value={item.diaPago||""} 
-          onChange={e=>{const v=parseInt(e.target.value);const max=new Date(new Date().getFullYear(),new Date().getMonth()+1,0).getDate();const val=e.target.value?Math.min(max,Math.max(1,v)):null;onBatchUpdate(item.id,{diaPago:val,_recurring:val?true:item._recurring});}} 
-          onBlur={e=>{if(item.diaPago){const max=new Date(new Date().getFullYear(),new Date().getMonth()+1,0).getDate();onBatchUpdate(item.id,{diaPago:Math.min(max,Math.max(1,parseInt(item.diaPago)||1)),_recurring:true});}}}/>
+          onChange={e=>{const v=parseInt(e.target.value);const max=new Date(new Date().getFullYear(),new Date().getMonth()+1,0).getDate();const val=e.target.value?Math.min(max,Math.max(1,v)):null;onUpdate(item.id,"diaPago",val);}} 
+          onBlur={e=>{if(item.diaPago){const max=new Date(new Date().getFullYear(),new Date().getMonth()+1,0).getDate();onUpdate(item.id,"diaPago",Math.min(max,Math.max(1,parseInt(item.diaPago)||1)));}}}/>
       </div>
-      {/* Recurring toggle — independent, for things without due date */}
-      {!item.diaPago&&<button style={{...BTN,width:"100%",marginBottom:10,padding:"10px 14px",borderRadius:11,display:"flex",alignItems:"center",justifyContent:"space-between",background:item._recurring?`${T.accent}10`:"transparent",border:`1px solid ${item._recurring?T.accent+"55":T.border}`,transition:"all 0.2s"}}
+      {/* Recurring toggle — always shown */}
+      <button style={{...BTN,width:"100%",marginBottom:10,padding:"10px 14px",borderRadius:11,display:"flex",alignItems:"center",justifyContent:"space-between",background:item._recurring?`${T.accent}10`:"transparent",border:`1px solid ${item._recurring?T.accent+"55":T.border}`,transition:"all 0.2s"}}
         onClick={()=>onUpdate(item.id,"_recurring",!item._recurring)}>
         <div style={{display:"flex",alignItems:"center",gap:8}}>
           <span style={{fontSize:15}}>🔁</span>
@@ -700,8 +700,7 @@ const GastoItem=memo(({item,pid,editId,setEditId,tarjetas,loans,potsList,periodD
         <div style={{width:36,height:20,borderRadius:10,position:"relative",flexShrink:0,background:item._recurring?T.accent:"rgba(255,255,255,0.1)",border:`1px solid ${item._recurring?T.accent:T.border}`,transition:"background 0.2s"}}>
           <div style={{position:"absolute",top:2,left:item._recurring?18:2,width:14,height:14,borderRadius:"50%",background:"#fff",transition:"left 0.2s cubic-bezier(0.34,1.56,0.64,1)",boxShadow:"0 1px 3px rgba(0,0,0,0.3)"}}/>
         </div>
-      </button>}
-      {item.diaPago&&<div style={{fontSize:10,color:T.accent,marginBottom:10,padding:"6px 10px",background:`${T.accent}0d`,borderRadius:8}}>🔁 Recurring automatically — has due date</div>}
+      </button>
       <div style={{display:"flex",gap:8,marginTop:10}}>
         <button style={{...BTN,flex:1,padding:"12px",background:"#238636",color:"#fff",fontSize:13,fontWeight:700,borderRadius:11,letterSpacing:0.8}}
           onClick={()=>{
@@ -1500,27 +1499,30 @@ function App(){
     if(!activeCheckPid)return;
     const curGastos=(data.periods[activeCheckPid]?.gastos)||[];
     if(curGastos.some(x=>x._recurring))return;
-    // Find the same check index from a previous month
     const checkIdx=monthPeriods.findIndex(p=>p.id===activeCheckPid);
     if(checkIdx<0)return;
+    // First look at same check index from other months
     const currentPids=new Set(monthPeriods.map(p=>p.id));
-    // Group all other periods by month, find same check position
     const byMonth={};
     Object.keys(data.periods).filter(pid=>!currentPids.has(pid)).forEach(pid=>{
-      const mo=pid.slice(0,18); // use full date as month grouping key
-      const mo7=pid.slice(8,18);// just get the date part after "period_"
       const m=pid.replace("period_","").slice(0,7);
       if(!byMonth[m])byMonth[m]=[];
       byMonth[m].push(pid);
     });
-    // Sort months descending, find most recent same-index check
     const months=Object.keys(byMonth).sort().reverse();
     let sourcePid=null;
     for(const mo of months){
       const pids=byMonth[mo].sort();
       if(pids[checkIdx]){sourcePid=pids[checkIdx];break;}
-      // fallback: any from that month
       if(!sourcePid&&pids.length>0)sourcePid=pids[0];
+    }
+    // If no previous month, look at other checks in same month
+    if(!sourcePid){
+      const otherChecks=monthPeriods.filter(p=>p.id!==activeCheckPid);
+      for(const p of otherChecks){
+        const g=(data.periods[p.id]?.gastos)||[];
+        if(g.some(x=>x._recurring)){sourcePid=p.id;break;}
+      }
     }
     if(!sourcePid)return;
     const recurring=((data.periods[sourcePid]?.gastos)||[]).filter(x=>x._recurring);
