@@ -104,7 +104,7 @@
       padding-bottom:max(120px, env(safe-area-inset-bottom, 32px));
     }
   </style>
-</head>
+<script>document.addEventListener("focusin",function(e){if(e.target.tagName==="INPUT"&&(e.target.type==="number"||e.target.inputMode==="decimal"||e.target.inputMode==="numeric")){var v=e.target.value;if(v){setTimeout(function(){try{e.target.type="text";e.target.setSelectionRange(v.length,v.length);e.target.type="number";}catch(x){e.target.setSelectionRange(v.length,v.length);}},0);}}});</script></head>
 <body class="dark">
 <div id="splash">
   <svg width="90" height="90" viewBox="0 0 512 512" xmlns="http://www.w3.org/2000/svg">
