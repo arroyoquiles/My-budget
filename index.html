@@ -3127,8 +3127,8 @@ function App(){
                 } else if(potsList.find(p=>p.id===g.destino)){
                   const pot=potsList.find(p=>p.id===g.destino);
                   add("pot_"+pot.id,pot.name,pot.icon||"🪣",pot.color||"#58a6ff",g);
-                } else if(g.destino==="credit_card"){
-                  // Each card separately
+                } else if(cat==="credit_card"&&(!g.cat||g.cat==="credit_card")&&g.destino==="credit_card"){
+                  // Only pure card payments (no real category) → by card name
                   const cardName=g.tarjetaRef||"Credit Card";
                   const cc=gds("credit_card",g.tarjetaRef,null,potsList,cls);
                   add("cc_"+cardName,cardName,cc.icon,cc.color,g);
