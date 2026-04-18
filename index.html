@@ -1978,9 +1978,8 @@ function App(){
                     const el=document.getElementById("pot-row-"+potId);
                     if(el){el.style.transition="transform 0.25s cubic-bezier(0.34,1.2,0.64,1)";el.style.transform="translateX(0px)";}
                     if(dx>40){
-                      // swiped right → edit: wait for animation to finish before expanding
                       setMoveTo(potId);
-                      setTimeout(()=>setEditingPotId(isEditing?null:potId),260);
+                      setEditingPotId(isEditing?null:potId);
                     } else if(dx<-50){
                       // swiped left → delete
                       if(window.confirm(`Delete "${potName}"?`)){
