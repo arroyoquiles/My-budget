@@ -140,7 +140,7 @@ const DEST = {
   credit_card:  {label:"Credit Card",   icon:"💳",color:"#ec4899",bg:"rgba(236,72,153,0.12)", border:"rgba(236,72,153,0.3)"},
   rent:         {label:"Rent/Mortgage", icon:"🏠",color:"#3b82f6",bg:"rgba(59,130,246,0.1)",  border:"rgba(59,130,246,0.3)"},
   utilities:    {label:"Utilities",     icon:"⚡",color:"#f59e0b",bg:"rgba(245,158,11,0.1)",  border:"rgba(245,158,11,0.3)"},
-  auto:         {label:"Auto Payment",  icon:"🚗",color:"#f97316",bg:"rgba(249,115,22,0.1)",  border:"rgba(249,115,22,0.3)"},
+  auto:         {label:"Auto",  icon:"🚗",color:"#f97316",bg:"rgba(249,115,22,0.1)",  border:"rgba(249,115,22,0.3)"},
   insurance:    {label:"Insurance",     icon:"🛡️",color:"#6366f1",bg:"rgba(99,102,241,0.1)",  border:"rgba(99,102,241,0.3)"},
   groceries:    {label:"Groceries",     icon:"🛒",color:"#22c55e",bg:"rgba(34,197,94,0.1)",   border:"rgba(34,197,94,0.3)"},
   subscription: {label:"Subscription",  icon:"📱",color:"#8b5cf6",bg:"rgba(139,92,246,0.1)",  border:"rgba(139,92,246,0.3)"},
@@ -154,7 +154,8 @@ const DEST = {
   lifestyle:    {label:"Lifestyle",      icon:"✨",color:"#a78bfa",bg:"rgba(167,139,250,0.1)", border:"rgba(167,139,250,0.3)"},
   other:        {label:"Other",         icon:"📌",color:"#8b949e",bg:"transparent",            border:"#21262d"},
 };
-const DEST_ORDER = ["credit_card","rent","auto","utilities","gas","subscription","insurance","temp","other"];
+const DEST_ORDER = ["credit_card","rent","auto","utilities","gas","subscription","temp","other"];
+const PARENT_CATS = ["credit_card","rent","auto","utilities","gas","subscription","insurance","temp","other"];
 const POTS = {
   savings_acct:{label:"Savings",   icon:"🏦",color:"#3fb950",bg:"rgba(63,185,80,0.1)"},
   emergency:   {label:"Emergency", icon:"🆘",color:"#06b6d4",bg:"rgba(6,182,212,0.1)"},
@@ -225,7 +226,7 @@ const getLoanColor=(nombre)=>{
   return palette[h%palette.length];
 };
 const DORDER=["rent","auto","insurance","utilities","gas","credit_card","groceries","subscription","dining","entertainment","medical","lifestyle","temp","other"];
-const DUE_DAY_CATS=new Set(["credit_card","rent","utilities","insurance","subscription","auto","medical"]);
+const DUE_DAY_CATS=new Set(["credit_card","rent"]);
 const gds=(d,r,cardObj,potsList,customLabels)=>{
   if(d==="credit_card"&&r&&CC[r])return{...DEST.credit_card,...CC[r],label:r};
   if(d==="credit_card"&&cardObj&&cardObj._vc)return{...DEST.credit_card,...cardObj._vc,label:r||cardObj.nombre||"Credit Card"};
@@ -538,6 +539,7 @@ const GastoItem=memo(({item,pid,editId,setEditId,tarjetas,potsList,periodDate,cu
   const [localTarjetaRef,setLocalTarjetaRef]=useState(item.tarjetaRef||"");
   const [newLabelInput,setNewLabelInput]=useState(false);
   const [newLabelName,setNewLabelName]=useState("");
+  const [newLabelParent,setNewLabelParent]=useState("");
   const isEditing=editId===item.id;
   React.useEffect(()=>{if(isEditing){setLocalDestino(item.destino);setLocalTarjetaRef(item.tarjetaRef||"");}}, [isEditing]);
   const swipeRef=useRef({startX:0,startY:0,dir:null,active:false});
@@ -592,7 +594,7 @@ const GastoItem=memo(({item,pid,editId,setEditId,tarjetas,potsList,periodDate,cu
     const card=tarjetas.find(t=>t.nombre===cardName);
     return card&&card.fechaPago?parseInt(card.fechaPago)||null:null;
   };
-  const showDueDay=DUE_DAY_CATS.has(item.destino)||DUE_DAY_CATS.has(item.cat);
+  const showDueDay=DUE_DAY_CATS.has(item.destino)||DUE_DAY_CATS.has(item.cat)||(customLabels||[]).some(l=>l.id===item.destino);
   if(editId===item.id)return(
     <div style={{marginBottom:8,...CARD,padding:"14px",border:`1px solid ${T.accent}`}}>
       <div style={{marginBottom:10}}><div style={{fontSize:10,color:T.muted,marginBottom:5}}>NAME</div><input style={INP} value={item.nombre} onChange={e=>onUpdate(item.id,"nombre",e.target.value)} placeholder="Expense name"/></div>
@@ -623,24 +625,22 @@ const GastoItem=memo(({item,pid,editId,setEditId,tarjetas,potsList,periodDate,cu
             </button>);
           })}
           {newLabelInput
-            ? <div style={{display:"flex",gap:4,gridColumn:"1/-1"}}>
-                <input autoFocus style={{...INP,flex:1,fontSize:11,padding:"6px 8px"}}
-                  placeholder="Label name..."
+            ? <div style={{gridColumn:"1/-1",display:"flex",flexDirection:"column",gap:4}}>
+                <input autoFocus style={{...INP,fontSize:11,padding:"6px 8px"}}
+                  placeholder="Label name (e.g. Oil Change)..."
                   value={newLabelName}
                   onChange={e=>setNewLabelName(e.target.value)}
-                  onKeyDown={e=>{
-                    if(e.key==="Enter"&&newLabelName.trim()){
-                      const id="label_"+Date.now();
-                      onAddCustomLabel&&onAddCustomLabel(newLabelName.trim(),id);
-                      setLocalDestino(id);
-                      setNewLabelName("");setNewLabelInput(false);
-                    }
-                    if(e.key==="Escape"){setNewLabelInput(false);setNewLabelName("");}
-                  }}/>
-                <button style={{...{cursor:"pointer",border:"none",borderRadius:8,fontFamily:"inherit",fontWeight:700},background:"#238636",color:"#fff",padding:"6px 10px",fontSize:11,WebkitTapHighlightColor:"transparent"}}
-                  onMouseDown={e=>{e.preventDefault();if(newLabelName.trim()){const id="label_"+Date.now();onAddCustomLabel&&onAddCustomLabel(newLabelName.trim(),id);setLocalDestino(id);setNewLabelName("");setNewLabelInput(false);}}}>✓</button>
-                <button style={{...{cursor:"pointer",border:"none",borderRadius:8,fontFamily:"inherit",fontWeight:700},background:T.surface2,color:T.muted,padding:"6px 10px",fontSize:11,WebkitTapHighlightColor:"transparent"}}
-                  onMouseDown={e=>{e.preventDefault();setNewLabelInput(false);setNewLabelName("");}}>✕</button>
+                  onKeyDown={e=>{if(e.key==="Escape"){setNewLabelInput(false);setNewLabelName("");}}}/>
+                <select style={{...INP,fontSize:11,padding:"6px 8px"}} value={newLabelParent||""} onChange={e=>setNewLabelParent(e.target.value)}>
+                  <option value="">No parent category</option>
+                  {PARENT_CATS.map(k=><option key={k} value={k}>{DEST[k].icon} {DEST[k].label}</option>)}
+                </select>
+                <div style={{display:"flex",gap:4}}>
+                  <button style={{...{cursor:"pointer",border:"none",borderRadius:8,fontFamily:"inherit",fontWeight:700},flex:1,background:"#238636",color:"#fff",padding:"7px",fontSize:11,WebkitTapHighlightColor:"transparent"}}
+                    onMouseDown={e=>{e.preventDefault();if(newLabelName.trim()){const id="label_"+Date.now();onAddCustomLabel&&onAddCustomLabel(newLabelName.trim(),id,newLabelParent||null);setLocalDestino(id);setNewLabelName("");setNewLabelParent("");setNewLabelInput(false);}}}>✓ Add</button>
+                  <button style={{...{cursor:"pointer",border:"none",borderRadius:8,fontFamily:"inherit",fontWeight:700},background:T.surface2,color:T.muted,padding:"7px 12px",fontSize:11,WebkitTapHighlightColor:"transparent"}}
+                    onMouseDown={e=>{e.preventDefault();setNewLabelInput(false);setNewLabelName("");setNewLabelParent("");}}>✕</button>
+                </div>
               </div>
             : <button style={{cursor:"pointer",border:"none",borderRadius:10,fontFamily:"inherit",fontWeight:600,WebkitTapHighlightColor:"transparent",padding:"7px 9px",fontSize:11,textAlign:"left",background:"transparent",color:T.muted,border:`1px dashed ${T.border}`,whiteSpace:"nowrap"}}
                 onMouseDown={e=>{e.preventDefault();setNewLabelInput(true);}}>
@@ -658,7 +658,7 @@ const GastoItem=memo(({item,pid,editId,setEditId,tarjetas,potsList,periodDate,cu
           </select>
         </div>
       )}
-      {(DUE_DAY_CATS.has(localDestino)||DUE_DAY_CATS.has(item.cat))&&(
+      {(DUE_DAY_CATS.has(localDestino)||DUE_DAY_CATS.has(item.cat)||(customLabels||[]).some(l=>l.id===localDestino))&&(
         <div style={{marginBottom:12}}>
           <div style={{fontSize:10,color:T.muted,marginBottom:5,display:"flex",alignItems:"center",gap:6}}>📅 DUE DAY <span style={{opacity:0.5,fontWeight:400}}>(day of month, e.g. 15)</span>{localDestino==="credit_card"&&localTarjetaRef&&getCardDueDay(localTarjetaRef)&&(<span style={{marginLeft:4,color:T.accent,fontSize:9}}>← auto-filled</span>)}</div>
           <input style={{...INP,fontFamily:"monospace",fontWeight:700}} type="number" inputMode="numeric" placeholder="e.g. 7" min="1" max={new Date(new Date().getFullYear(),new Date().getMonth()+1,0).getDate()} value={item.diaPago||""} onChange={e=>{const v=parseInt(e.target.value);const max=new Date(new Date().getFullYear(),new Date().getMonth()+1,0).getDate();onUpdate(item.id,"diaPago",e.target.value?Math.min(max,Math.max(1,v)):null);}} onBlur={e=>{if(item.diaPago){const max=new Date(new Date().getFullYear(),new Date().getMonth()+1,0).getDate();onUpdate(item.id,"diaPago",Math.min(max,Math.max(1,parseInt(item.diaPago)||1)));}}}/>
@@ -695,8 +695,8 @@ const GastoItem=memo(({item,pid,editId,setEditId,tarjetas,potsList,periodDate,cu
   );
   const stBg={pending:T.surface,reserved:T.surface,paid:T.surface}[item.state||"pending"];
   const stBorder={pending:T.border,reserved:"rgba(210,153,34,0.3)",paid:T.border}[item.state||"pending"];
-  const catIcon=getCatIcon(item.cat)||getCatIcon(item.destino)||"📌";
-  const catColor=CATCOLORS[item.cat]||CATCOLORS[item.destino]||"#94a3b8";
+  const catIcon=dest.icon||getCatIcon(item.cat)||getCatIcon(item.destino)||"📌";
+  const catColor=dest.color||CATCOLORS[item.cat]||CATCOLORS[item.destino]||"#94a3b8";
   const isSwipedLeft=swipeX<=-88;
   return(
     <div className="expense-row" style={{marginBottom:7,position:"relative",borderRadius:11,overflow:"hidden"}}>
@@ -1671,7 +1671,7 @@ function App(){
           <span style={{fontFamily:"monospace",fontSize:13,fontWeight:800,color:dst.color}}>{fmt(sub)}</span>
         </div>
         <DragList items={items}
-          renderItem={(item)=>(<GastoItem key={item.id} item={item} pid={pid} editId={editId} setEditId={(id)=>openEditId(id,gastos)} tarjetas={data.tarjetas} potsList={potsList} periodDate={periodDate} customLabels={data.customLabels||[]} onAddCustomLabel={(name,id)=>{const lid=id||"label_"+Date.now();setData(p=>({...p,customLabels:[...(p.customLabels||[]),{id:lid,name,icon:"🏷️"}]}));}}
+          renderItem={(item)=>(<GastoItem key={item.id} item={item} pid={pid} editId={editId} setEditId={(id)=>openEditId(id,gastos)} tarjetas={data.tarjetas} potsList={potsList} periodDate={periodDate} customLabels={data.customLabels||[]} onAddCustomLabel={(name,id,parent)=>{const lid=id||"label_"+Date.now();setData(p=>({...p,customLabels:[...(p.customLabels||[]),{id:lid,name,icon:"🏷️",parent:parent||null}]}));}}
             onCycle={id=>cycleState(pid,id)} onLongPress={id=>setReserved(pid,id)}
             onUpdate={(id,f,v)=>updateGasto(pid,id,f,v)}
             onBatchUpdate={(id,fields)=>batchUpdateGasto(pid,id,fields)}
@@ -1721,7 +1721,7 @@ function App(){
           <span style={{fontFamily:"monospace",fontSize:13,fontWeight:800,color:dst.color}}>{fmt(sub)}</span>
         </div>
         <DragList items={sortedItems}
-          renderItem={(item,_,touch)=>(<GastoItem key={item.id} item={item} pid={pid} editId={editId} setEditId={(id)=>openEditId(id,gastos)} tarjetas={data.tarjetas} potsList={potsList} periodDate={periodDate} customLabels={data.customLabels||[]} onAddCustomLabel={(name,id)=>{const lid=id||"label_"+Date.now();setData(p=>({...p,customLabels:[...(p.customLabels||[]),{id:lid,name,icon:"🏷️"}]}));}}
+          renderItem={(item,_,touch)=>(<GastoItem key={item.id} item={item} pid={pid} editId={editId} setEditId={(id)=>openEditId(id,gastos)} tarjetas={data.tarjetas} potsList={potsList} periodDate={periodDate} customLabels={data.customLabels||[]} onAddCustomLabel={(name,id,parent)=>{const lid=id||"label_"+Date.now();setData(p=>({...p,customLabels:[...(p.customLabels||[]),{id:lid,name,icon:"🏷️",parent:parent||null}]}));}}
             onCycle={id=>cycleState(pid,id)} onLongPress={id=>setReserved(pid,id)}
             onUpdate={(id,f,v)=>updateGasto(pid,id,f,v)}
             onBatchUpdate={(id,fields)=>batchUpdateGasto(pid,id,fields)}
@@ -3001,10 +3001,12 @@ function App(){
             if(t.fechaCorte)addEv(t.fechaCorte,`${sn} cutoff`,"#8b949e");
           });
           (data.loans||[]).forEach(l=>{if(l.fechaPago){const sn=l.nombre.replace(/(loan|Loan)/i,"").replace(/\s+/g," ").trim();addEv(l.fechaPago,sn||"Loan","#f97316");}});
-          const FIXED_CAL_CATS=new Set(["rent","utilities","insurance"]);
           const seenExp=new Set();
           monthPeriods.forEach(p=>{getPGastos(p.id).forEach(g=>{
-            if(!g.diaPago||!FIXED_CAL_CATS.has(g.destino))return;
+            if(!g.diaPago)return;
+            const isFixed=g.destino==="rent"||g.destino==="utilities"||g.destino==="insurance";
+            const isCustom=(data.customLabels||[]).some(l=>l.id===g.destino);
+            if(!isFixed&&!isCustom)return;
             const key=g.nombre+g.diaPago;if(seenExp.has(key))return;seenExp.add(key);
             const shortLabel=g.nombre.length>10?g.nombre.slice(0,9)+"…":g.nombre;
             addEv(g.diaPago,shortLabel,"#58a6ff");
@@ -3046,6 +3048,131 @@ function App(){
           </div>);
         })()}
         {tab==="history"&&(<div className="anim">
+          {/* WHERE DID MY MONEY GO — monthly spending breakdown */}
+          {(()=>{
+            const SpendingBreakdown=(()=>{
+              const now=new Date();
+              const mo=["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
+              const months=[...new Set(Object.keys(data.periods||{}).map(pid=>pid.slice(0,7)))].filter(Boolean).sort().reverse().slice(0,6);
+              const [selMonth,setSelMonth]=React.useState(months[0]||now.toISOString().slice(0,7));
+              const monthGastos=Object.entries(data.periods||{}).filter(([pid])=>pid.slice(0,7)===selMonth).flatMap(([,p])=>p.gastos||[]);
+              const total=monthGastos.reduce((s,g)=>s+n(g.monto),0);
+              const totalPaid=monthGastos.filter(g=>g.state==="paid").reduce((s,g)=>s+n(g.monto),0);
+              if(!monthGastos.length)return null;
+
+              // Build hierarchy: parentKey -> {amt, paid, children:[{label,icon,color,amt,paid}]}
+              const hierarchy={};
+              const customLabels=data.customLabels||[];
+
+              monthGastos.forEach(g=>{
+                const isLoose=g.destino==="other"||g.destino==="temp";
+                const cl=customLabels.find(l=>l.id===g.destino);
+                // Determine parent key
+                let parentKey;
+                if(cl&&cl.parent) parentKey=cl.parent;
+                else if(isLoose) parentKey=g.destino; // own group
+                else if(g.destino==="credit_card") parentKey=g.tarjetaRef||"credit_card";
+                else parentKey=g.destino;
+
+                // Determine child label
+                let childLabel,childIcon,childColor;
+                if(cl){childLabel=cl.name;childIcon="🏷️";childColor="#a78bfa";}
+                else if(isLoose){childLabel=g.nombre||"Other";childIcon="📌";childColor=T.muted;}
+                else if(g.destino==="credit_card"){
+                  const dst=gds(g.destino,g.tarjetaRef,null,potsList,customLabels);
+                  childLabel=dst.label;childIcon=dst.icon;childColor=dst.color;
+                } else {
+                  const dst=gds(g.destino,g.tarjetaRef,null,potsList,customLabels);
+                  childLabel=dst.label;childIcon=dst.icon;childColor=dst.color;
+                }
+
+                if(!hierarchy[parentKey])hierarchy[parentKey]={amt:0,paid:0,children:{}};
+                hierarchy[parentKey].amt+=n(g.monto);
+                if(g.state==="paid")hierarchy[parentKey].paid+=n(g.monto);
+
+                // Only add children if custom label with parent (subcategory)
+                if(cl&&cl.parent){
+                  if(!hierarchy[parentKey].children[cl.id])
+                    hierarchy[parentKey].children[cl.id]={label:childLabel,icon:childIcon,color:childColor,amt:0,paid:0};
+                  hierarchy[parentKey].children[cl.id].amt+=n(g.monto);
+                  if(g.state==="paid")hierarchy[parentKey].children[cl.id].paid+=n(g.monto);
+                }
+              });
+
+              const sorted=Object.entries(hierarchy).sort((a,b)=>b[1].amt-a[1].amt);
+              const maxAmt=sorted[0]?.[1]?.amt||1;
+
+              return(<div style={{...CARD,padding:"16px",marginBottom:14}}>
+                <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:4}}>
+                  <div>
+                    <div style={{fontSize:13,fontWeight:700,color:T.text}}>💸 Where did it go?</div>
+                    <div style={{fontSize:10,color:T.muted,marginTop:1}}>{fmt(total)} total · {fmt(totalPaid)} paid</div>
+                  </div>
+                  {months.length>1&&<select style={{...INP,fontSize:11,padding:"4px 8px",width:"auto"}} value={selMonth} onChange={e=>setSelMonth(e.target.value)}>
+                    {months.map(m=><option key={m} value={m}>{mo[parseInt(m.slice(5))-1]} {m.slice(0,4)}</option>)}
+                  </select>}
+                </div>
+                {/* overall paid bar */}
+                <div style={{height:3,background:T.surface2,borderRadius:4,overflow:"hidden",marginBottom:14}}>
+                  <div style={{height:"100%",width:`${total>0?Math.round((totalPaid/total)*100):0}%`,background:"#3fb950",borderRadius:4,transition:"width 0.6s cubic-bezier(0.4,0,0.2,1)"}}/>
+                </div>
+                <div style={{display:"flex",flexDirection:"column",gap:12}}>
+                  {sorted.map(([parentKey,v])=>{
+                    const dst=gds(
+                      DEST[parentKey]?parentKey:
+                        (customLabels.find(l=>l.id===parentKey)?"label":
+                          (potsList.find(p=>p.id===parentKey)?"pot":"credit_card")),
+                      DEST[parentKey]?null:parentKey,
+                      null,potsList,customLabels
+                    );
+                    const pDst=DEST[parentKey]?DEST[parentKey]:gds(parentKey==="credit_card"?"credit_card":parentKey,parentKey==="credit_card"?null:parentKey,null,potsList,customLabels);
+                    const barPct=Math.round((v.amt/maxAmt)*100);
+                    const paidPct=v.amt>0?Math.round((v.paid/v.amt)*100):0;
+                    const hasChildren=Object.keys(v.children).length>0;
+                    const pct=Math.round((v.amt/total)*100);
+                    return(<div key={parentKey}>
+                      {/* Parent row */}
+                      <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:4}}>
+                        <span style={{fontSize:13,fontWeight:700,color:T.text}}>{pDst.icon} {pDst.label}</span>
+                        <div style={{display:"flex",alignItems:"center",gap:6}}>
+                          {paidPct===100&&<span style={{fontSize:10,color:"#3fb950"}}>✓</span>}
+                          {paidPct>0&&paidPct<100&&<span style={{fontSize:9,color:"#3fb950"}}>{paidPct}%</span>}
+                          <span style={{fontSize:10,color:T.muted}}>{pct}%</span>
+                          <span style={{fontFamily:"monospace",fontWeight:800,fontSize:14,color:pDst.color}}>{fmt(v.amt)}</span>
+                        </div>
+                      </div>
+                      {/* Parent bar */}
+                      <div style={{height:7,background:T.surface2,borderRadius:4,overflow:"hidden",position:"relative",marginBottom:hasChildren?6:0}}>
+                        <div style={{position:"absolute",height:"100%",width:`${barPct}%`,background:pDst.color,borderRadius:4,opacity:0.2}}/>
+                        <div style={{position:"absolute",height:"100%",width:`${barPct*(paidPct/100)}%`,background:paidPct===100?"#3fb950":pDst.color,borderRadius:4,transition:"width 0.6s cubic-bezier(0.4,0,0.2,1)"}}/>
+                      </div>
+                      {/* Children */}
+                      {hasChildren&&<div style={{paddingLeft:14,borderLeft:`2px solid ${pDst.color}33`,marginLeft:4,display:"flex",flexDirection:"column",gap:5}}>
+                        {Object.entries(v.children).sort((a,b)=>b[1].amt-a[1].amt).map(([cid,cv])=>{
+                          const cBarPct=Math.round((cv.amt/v.amt)*100);
+                          const cPaidPct=cv.amt>0?Math.round((cv.paid/cv.amt)*100):0;
+                          return(<div key={cid}>
+                            <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:2}}>
+                              <span style={{fontSize:11,color:T.muted,fontWeight:500}}>{cv.icon} {cv.label}</span>
+                              <div style={{display:"flex",alignItems:"center",gap:5}}>
+                                {cPaidPct===100&&<span style={{fontSize:9,color:"#3fb950"}}>✓</span>}
+                                <span style={{fontFamily:"monospace",fontWeight:600,fontSize:12,color:cv.color}}>{fmt(cv.amt)}</span>
+                              </div>
+                            </div>
+                            <div style={{height:4,background:T.surface2,borderRadius:3,overflow:"hidden",position:"relative"}}>
+                              <div style={{position:"absolute",height:"100%",width:`${cBarPct}%`,background:cv.color,borderRadius:3,opacity:0.25}}/>
+                              <div style={{position:"absolute",height:"100%",width:`${cBarPct*(cPaidPct/100)}%`,background:cPaidPct===100?"#3fb950":cv.color,borderRadius:3,transition:"width 0.5s cubic-bezier(0.4,0,0.2,1)"}}/>
+                            </div>
+                          </div>);
+                        })}
+                      </div>}
+                    </div>);
+                  })}
+                </div>
+              </div>);
+            });
+            return React.createElement(SpendingBreakdown);
+          })()}
           <div style={{background:`${T.accent}0d`,border:`1px solid ${T.accent}28`,borderRadius:11,padding:"11px 14px",marginBottom:12,fontSize:11,color:T.muted,lineHeight:1.6}}>
             💡 <strong style={{color:T.accent}}>Monthly Snapshot</strong> — save at end of each month.<br/>
             <strong style={{color:T.accent}}>Reset Cycle</strong> — use in each Check tab when a new paycheck arrives.
