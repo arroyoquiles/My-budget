@@ -712,7 +712,7 @@ const GastoItem=memo(({item,pid,editId,setEditId,tarjetas,potsList,periodDate,on
               onKeyDown={e=>{if(e.key==="Enter"){const v=parseFloat(localAmt);if(v>0)onUpdate(item.id,"monto",v);setEditingAmt(false);}if(e.key==="Escape")setEditingAmt(false);}}
               autoFocus/>
           : <div onClick={e=>{e.stopPropagation();setLocalAmt(String(item.monto||""));setEditingAmt(true);setTimeout(()=>amtInputRef.current?.select(),30);}}
-              style={{fontFamily:"monospace",fontWeight:700,fontSize:13,color:item.state==="paid"?T.muted:item.state==="reserved"?"#d29922":dest.color||"#f85149",flexShrink:0,opacity:item.state==="paid"?0.4:1,cursor:"text",borderBottom:"1px dashed transparent",transition:"border-color 0.15s"}}
+              style={{fontFamily:"monospace",fontWeight:700,fontSize:13,color:item.state==="paid"?T.muted:item.state==="reserved"?"#d29922":dest.color||"#f85149",flexShrink:0,opacity:item.state==="paid"?0.4:1,cursor:"text",borderBottom:"1px dashed transparent",transition:"border-color 0.15s",WebkitTapHighlightColor:"transparent",userSelect:"none",WebkitUserSelect:"none"}}
               onMouseEnter={e=>e.currentTarget.style.borderBottomColor=T.border}
               onMouseLeave={e=>e.currentTarget.style.borderBottomColor="transparent"}>
               {fmt(item.monto)}
