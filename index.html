@@ -527,7 +527,7 @@ const DragList=memo(({items,renderItem})=>{
   return(<div>{items.map((item,i)=>(<div key={item.id}>{renderItem(item,i,{})}</div>))}</div>);
 });
 const getCatIcon=(cat)=>CICONS[cat]||"📌";
-const GastoItem=memo(({item,pid,editId,setEditId,tarjetas,potsList,periodDate,customLabels,onAddCustomLabel,onCycle,onLongPress,onUpdate,onBatchUpdate,onRemove,T})=>{
+const GastoItem=memo(({item,pid,editId,setEditId,tarjetas,loans,potsList,periodDate,customLabels,onAddCustomLabel,onCycle,onLongPress,onUpdate,onBatchUpdate,onRemove,T})=>{
   const dest=gds(item.destino,item.tarjetaRef,null,potsList,customLabels);
   const INP=mkINP(T),BTN=mkBTN(),CARD=mkCARD(T);
   const [swipeX,setSwipeX]=useState(0);
@@ -678,6 +678,27 @@ const GastoItem=memo(({item,pid,editId,setEditId,tarjetas,potsList,periodDate,cu
             </button>
           </div>
         )}
+        {/* FROM DEBTS — loans */}
+        {(loans||[]).length>0&&<div style={{marginTop:10,paddingTop:10,borderTop:`1px solid ${T.border}`}}>
+          <div style={{fontSize:9,color:T.muted,marginBottom:6,letterSpacing:1}}>PULL FROM DEBTS</div>
+          <div style={{display:"flex",gap:5,flexWrap:"wrap"}}>
+            {(loans||[]).map(l=>{
+              const isSel=item.nombre===l.nombre;
+              return(<button key={l.id} style={{...BTN,padding:"6px 12px",fontSize:11,borderRadius:9,background:isSel?"rgba(249,115,22,0.15)":"transparent",color:isSel?"#f97316":T.muted,border:`1px solid ${isSel?"rgba(249,115,22,0.4)":T.border}`}}
+                onMouseDown={e=>{
+                  e.preventDefault();
+                  onBatchUpdate(item.id,{
+                    nombre:l.nombre,
+                    monto:n(l.minimo)||0,
+                    diaPago:l.fechaPago?parseInt(l.fechaPago)||null:null,
+                    _recurring:true
+                  });
+                }}>
+                🏦 {l.nombre}
+              </button>);
+            })}
+          </div>
+        </div>}
       </div>
 
       {/* Due date — always available, sets recurring automatically */}
@@ -1490,24 +1511,39 @@ function App(){
     editGroupKeyRef.current="other";
     setTimeout(()=>setEditId(nid),30);
   },[]);
-  // Auto-copy recurring expenses when switching to an empty period
+  // Auto-copy recurring expenses when entering an empty period
   useEffect(()=>{
     if(!activeCheckPid)return;
     const curGastos=(data.periods[activeCheckPid]?.gastos)||[];
-    // Only copy if period is empty or has no recurring items yet
-    const hasRecurring=curGastos.some(x=>x._recurring);
-    if(hasRecurring)return;
-    // Find most recent other period with recurring items
-    const allPids=Object.keys(data.periods).filter(pid=>pid!==activeCheckPid);
-    for(const pid of allPids){
-      const recurring=((data.periods[pid]?.gastos)||[]).filter(x=>x._recurring);
-      if(recurring.length>0){
-        const copies=recurring.map(x=>({...x,id:Date.now()+Math.random()*1000|0,state:"pending",pagado:false,_potAdded:false}));
-        setData(p=>({...p,periods:{...p.periods,[activeCheckPid]:{...(p.periods[activeCheckPid]||{}),gastos:[...(p.periods[activeCheckPid]?.gastos||[]),...copies]}}}));
-        setTimeout(()=>toast_(`🔁 ${copies.length} recurring copied`),100);
-        break;
-      }
+    if(curGastos.some(x=>x._recurring))return;
+    // Find the same check index from a previous month
+    const checkIdx=monthPeriods.findIndex(p=>p.id===activeCheckPid);
+    if(checkIdx<0)return;
+    const currentPids=new Set(monthPeriods.map(p=>p.id));
+    // Group all other periods by month, find same check position
+    const byMonth={};
+    Object.keys(data.periods).filter(pid=>!currentPids.has(pid)).forEach(pid=>{
+      const mo=pid.slice(0,18); // use full date as month grouping key
+      const mo7=pid.slice(8,18);// just get the date part after "period_"
+      const m=pid.replace("period_","").slice(0,7);
+      if(!byMonth[m])byMonth[m]=[];
+      byMonth[m].push(pid);
+    });
+    // Sort months descending, find most recent same-index check
+    const months=Object.keys(byMonth).sort().reverse();
+    let sourcePid=null;
+    for(const mo of months){
+      const pids=byMonth[mo].sort();
+      if(pids[checkIdx]){sourcePid=pids[checkIdx];break;}
+      // fallback: any from that month
+      if(!sourcePid&&pids.length>0)sourcePid=pids[0];
     }
+    if(!sourcePid)return;
+    const recurring=((data.periods[sourcePid]?.gastos)||[]).filter(x=>x._recurring);
+    if(!recurring.length)return;
+    const copies=recurring.map(x=>({...x,id:Date.now()+Math.random()*1000|0,state:"pending",pagado:false,_potAdded:false}));
+    setData(p=>({...p,periods:{...p.periods,[activeCheckPid]:{...(p.periods[activeCheckPid]||{}),gastos:[...(p.periods[activeCheckPid]?.gastos||[]),...copies]}}}));
+    setTimeout(()=>toast_(`🔁 ${copies.length} recurring copied`),100);
   },[activeCheckPid]);
   const resetCheck=useCallback((pid,label)=>{
     updPeriodGastos(pid,g=>{
@@ -1693,7 +1729,7 @@ function App(){
           <span style={{fontFamily:"monospace",fontSize:13,fontWeight:800,color:dst.color}}>{fmt(sub)}</span>
         </div>
         <DragList items={items}
-          renderItem={(item)=>(<GastoItem key={item.id} item={item} pid={pid} editId={editId} setEditId={(id)=>openEditId(id,gastos)} tarjetas={data.tarjetas} potsList={potsList} periodDate={periodDate} customLabels={data.customLabels||[]} onAddCustomLabel={(name,id,parent)=>{const lid=id||"label_"+Date.now();setData(p=>({...p,customLabels:[...(p.customLabels||[]),{id:lid,name,icon:"🏷️",parent:parent||null}]}));}}
+          renderItem={(item)=>(<GastoItem key={item.id} item={item} pid={pid} editId={editId} setEditId={(id)=>openEditId(id,gastos)} tarjetas={data.tarjetas} loans={data.loans||[]} potsList={potsList} periodDate={periodDate} customLabels={data.customLabels||[]} onAddCustomLabel={(name,id,parent)=>{const lid=id||"label_"+Date.now();setData(p=>({...p,customLabels:[...(p.customLabels||[]),{id:lid,name,icon:"🏷️",parent:parent||null}]}));}}
             onCycle={id=>cycleState(pid,id)} onLongPress={id=>setReserved(pid,id)}
             onUpdate={(id,f,v)=>updateGasto(pid,id,f,v)}
             onBatchUpdate={(id,fields)=>batchUpdateGasto(pid,id,fields)}
@@ -1743,7 +1779,7 @@ function App(){
           <span style={{fontFamily:"monospace",fontSize:13,fontWeight:800,color:dst.color}}>{fmt(sub)}</span>
         </div>
         <DragList items={sortedItems}
-          renderItem={(item,_,touch)=>(<GastoItem key={item.id} item={item} pid={pid} editId={editId} setEditId={(id)=>openEditId(id,gastos)} tarjetas={data.tarjetas} potsList={potsList} periodDate={periodDate} customLabels={data.customLabels||[]} onAddCustomLabel={(name,id,parent)=>{const lid=id||"label_"+Date.now();setData(p=>({...p,customLabels:[...(p.customLabels||[]),{id:lid,name,icon:"🏷️",parent:parent||null}]}));}}
+          renderItem={(item,_,touch)=>(<GastoItem key={item.id} item={item} pid={pid} editId={editId} setEditId={(id)=>openEditId(id,gastos)} tarjetas={data.tarjetas} loans={data.loans||[]} potsList={potsList} periodDate={periodDate} customLabels={data.customLabels||[]} onAddCustomLabel={(name,id,parent)=>{const lid=id||"label_"+Date.now();setData(p=>({...p,customLabels:[...(p.customLabels||[]),{id:lid,name,icon:"🏷️",parent:parent||null}]}));}}
             onCycle={id=>cycleState(pid,id)} onLongPress={id=>setReserved(pid,id)}
             onUpdate={(id,f,v)=>updateGasto(pid,id,f,v)}
             onBatchUpdate={(id,fields)=>batchUpdateGasto(pid,id,fields)}
