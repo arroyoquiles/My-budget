@@ -1548,7 +1548,7 @@ function App(){
     } else {
       const item=(gastos||[]).find(g=>g.id===id);
       if(item){
-        editGroupKeyRef.current=item.destino==="credit_card"?(item.tarjetaRef||"Credit Card"):item.destino;
+        editGroupKeyRef.current=item.destino==="credit_card"?"__cards__":item.destino;
       }
       setEditId(id);
     }
@@ -1689,26 +1689,23 @@ function App(){
       if(editId===g.id && editGroupKeyRef.current!==null){
         k=editGroupKeyRef.current;
       } else {
-        k=g.destino==="credit_card"?(g.tarjetaRef||"Credit Card"):g.destino;
+        k=g.destino==="credit_card"?"__cards__":g.destino;
       }
-      if(!groups[k])groups[k]={d:g.destino,r:g.tarjetaRef,items:[]};
+      if(!groups[k])groups[k]={d:g.destino==="credit_card"?"credit_card":g.destino,r:g.tarjetaRef,items:[]};
       groups[k].items.push(g);
     });
     if(editId!==null && editGroupKeyRef.current!==null){
       const k=editGroupKeyRef.current;
       if(groups[k]){
         const isCardRef=!DEST[k];
-        if(isCardRef){
-          groups[k].d="credit_card";
-          groups[k].r=k;
-        } else {
-          groups[k].d=k;
-          groups[k].r="";
-        }
+        if(isCardRef){groups[k].d="credit_card";groups[k].r=k;}
+        else{groups[k].d=k;groups[k].r="";}
       }
     }
     return Object.keys(groups).sort((a,b)=>(DORDER.indexOf(groups[a].d)+1||99)-(DORDER.indexOf(groups[b].d)+1||99)).map(k=>{
-      const{d,r,items}=groups[k];const dst=gds(d,r,null,potsList||[],data.customLabels||[]);const sub=items.reduce((s,g)=>s+n(g.monto),0);
+      const{d,r,items}=groups[k];
+      const dst=k==="__cards__"?DEST.credit_card:gds(d,r,null,potsList||[],data.customLabels||[]);
+      const sub=items.reduce((s,g)=>s+n(g.monto),0);
       return(<div key={k} style={{marginBottom:14}}>
         <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"6px 10px",marginBottom:5,background:dst.bg,borderRadius:9,border:`1px solid ${dst.border}`}}>
           <span style={{fontSize:12,fontWeight:700,color:dst.color}}>{dst.icon} {dst.label}</span>
@@ -3130,9 +3127,11 @@ function App(){
                 } else if(potsList.find(p=>p.id===g.destino)){
                   const pot=potsList.find(p=>p.id===g.destino);
                   add("pot_"+pot.id,pot.name,pot.icon||"🪣",pot.color||"#58a6ff",g);
-                } else if(g.destino==="credit_card"||cat==="credit_card"){
-                  // ALL credit card expenses → one group
-                  add("__cards__","Credit Cards","💳","#ec4899",g);
+                } else if(g.destino==="credit_card"){
+                  // Each card separately
+                  const cardName=g.tarjetaRef||"Credit Card";
+                  const cc=gds("credit_card",g.tarjetaRef,null,potsList,cls);
+                  add("cc_"+cardName,cardName,cc.icon,cc.color,g);
                 } else if(cat&&DEST[cat]){
                   const d=DEST[cat];add("cat_"+cat,d.label,d.icon,d.color,g);
                 } else if(g.destino==="other"||g.destino==="temp"||cat==="other"||cat==="temp"){
