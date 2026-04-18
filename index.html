@@ -154,7 +154,7 @@ const DEST = {
   lifestyle:    {label:"Lifestyle",      icon:"✨",color:"#a78bfa",bg:"rgba(167,139,250,0.1)", border:"rgba(167,139,250,0.3)"},
   other:        {label:"Other",         icon:"📌",color:"#8b949e",bg:"transparent",            border:"#21262d"},
 };
-const DEST_ORDER = ["credit_card","rent","auto","utilities","gas","subscription","temp","other"];
+const DEST_ORDER = ["credit_card","rent","auto","utilities","gas","subscription","other","temp"];
 const PARENT_CATS = ["credit_card","rent","auto","utilities","gas","subscription","insurance","temp","other"];
 const POTS = {
   savings_acct:{label:"Savings",   icon:"🏦",color:"#3fb950",bg:"rgba(63,185,80,0.1)"},
@@ -3118,7 +3118,7 @@ function App(){
                   nombre:g.nombre||"Untitled",
                   amt:n(g.monto),
                   paid:g.state==="paid",
-                  cardName:g.destino==="credit_card"&&g.tarjetaRef?g.tarjetaRef:null
+                  sub:g.tarjetaRef||null
                 });
               };
               monthGastos.forEach(g=>{
@@ -3129,14 +3129,12 @@ function App(){
                   else{add("cl_"+cl.id,cl.name,"🏷️","#a78bfa",g);}
                 } else if(potsList.find(p=>p.id===g.destino)){
                   const pot=potsList.find(p=>p.id===g.destino);
-                  const c=pot.color||"#58a6ff";
-                  add("pot_"+pot.id,pot.name,pot.icon||"🪣",c,g);
-                } else if(g.destino==="credit_card"&&(cat==="credit_card"||!cat||cat===g.destino)){
-                  // All card payments → one "Credit Cards" group
+                  add("pot_"+pot.id,pot.name,pot.icon||"🪣",pot.color||"#58a6ff",g);
+                } else if(g.destino==="credit_card"||cat==="credit_card"){
+                  // ALL credit card expenses → one group
                   add("__cards__","Credit Cards","💳","#ec4899",g);
-                } else if(cat&&cat!=="credit_card"&&DEST[cat]){
-                  const d=DEST[cat];
-                  add("cat_"+cat,d.label,d.icon,d.color,g);
+                } else if(cat&&DEST[cat]){
+                  const d=DEST[cat];add("cat_"+cat,d.label,d.icon,d.color,g);
                 } else if(g.destino==="other"||g.destino==="temp"||cat==="other"||cat==="temp"){
                   const grpKey=cat==="temp"||g.destino==="temp"?"__temp__":"__other__";
                   add(grpKey,cat==="temp"||g.destino==="temp"?"Temporary":"Other",cat==="temp"||g.destino==="temp"?"🔄":"📌",T.muted,g);
@@ -3189,6 +3187,7 @@ function App(){
                           <div key={ii} style={{display:"flex",justifyContent:"space-between",alignItems:"center",opacity:it.paid?0.45:1}}>
                             <span style={{fontSize:12,color:it.paid?T.muted:T.text}}>
                               {it.paid?"✓ ":""}{it.nombre}
+                              {it.sub&&<span style={{fontSize:10,color:T.muted,marginLeft:4}}>· {it.sub}</span>}
                             </span>
                             <span style={{fontFamily:"monospace",fontWeight:600,fontSize:12,color:it.paid?T.muted:v.color,marginLeft:8,flexShrink:0}}>{fmt(it.amt)}</span>
                           </div>
