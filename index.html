@@ -1074,7 +1074,13 @@ function App(){
   const [editId,setEditId]=useState(null);
   const [accion,setAccion]=useState(null);
   const [montoAccion,setMontoAccion]=useState("");
-  const [alertDim,setAlertDim]=useState(()=>sessionStorage.getItem("alertDim")==="1");
+  const [alertDim,setAlertDim]=useState(()=>{
+    const stored=localStorage.getItem("alertDim");
+    if(!stored)return false;
+    const {date,val}=JSON.parse(stored);
+    const today=new Date().toDateString();
+    return val&&date===today;
+  });
   const [addingDebt,setAddingDebt]=useState(null);
   const [sortStrategy,setSortStrategy]=useState(()=>localStorage.getItem("debtSortStrategy")||null);
   const [sortMenuOpen,setSortMenuOpen]=useState(false);
@@ -1282,7 +1288,16 @@ function App(){
   const allDebts=[...data.tarjetas.map(t=>({...t,tipo:"card"})),...(data.loans||[]).map(l=>({...l,tipo:"loan"}))].sort((a,b)=>n(b.interes)-n(a.interes));
   const totalDebt=allDebts.reduce((s,d)=>s+n(d.balance),0);
   const interesTotal=allDebts.reduce((s,d)=>s+(n(d.interes)/100/12)*n(d.balance),0);
-  const urgentDebts=allDebts.filter(d=>getDU(d.fechaPago)!==null&&getDU(d.fechaPago)<=3);
+  const urgentDebts=allDebts.filter(d=>{
+    if(!d.fechaPago)return false;
+    const du=getDU(d.fechaPago);
+    if(du===null||du>3)return false;
+    // If a payment was recorded today, don't show alert
+    const todayStr=new Date().toLocaleDateString("en-US",{month:"short",day:"numeric"});
+    const paidToday=(d.historial||[]).some(h=>h.tipo==="pago"&&h.fecha===todayStr);
+    if(paidToday)return false;
+    return true;
+  });
   const pots=data.pots||{};
   const potsList=data.potsList||[];
   // Global pot handler for GastoItem → Pot button
@@ -1836,14 +1851,30 @@ function App(){
       <div id="confetti-container" style={{position:"fixed",inset:0,pointerEvents:"none",zIndex:9998,overflow:"hidden"}}/>
       <style>{`@keyframes slideInDown{from{opacity:0;transform:translateX(-50%) translateY(-12px);}to{opacity:1;transform:translateX(-50%) translateY(0);}}`}</style>
       {urgentDebts.length>0&&!alertDim&&tab!=="debts"&&(
-        <div style={{background:"rgba(248,81,73,0.10)",borderBottom:"1px solid rgba(248,81,73,0.2)",padding:"7px 16px",position:"fixed",top:0,left:0,right:0,zIndex:150,display:"flex",alignItems:"center",justifyContent:"space-between"}}>
+        <div style={{background:"rgba(18,12,12,0.92)",backdropFilter:"blur(12px)",WebkitBackdropFilter:"blur(12px)",borderBottom:"1px solid rgba(248,81,73,0.2)",padding:"7px 16px",position:"fixed",top:0,left:0,right:0,zIndex:150,display:"flex",alignItems:"center",justifyContent:"space-between"}}>
           <div style={{display:"flex",alignItems:"center",gap:8}}>
             <span style={{fontSize:12}}>{urgentDebts.some(d=>getDU(d.fechaPago)===0)?"🔴":"🟠"}</span>
             <span style={{fontSize:12,color:"#f85149",fontWeight:600}}>{urgentDebts.length} payment{urgentDebts.length>1?"s":""} due soon</span>
           </div>
-          <div style={{display:"flex",gap:8,alignItems:"center"}}>
-            <button style={{...BTN,background:"rgba(248,81,73,0.15)",color:"#f85149",padding:"3px 10px",fontSize:11,fontWeight:600,border:"1px solid rgba(248,81,73,0.3)",borderRadius:8}} onClick={()=>{setTab("debts");setDebtsFilter(urgentDebts[0]?.tipo==="card"?"cards":"loans");}}>View</button>
-            <button style={{...BTN,background:"transparent",color:"#f85149",padding:"3px 8px",fontSize:14,border:"none",opacity:0.6}} onClick={()=>{setAlertDim(true);sessionStorage.setItem("alertDim","1");}}>✕</button>
+          <div style={{display:"flex",gap:6,alignItems:"center"}}>
+            {urgentDebts.map((d,i)=>(
+              <button key={d.id} style={{...BTN,background:"rgba(248,81,73,0.15)",color:"#f85149",padding:"3px 10px",fontSize:11,fontWeight:600,border:"1px solid rgba(248,81,73,0.3)",borderRadius:8}}
+                onClick={()=>{
+                  setTab("debts");
+                  setDebtsFilter(d.tipo==="card"?"cards":"loans");
+                  setTimeout(()=>{
+                    if(d.tipo==="card")setExpandedCardId(d.id);
+                    else setExpandedLoanId(d.id);
+                    setTimeout(()=>{
+                      const el=document.getElementById(`debt-${d.id}`);
+                      if(el)el.scrollIntoView({behavior:"smooth",block:"center"});
+                    },150);
+                  },50);
+                }}>
+                {urgentDebts.length>1?d.nombre:"View"}
+              </button>
+            ))}
+            <button style={{...BTN,background:"transparent",color:"#f85149",padding:"3px 8px",fontSize:14,border:"none",opacity:0.6}} onClick={()=>{setAlertDim(true);localStorage.setItem("alertDim",JSON.stringify({val:true,date:new Date().toDateString()}));}}>✕</button>
           </div>
         </div>
       )}
@@ -1941,14 +1972,16 @@ function App(){
                     if(swRef.dir!=="h")return;
                     swRef.active=true;if(e.cancelable)e.preventDefault();
                     const el=document.getElementById("pot-row-"+pot.id);
-                    if(el){el.style.transition="none";el.style.transform=`translateX(${Math.max(-70,Math.min(60,dx))}px)`;}
+                    if(el){el.style.transition="none";el.style.transform=`translateX(${Math.max(-70,Math.min(70,dx))}px)`;}
                   };
                   const doSwipeEnd=(dx,potId,potName)=>{
                     const el=document.getElementById("pot-row-"+potId);
                     if(el){el.style.transition="transform 0.25s cubic-bezier(0.34,1.2,0.64,1)";el.style.transform="translateX(0px)";}
-                    if(dx<-50){
+                    if(dx>40){
+                      // swiped right → edit (same as debts)
                       setEditingPotId(isEditing?null:potId);setMoveTo(potId);
-                    } else if(dx>40){
+                    } else if(dx<-50){
+                      // swiped left → delete (same as debts)
                       if(window.confirm(`Delete "${potName}"?`)){
                         setData(p=>({...p,potsList:(p.potsList||[]).filter(pt=>pt.id!==potId)}));
                         if(moveTo===potId)setMoveTo(potsList.find(p2=>p2.id!==potId)?.id||"");
@@ -1970,7 +2003,7 @@ function App(){
                       if(swRef.dir!=="h")return;
                       swRef.active=true;
                       const el=document.getElementById("pot-row-"+pot.id);
-                      if(el){el.style.transition="none";el.style.transform=`translateX(${Math.max(-70,Math.min(60,dx))}px)`;}
+                      if(el){el.style.transition="none";el.style.transform=`translateX(${Math.max(-70,Math.min(70,dx))}px)`;}
                     };
                     const onMU=ev=>{
                       window.removeEventListener("mousemove",onMM);
@@ -1984,12 +2017,12 @@ function App(){
 
                   return(
                   <div key={pot.id} className="expense-row" style={{marginBottom:6,position:"relative",borderRadius:12,overflow:"hidden",border:`1.5px solid ${isSelected?color+"88":T.border}`,transition:"border-color 0.2s"}}>
-                    {/* Action buttons behind */}
+                    {/* ✏️ on LEFT (revealed by swiping right), 🗑 on RIGHT (revealed by swiping left) */}
                     <div style={{position:"absolute",inset:0,display:"flex"}}>
-                      <div style={{width:60,background:"#1e3a5f",display:"flex",alignItems:"center",justifyContent:"center",fontSize:16,cursor:"pointer"}}
+                      <div style={{width:70,background:`${T.accent}dd`,display:"flex",alignItems:"center",justifyContent:"center",fontSize:18,cursor:"pointer",flexShrink:0}}
                         onClick={()=>{setEditingPotId(isEditing?null:pot.id);setMoveTo(pot.id);}}>✏️</div>
                       <div style={{flex:1,background:T.surface2}}/>
-                      <div style={{width:70,background:"#7f1d1d",display:"flex",alignItems:"center",justifyContent:"center",fontSize:16,cursor:"pointer"}}
+                      <div style={{width:70,background:"rgba(248,81,73,0.92)",display:"flex",alignItems:"center",justifyContent:"center",fontSize:18,cursor:"pointer",flexShrink:0}}
                         onClick={()=>{if(window.confirm(`Delete "${pot.name}"?`)){setData(p=>({...p,potsList:(p.potsList||[]).filter(pt=>pt.id!==pot.id)}));if(moveTo===pot.id)setMoveTo(potsList.find(p2=>p2.id!==pot.id)?.id||"");}}}>🗑</div>
                     </div>
 
@@ -2156,7 +2189,7 @@ function App(){
           </div>
           <div style={{display:"flex",gap:10}}>
             <button style={{...BTN,flex:2,padding:"13px",background:T.surface2,color:T.text,fontSize:14,fontWeight:600,borderRadius:12,border:`1px solid ${T.border}`}} onClick={()=>setResetAllConfirm(false)}>Keep my data</button>
-            <button style={{...BTN,flex:1,padding:"13px",background:"rgba(248,81,73,0.2)",color:"#f85149",fontSize:13,fontWeight:700,borderRadius:12,border:"1px solid rgba(248,81,73,0.4)"}} onClick={()=>{localStorage.removeItem(SK);sessionStorage.removeItem("alertDim");localStorage.removeItem("notifMuted");setData(migrate(DD));setResetAllConfirm(false);toast_("🔄 App reset");}}>Reset</button>
+            <button style={{...BTN,flex:1,padding:"13px",background:"rgba(248,81,73,0.2)",color:"#f85149",fontSize:13,fontWeight:700,borderRadius:12,border:"1px solid rgba(248,81,73,0.4)"}} onClick={()=>{localStorage.removeItem(SK);localStorage.removeItem("alertDim");localStorage.removeItem("notifMuted");setData(migrate(DD));setResetAllConfirm(false);toast_("🔄 App reset");}}>Reset</button>
           </div>
         </div>
       </div>)}
