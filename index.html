@@ -616,22 +616,9 @@ const GastoItem=memo(({item,pid,editId,setEditId,tarjetas,loans,potsList,periodD
               {d.icon} {d.label}
             </button>);
           })}
-          {/* Card selector when credit_card is category */}
-          {localCat==="credit_card"&&localDestino!=="credit_card"&&(
-            <div style={{gridColumn:"1/-1",marginTop:4}}>
-              <div style={{fontSize:9,color:T.muted,marginBottom:5,letterSpacing:1}}>WHICH CARD?</div>
-              <div style={{display:"flex",gap:5,flexWrap:"wrap"}}>
-                {tarjetas.map(t=>{
-                  const isSel=localTarjetaRef===t.nombre;
-                  return(<button key={t.id} style={{...BTN,padding:"5px 10px",fontSize:11,borderRadius:9,background:isSel?"rgba(236,72,153,0.15)":"transparent",color:isSel?"#ec4899":T.muted,border:`1px solid ${isSel?"rgba(236,72,153,0.4)":T.border}`}}
-                    onMouseDown={e=>{e.preventDefault();setLocalTarjetaRef(t.nombre);}}>
-                    {t.nombre}
-                  </button>);
-                })}
-              </div>
-            </div>
-          )}
+
           {/* Pots */}
+          {(potsList||[]).length>0&&<div style={{gridColumn:"1/-1",height:1,background:T.border,margin:"4px 0"}}/>}
           {(potsList||[]).map(pot=>{
             const isSel=localDestino===pot.id;const color=pot.color||"#58a6ff";
             return(<button key={pot.id} style={{cursor:"pointer",border:"none",borderRadius:10,fontFamily:"inherit",fontWeight:600,WebkitTapHighlightColor:"transparent",padding:"7px 9px",fontSize:11,textAlign:"left",background:isSel?color+"22":"#21262d",color:isSel?color:T.muted,border:`1px solid ${isSel?color+"66":T.border}`,transition:"all 0.1s",whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}
@@ -668,25 +655,28 @@ const GastoItem=memo(({item,pid,editId,setEditId,tarjetas,loans,potsList,periodD
         </div>
       </div>
 
-      {/* PAID WITH — credit card option */}
+      {/* PAID WITH — locked to cash for pots */}
       <div style={{marginBottom:10}}>
         <div style={{fontSize:10,color:T.muted,marginBottom:6}}>PAID WITH</div>
-        <div style={{display:"flex",gap:6,flexWrap:"wrap"}}>
-          <button style={{...BTN,padding:"6px 12px",fontSize:11,borderRadius:9,
-            background:localDestino!=="credit_card"?"rgba(63,185,80,0.15)":"transparent",
-            color:localDestino!=="credit_card"?"#3fb950":T.muted,
-            border:`1px solid ${localDestino!=="credit_card"?"rgba(63,185,80,0.4)":T.border}`}}
-            onMouseDown={e=>{e.preventDefault();setLocalDestino(localCat==="credit_card"?"__cash__":localCat||"other");setLocalTarjetaRef("");}}>
-            💵 Cash / Check
-          </button>
-          {tarjetas.map(t=>{
-            const isSel=localDestino==="credit_card"&&localTarjetaRef===t.nombre;
-            return(<button key={t.id} style={{...BTN,padding:"6px 12px",fontSize:11,borderRadius:9,background:isSel?"rgba(236,72,153,0.15)":"transparent",color:isSel?"#ec4899":T.muted,border:`1px solid ${isSel?"rgba(236,72,153,0.4)":T.border}`}}
-              onMouseDown={e=>{e.preventDefault();setLocalDestino("credit_card");setLocalTarjetaRef(t.nombre);}}>
-              💳 {t.nombre}
-            </button>);
-          })}
-        </div>
+        {(potsList||[]).find(p=>p.id===localDestino)
+          ? <div style={{fontSize:11,color:T.muted,padding:"6px 10px",background:T.surface2,borderRadius:9,border:`1px solid ${T.border}`}}>💵 Cash / Check — pots are funded from your account</div>
+          : <div style={{display:"flex",gap:6,flexWrap:"wrap"}}>
+              <button style={{...BTN,padding:"6px 12px",fontSize:11,borderRadius:9,
+                background:localDestino!=="credit_card"?"rgba(63,185,80,0.15)":"transparent",
+                color:localDestino!=="credit_card"?"#3fb950":T.muted,
+                border:`1px solid ${localDestino!=="credit_card"?"rgba(63,185,80,0.4)":T.border}`}}
+                onMouseDown={e=>{e.preventDefault();setLocalDestino(localCat==="credit_card"?"__cash__":localCat||"other");setLocalTarjetaRef("");}}>
+                💵 Cash / Check
+              </button>
+              {tarjetas.map(t=>{
+                const isSel=localDestino==="credit_card"&&localTarjetaRef===t.nombre;
+                return(<button key={t.id} style={{...BTN,padding:"6px 12px",fontSize:11,borderRadius:9,background:isSel?"rgba(236,72,153,0.15)":"transparent",color:isSel?"#ec4899":T.muted,border:`1px solid ${isSel?"rgba(236,72,153,0.4)":T.border}`}}
+                  onMouseDown={e=>{e.preventDefault();setLocalDestino("credit_card");setLocalTarjetaRef(t.nombre);}}>
+                  💳 {t.nombre}
+                </button>);
+              })}
+            </div>
+        }
       </div>
 
       {/* Due date — always available, sets recurring automatically */}
