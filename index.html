@@ -523,6 +523,9 @@ const GastoItem=memo(({item,pid,editId,setEditId,tarjetas,potsList,periodDate,on
   const dest=gds(item.destino,item.tarjetaRef,null,potsList);
   const INP=mkINP(T),BTN=mkBTN(),CARD=mkCARD(T);
   const [swipeX,setSwipeX]=useState(0);
+  const [editingAmt,setEditingAmt]=useState(false);
+  const [localAmt,setLocalAmt]=useState("");
+  const amtInputRef=useRef(null);
   // Local edit state - buffers changes, commits on save
   const [localDestino,setLocalDestino]=useState(item.destino);
   const [localTarjetaRef,setLocalTarjetaRef]=useState(item.tarjetaRef||"");
@@ -698,7 +701,23 @@ const GastoItem=memo(({item,pid,editId,setEditId,tarjetas,potsList,periodDate,on
             })()}
           </div>
         </div>
-        <div style={{fontFamily:"monospace",fontWeight:700,fontSize:13,color:item.state==="paid"?T.muted:item.state==="reserved"?"#d29922":dest.color||"#f85149",flexShrink:0,opacity:item.state==="paid"?0.4:1}}>{fmt(item.monto)}</div>
+        {editingAmt
+          ? <input ref={amtInputRef} type="number" inputMode="decimal"
+              style={{fontFamily:"monospace",fontWeight:700,fontSize:13,color:dest.color||"#f85149",
+                background:"transparent",border:"none",borderBottom:`1.5px solid ${T.accent}`,
+                outline:"none",width:70,textAlign:"right",padding:"0 2px",flexShrink:0}}
+              value={localAmt}
+              onChange={e=>setLocalAmt(e.target.value)}
+              onBlur={()=>{const v=parseFloat(localAmt);if(v>0)onUpdate(item.id,"monto",v);setEditingAmt(false);}}
+              onKeyDown={e=>{if(e.key==="Enter"){const v=parseFloat(localAmt);if(v>0)onUpdate(item.id,"monto",v);setEditingAmt(false);}if(e.key==="Escape")setEditingAmt(false);}}
+              autoFocus/>
+          : <div onClick={e=>{e.stopPropagation();setLocalAmt(String(item.monto||""));setEditingAmt(true);setTimeout(()=>amtInputRef.current?.select(),30);}}
+              style={{fontFamily:"monospace",fontWeight:700,fontSize:13,color:item.state==="paid"?T.muted:item.state==="reserved"?"#d29922":dest.color||"#f85149",flexShrink:0,opacity:item.state==="paid"?0.4:1,cursor:"text",borderBottom:"1px dashed transparent",transition:"border-color 0.15s"}}
+              onMouseEnter={e=>e.currentTarget.style.borderBottomColor=T.border}
+              onMouseLeave={e=>e.currentTarget.style.borderBottomColor="transparent"}>
+              {fmt(item.monto)}
+            </div>
+        }
         {(item.destino==="savings_acct"||item.destino==="emergency"||item.destino==="investment"||(item.destino&&item.destino.startsWith("pot_"))||((potsList||[]).some(p=>p.id===item.destino)))&&item.monto>0&&(
           <button
             style={{...mkBTN(),
@@ -1553,7 +1572,15 @@ function App(){
     if(isUse&&m>curBal)return toast_("Not enough in "+(pot?.name||moveTo),"err");
     const mvId=Date.now();
     setData(p=>({...p,
-      potsList:(p.potsList||[]).map(pt=>pt.id===moveTo?{...pt,balance:isUse?Math.max(0,n(pt.balance)-m):n(pt.balance)+m}:pt),
+      potsList:(p.potsList||[]).map(pt=>{
+        if(pt.id!==moveTo)return pt;
+        const newBal=isUse?Math.max(0,n(pt.balance)-m):n(pt.balance)+m;
+        // Fire confetti if goal just reached
+        if(!isUse&&pt.goal>0&&n(pt.balance)<pt.goal&&newBal>=pt.goal){
+          setTimeout(()=>{launchConfetti();toast_(`🎉 ${pt.name} goal reached!`);},100);
+        }
+        return{...pt,balance:newBal};
+      }),
       potMovements:[...(p.potMovements||[]),{id:mvId,potKey:moveTo,amount:isUse?-m:m,date:new Date().toLocaleDateString("en-US",{month:"short",day:"numeric"}),note:(isUse?"Used from ":"Added to ")+(pot?.name||moveTo)}]}));
     setMoveAmt("");
     toast_(isUse?"💳 "+fmt(m)+" used from "+(pot?.name||moveTo):"💸 "+fmt(m)+" added to "+(pot?.name||moveTo));
@@ -2037,8 +2064,16 @@ function App(){
                       <span style={{fontSize:18,flexShrink:0}}>{pot.icon||"🪣"}</span>
                       <div style={{flex:1,minWidth:0}}>
                         <div style={{fontSize:13,fontWeight:700,color:isSelected?color:T.text}}>{pot.name}</div>
-                        {/* Always show balance inside modal */}
                         <div style={{fontSize:11,fontFamily:"monospace",fontWeight:700,color:color,opacity:0.85}}>{fmt(bal)}</div>
+                        {pot.goal>0&&<div style={{marginTop:4}}>
+                          <div style={{display:"flex",justifyContent:"space-between",fontSize:9,color:T.muted,marginBottom:2}}>
+                            <span>{Math.min(100,Math.round((bal/pot.goal)*100))}%</span>
+                            <span>{fmt(pot.goal)}</span>
+                          </div>
+                          <div style={{height:3,background:T.surface,borderRadius:4,overflow:"hidden"}}>
+                            <div style={{height:"100%",width:`${Math.min(100,(bal/pot.goal)*100)}%`,background:bal>=pot.goal?"#3fb950":color,borderRadius:4,transition:"width 0.5s cubic-bezier(0.4,0,0.2,1)"}}/>
+                          </div>
+                        </div>}
                       </div>
                       {isSelected&&<div style={{width:6,height:6,borderRadius:"50%",background:color,flexShrink:0,boxShadow:`0 0 6px ${color}`}}/>}
                     </div>
@@ -2055,6 +2090,16 @@ function App(){
                         <div style={{fontSize:9,color:T.muted,marginBottom:6,letterSpacing:1}}>ICON</div>
                         <div style={{display:"flex",flexWrap:"wrap",gap:5}}>
                           {POT_ICONS.map(ic=><button key={ic} style={{...BTN,width:34,height:34,borderRadius:8,fontSize:17,background:pot.icon===ic?`${color}33`:T.surface2,border:`1px solid ${pot.icon===ic?color:T.border}`,transition:"all 0.15s"}} onClick={()=>setData(p=>({...p,potsList:(p.potsList||[]).map(pt=>pt.id===pot.id?{...pt,icon:ic}:pt)}))}>{ic}</button>)}
+                        </div>
+                      </div>
+                      <div style={{marginBottom:12}}>
+                        <div style={{fontSize:9,color:T.muted,marginBottom:4,letterSpacing:1}}>GOAL ($) <span style={{opacity:0.5,fontWeight:400}}>optional</span></div>
+                        <div className="amt-wrap">
+                          <span className="amt-prefix" style={{fontSize:14,color:pot.goal?T.accent+"99":T.muted+"55"}}>$</span>
+                          <input style={{...INP,fontSize:14,fontFamily:"monospace",fontWeight:700,paddingLeft:20}}
+                            type="number" inputMode="decimal" placeholder="e.g. 2000"
+                            value={pot.goal||""}
+                            onChange={e=>setData(p=>({...p,potsList:(p.potsList||[]).map(pt=>pt.id===pot.id?{...pt,goal:parseFloat(e.target.value)||0}:pt)}))}/>
                         </div>
                       </div>
                       <div style={{marginBottom:12}}>
@@ -2467,6 +2512,7 @@ function App(){
                     <span style={{fontSize:11,fontWeight:600,color:T.text,flex:1,cursor:"pointer"}}
                       onClick={()=>{setMoveTo(pot.id);setEditingPotId(null);setMoveMode("add");setMoveOpen(true);}}>
                       {pot.name}
+                      {pot.goal>0&&<span style={{fontSize:9,color:T.muted,fontWeight:400,marginLeft:6}}>{Math.min(100,Math.round((bal/pot.goal)*100))}% of {fmt(pot.goal)}</span>}
                     </span>
                     <div style={{display:"flex",alignItems:"center",gap:8,flexShrink:0}}>
                       {/* Tap balance → reveal (only when potsHidden is ON) */}
@@ -2478,6 +2524,15 @@ function App(){
                         onClick={()=>{setMoveTo(pot.id);setMoveMode("add");setEditingPotId(null);setMoveOpen(true);}}>+</button>
                     </div>
                   </div>
+                  {pot.goal>0&&(()=>{
+                    const pct=Math.min(100,Math.round((bal/pot.goal)*100));
+                    const done=bal>=pot.goal;
+                    return(<div style={{marginTop:5}}>
+                      <div style={{height:3,background:T.surface2,borderRadius:4,overflow:"hidden"}}>
+                        <div style={{height:"100%",width:`${pct}%`,background:done?"#3fb950":color,borderRadius:4,transition:"width 0.6s cubic-bezier(0.4,0,0.2,1)"}}/>
+                      </div>
+                    </div>);
+                  })()}
                 </div>);
               })}
               {potsList.length>0&&<div style={{marginTop:9,paddingTop:8,borderTop:`1px solid ${T.border}`,display:"flex",justifyContent:"space-between",alignItems:"center"}}>
