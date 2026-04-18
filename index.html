@@ -661,7 +661,8 @@ const GastoItem=memo(({item,pid,editId,setEditId,tarjetas,potsList,periodDate,cu
       {(DUE_DAY_CATS.has(localDestino)||DUE_DAY_CATS.has(item.cat)||(customLabels||[]).some(l=>l.id===localDestino))&&(
         <div style={{marginBottom:12}}>
           <div style={{fontSize:10,color:T.muted,marginBottom:5,display:"flex",alignItems:"center",gap:6}}>📅 DUE DAY <span style={{opacity:0.5,fontWeight:400}}>(day of month, e.g. 15)</span>{localDestino==="credit_card"&&localTarjetaRef&&getCardDueDay(localTarjetaRef)&&(<span style={{marginLeft:4,color:T.accent,fontSize:9}}>← auto-filled</span>)}</div>
-          <input style={{...INP,fontFamily:"monospace",fontWeight:700}} type="number" inputMode="numeric" placeholder="e.g. 7" min="1" max={new Date(new Date().getFullYear(),new Date().getMonth()+1,0).getDate()} value={item.diaPago||""} onChange={e=>{const v=parseInt(e.target.value);const max=new Date(new Date().getFullYear(),new Date().getMonth()+1,0).getDate();onUpdate(item.id,"diaPago",e.target.value?Math.min(max,Math.max(1,v)):null);}} onBlur={e=>{if(item.diaPago){const max=new Date(new Date().getFullYear(),new Date().getMonth()+1,0).getDate();onUpdate(item.id,"diaPago",Math.min(max,Math.max(1,parseInt(item.diaPago)||1)));}}}/>
+          <input style={{...INP,fontFamily:"monospace",fontWeight:700}} type="number" inputMode="numeric" placeholder="e.g. 7" min="1" max={new Date(new Date().getFullYear(),new Date().getMonth()+1,0).getDate()} value={item.diaPago||""} onChange={e=>{const v=parseInt(e.target.value);const max=new Date(new Date().getFullYear(),new Date().getMonth()+1,0).getDate();const val=e.target.value?Math.min(max,Math.max(1,v)):null;onBatchUpdate(item.id,{diaPago:val,_recurring:val?true:item._recurring});}} onBlur={e=>{if(item.diaPago){const max=new Date(new Date().getFullYear(),new Date().getMonth()+1,0).getDate();onBatchUpdate(item.id,{diaPago:Math.min(max,Math.max(1,parseInt(item.diaPago)||1)),_recurring:true});}}}/>
+
         </div>
       )}
       {/* Recurring toggle */}
@@ -728,7 +729,7 @@ const GastoItem=memo(({item,pid,editId,setEditId,tarjetas,potsList,periodDate,cu
           <div style={{display:"flex",alignItems:"center",gap:5,flexWrap:"wrap"}}>
             <span style={{fontSize:13,fontWeight:600,color:item.state==="paid"?T.muted:item.state==="reserved"?"#d29922":T.text,textDecoration:"none",opacity:item.state==="paid"?0.45:1}}>{item.nombre||"Untitled"}</span>
             {item._recurring&&<span style={{fontSize:9,color:T.accent,opacity:0.6}}>🔁</span>}
-            {item.destino==="credit_card"&&item.tarjetaRef&&<span style={{fontSize:9,fontWeight:700,color:dest.color,background:dest.bg,border:`1px solid ${dest.border}`,borderRadius:5,padding:"1px 5px",flexShrink:0}}>{dest.icon} {dest.label}</span>}
+            {/* no badge - grouping header shows destination */}
           </div>
           <div style={{fontSize:10,color:item.state==="paid"?"#3fb950":item.state==="reserved"?"#d29922":T.muted,marginTop:1}}>
             {item.state==="paid"?"✓ done":item.state==="reserved"?"◑ Reserved":"○ Pending"}
@@ -3055,48 +3056,34 @@ function App(){
               const mo=["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
               const months=[...new Set(Object.keys(data.periods||{}).map(pid=>pid.slice(0,7)))].filter(Boolean).sort().reverse().slice(0,6);
               const [selMonth,setSelMonth]=React.useState(months[0]||now.toISOString().slice(0,7));
+              const [expanded,setExpanded]=React.useState(new Set());
+              const toggleExpand=k=>setExpanded(prev=>{const n=new Set(prev);n.has(k)?n.delete(k):n.add(k);return n;});
               const monthGastos=Object.entries(data.periods||{}).filter(([pid])=>pid.slice(0,7)===selMonth).flatMap(([,p])=>p.gastos||[]);
               const total=monthGastos.reduce((s,g)=>s+n(g.monto),0);
               const totalPaid=monthGastos.filter(g=>g.state==="paid").reduce((s,g)=>s+n(g.monto),0);
               if(!monthGastos.length)return null;
 
-              // Build hierarchy: parentKey -> {amt, paid, children:[{label,icon,color,amt,paid}]}
-              const hierarchy={};
               const customLabels=data.customLabels||[];
+              const hierarchy={};
 
               monthGastos.forEach(g=>{
                 const isLoose=g.destino==="other"||g.destino==="temp";
                 const cl=customLabels.find(l=>l.id===g.destino);
-                // Determine parent key
                 let parentKey;
                 if(cl&&cl.parent) parentKey=cl.parent;
-                else if(isLoose) parentKey=g.destino; // own group
+                else if(isLoose) parentKey=g.destino;
                 else if(g.destino==="credit_card") parentKey=g.tarjetaRef||"credit_card";
                 else parentKey=g.destino;
 
-                // Determine child label
-                let childLabel,childIcon,childColor;
-                if(cl){childLabel=cl.name;childIcon="🏷️";childColor="#a78bfa";}
-                else if(isLoose){childLabel=g.nombre||"Other";childIcon="📌";childColor=T.muted;}
-                else if(g.destino==="credit_card"){
-                  const dst=gds(g.destino,g.tarjetaRef,null,potsList,customLabels);
-                  childLabel=dst.label;childIcon=dst.icon;childColor=dst.color;
-                } else {
-                  const dst=gds(g.destino,g.tarjetaRef,null,potsList,customLabels);
-                  childLabel=dst.label;childIcon=dst.icon;childColor=dst.color;
-                }
-
-                if(!hierarchy[parentKey])hierarchy[parentKey]={amt:0,paid:0,children:{}};
+                if(!hierarchy[parentKey])hierarchy[parentKey]={amt:0,paid:0,items:[]};
                 hierarchy[parentKey].amt+=n(g.monto);
                 if(g.state==="paid")hierarchy[parentKey].paid+=n(g.monto);
-
-                // Only add children if custom label with parent (subcategory)
-                if(cl&&cl.parent){
-                  if(!hierarchy[parentKey].children[cl.id])
-                    hierarchy[parentKey].children[cl.id]={label:childLabel,icon:childIcon,color:childColor,amt:0,paid:0};
-                  hierarchy[parentKey].children[cl.id].amt+=n(g.monto);
-                  if(g.state==="paid")hierarchy[parentKey].children[cl.id].paid+=n(g.monto);
-                }
+                hierarchy[parentKey].items.push({
+                  nombre:g.nombre||"Untitled",
+                  subLabel:cl?cl.name:null,
+                  amt:n(g.monto),
+                  paid:g.state==="paid"
+                });
               });
 
               const sorted=Object.entries(hierarchy).sort((a,b)=>b[1].amt-a[1].amt);
@@ -3112,59 +3099,47 @@ function App(){
                     {months.map(m=><option key={m} value={m}>{mo[parseInt(m.slice(5))-1]} {m.slice(0,4)}</option>)}
                   </select>}
                 </div>
-                {/* overall paid bar */}
                 <div style={{height:3,background:T.surface2,borderRadius:4,overflow:"hidden",marginBottom:14}}>
                   <div style={{height:"100%",width:`${total>0?Math.round((totalPaid/total)*100):0}%`,background:"#3fb950",borderRadius:4,transition:"width 0.6s cubic-bezier(0.4,0,0.2,1)"}}/>
                 </div>
-                <div style={{display:"flex",flexDirection:"column",gap:12}}>
+                <div style={{display:"flex",flexDirection:"column",gap:10}}>
                   {sorted.map(([parentKey,v])=>{
-                    const dst=gds(
-                      DEST[parentKey]?parentKey:
-                        (customLabels.find(l=>l.id===parentKey)?"label":
-                          (potsList.find(p=>p.id===parentKey)?"pot":"credit_card")),
-                      DEST[parentKey]?null:parentKey,
-                      null,potsList,customLabels
-                    );
-                    const pDst=DEST[parentKey]?DEST[parentKey]:gds(parentKey==="credit_card"?"credit_card":parentKey,parentKey==="credit_card"?null:parentKey,null,potsList,customLabels);
+                    const pDst=DEST[parentKey]?DEST[parentKey]:gds(parentKey,null,null,potsList,customLabels);
                     const barPct=Math.round((v.amt/maxAmt)*100);
                     const paidPct=v.amt>0?Math.round((v.paid/v.amt)*100):0;
-                    const hasChildren=Object.keys(v.children).length>0;
                     const pct=Math.round((v.amt/total)*100);
+                    const isExpanded=expanded.has(parentKey);
                     return(<div key={parentKey}>
-                      {/* Parent row */}
-                      <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:4}}>
-                        <span style={{fontSize:13,fontWeight:700,color:T.text}}>{pDst.icon} {pDst.label}</span>
-                        <div style={{display:"flex",alignItems:"center",gap:6}}>
-                          {paidPct===100&&<span style={{fontSize:10,color:"#3fb950"}}>✓</span>}
-                          {paidPct>0&&paidPct<100&&<span style={{fontSize:9,color:"#3fb950"}}>{paidPct}%</span>}
-                          <span style={{fontSize:10,color:T.muted}}>{pct}%</span>
-                          <span style={{fontFamily:"monospace",fontWeight:800,fontSize:14,color:pDst.color}}>{fmt(v.amt)}</span>
+                      {/* Parent row — tappable */}
+                      <div style={{cursor:"pointer",WebkitTapHighlightColor:"transparent"}} onClick={()=>toggleExpand(parentKey)}>
+                        <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:4}}>
+                          <div style={{display:"flex",alignItems:"center",gap:6}}>
+                            <span style={{fontSize:9,color:T.muted,transition:"transform 0.2s",display:"inline-block",transform:isExpanded?"rotate(90deg)":"rotate(0deg)"}}>▶</span>
+                            <span style={{fontSize:13,fontWeight:700,color:T.text}}>{pDst.icon} {pDst.label}</span>
+                          </div>
+                          <div style={{display:"flex",alignItems:"center",gap:6}}>
+                            {paidPct===100&&<span style={{fontSize:10,color:"#3fb950"}}>✓</span>}
+                            {paidPct>0&&paidPct<100&&<span style={{fontSize:9,color:"#3fb950"}}>{paidPct}%</span>}
+                            <span style={{fontSize:10,color:T.muted}}>{pct}%</span>
+                            <span style={{fontFamily:"monospace",fontWeight:800,fontSize:14,color:pDst.color}}>{fmt(v.amt)}</span>
+                          </div>
+                        </div>
+                        <div style={{height:7,background:T.surface2,borderRadius:4,overflow:"hidden",position:"relative"}}>
+                          <div style={{position:"absolute",height:"100%",width:`${barPct}%`,background:pDst.color,borderRadius:4,opacity:0.2}}/>
+                          <div style={{position:"absolute",height:"100%",width:`${barPct*(paidPct/100)}%`,background:paidPct===100?"#3fb950":pDst.color,borderRadius:4,transition:"width 0.6s cubic-bezier(0.4,0,0.2,1)"}}/>
                         </div>
                       </div>
-                      {/* Parent bar */}
-                      <div style={{height:7,background:T.surface2,borderRadius:4,overflow:"hidden",position:"relative",marginBottom:hasChildren?6:0}}>
-                        <div style={{position:"absolute",height:"100%",width:`${barPct}%`,background:pDst.color,borderRadius:4,opacity:0.2}}/>
-                        <div style={{position:"absolute",height:"100%",width:`${barPct*(paidPct/100)}%`,background:paidPct===100?"#3fb950":pDst.color,borderRadius:4,transition:"width 0.6s cubic-bezier(0.4,0,0.2,1)"}}/>
-                      </div>
-                      {/* Children */}
-                      {hasChildren&&<div style={{paddingLeft:14,borderLeft:`2px solid ${pDst.color}33`,marginLeft:4,display:"flex",flexDirection:"column",gap:5}}>
-                        {Object.entries(v.children).sort((a,b)=>b[1].amt-a[1].amt).map(([cid,cv])=>{
-                          const cBarPct=Math.round((cv.amt/v.amt)*100);
-                          const cPaidPct=cv.amt>0?Math.round((cv.paid/cv.amt)*100):0;
-                          return(<div key={cid}>
-                            <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:2}}>
-                              <span style={{fontSize:11,color:T.muted,fontWeight:500}}>{cv.icon} {cv.label}</span>
-                              <div style={{display:"flex",alignItems:"center",gap:5}}>
-                                {cPaidPct===100&&<span style={{fontSize:9,color:"#3fb950"}}>✓</span>}
-                                <span style={{fontFamily:"monospace",fontWeight:600,fontSize:12,color:cv.color}}>{fmt(cv.amt)}</span>
-                              </div>
-                            </div>
-                            <div style={{height:4,background:T.surface2,borderRadius:3,overflow:"hidden",position:"relative"}}>
-                              <div style={{position:"absolute",height:"100%",width:`${cBarPct}%`,background:cv.color,borderRadius:3,opacity:0.25}}/>
-                              <div style={{position:"absolute",height:"100%",width:`${cBarPct*(cPaidPct/100)}%`,background:cPaidPct===100?"#3fb950":cv.color,borderRadius:3,transition:"width 0.5s cubic-bezier(0.4,0,0.2,1)"}}/>
-                            </div>
-                          </div>);
-                        })}
+                      {/* Expanded detail */}
+                      {isExpanded&&<div style={{marginTop:8,paddingLeft:14,borderLeft:`2px solid ${pDst.color}44`,marginLeft:4,display:"flex",flexDirection:"column",gap:5,animation:"editOpen 0.22s cubic-bezier(0.4,0,0.2,1) both"}}>
+                        {v.items.sort((a,b)=>b.amt-a.amt).map((it,ii)=>(
+                          <div key={ii} style={{display:"flex",justifyContent:"space-between",alignItems:"center",opacity:it.paid?0.5:1}}>
+                            <span style={{fontSize:12,color:it.paid?T.muted:T.text,flex:1,minWidth:0,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>
+                              {it.paid?"✓ ":""}{it.nombre}
+                              {it.subLabel&&<span style={{fontSize:10,color:T.muted,marginLeft:4}}>· {it.subLabel}</span>}
+                            </span>
+                            <span style={{fontFamily:"monospace",fontWeight:600,fontSize:12,color:it.paid?T.muted:pDst.color,flexShrink:0,marginLeft:8}}>{fmt(it.amt)}</span>
+                          </div>
+                        ))}
                       </div>}
                     </div>);
                   })}
