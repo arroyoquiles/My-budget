@@ -65,7 +65,7 @@
     .confetti-piece{position:fixed;width:8px;height:8px;top:-10px;animation:confettiFall linear forwards;pointer-events:none;z-index:9998;border-radius:2px;}
     ::-webkit-scrollbar{width:3px;}::-webkit-scrollbar-thumb{background:#30363d;}
     input[type=text],input[type=number],input[type=email],input[type=date],select,textarea{font-size:16px!important;-webkit-text-size-adjust:100%!important;}
-    .expense-row{user-select:none;-webkit-user-select:none;-webkit-touch-callout:none;}
+    .expense-row{user-select:none;-webkit-user-select:none;-webkit-touch-callout:none;-webkit-tap-highlight-color:transparent;}
     .dest-picker{display:grid;grid-template-columns:repeat(2,1fr);gap:5px;}
     /* Full-screen quick modal */
     .quick-modal-fullscreen{
@@ -254,12 +254,14 @@ const gdf=dia=>{
   if(c<h){m++;if(m>11){m=0;y++;}return new Date(y,m,clampDay(y,m,d));}
   return c;
 };
-// Period-aware: uses the period's payday month as reference
+// Period-aware: if due day < payday day, it's next month (e.g. payday Apr 15, due 1 = May 1)
 const gdfPeriod=(dia,periodDate)=>{
   if(!dia||!periodDate)return gdf(dia);
   const d=parseInt(dia);
   const ref=new Date(periodDate);
-  const y=ref.getFullYear(),m=ref.getMonth();
+  let y=ref.getFullYear(),m=ref.getMonth();
+  // If due day is before or equal to payday day, it's the next month
+  if(d<=ref.getDate()){m++;if(m>11){m=0;y++;}}
   return new Date(y,m,clampDay(y,m,d));
 };
 const getDUPeriod=(dia,periodDate)=>{
@@ -519,7 +521,7 @@ const DragList=memo(({items,renderItem})=>{
   return(<div>{items.map((item,i)=>(<div key={item.id}>{renderItem(item,i,{})}</div>))}</div>);
 });
 const getCatIcon=(cat)=>CICONS[cat]||"📌";
-const GastoItem=memo(({item,pid,editId,setEditId,tarjetas,potsList,periodDate,onCycle,onLongPress,onUpdate,onBatchUpdate,onRemove,T})=>{
+const GastoItem=memo(({item,pid,editId,setEditId,tarjetas,potsList,periodDate,selectedItems,onToggleSelect,onCycle,onLongPress,onUpdate,onBatchUpdate,onRemove,T})=>{
   const dest=gds(item.destino,item.tarjetaRef,null,potsList);
   const INP=mkINP(T),BTN=mkBTN(),CARD=mkCARD(T);
   const [swipeX,setSwipeX]=useState(0);
@@ -536,6 +538,7 @@ const GastoItem=memo(({item,pid,editId,setEditId,tarjetas,potsList,periodDate,on
   const tapTimer=useRef(null);
   const longPressed=useRef(false);
   const handleCircleTap=()=>{
+    if(editingAmt)return; // don't toggle paid/reserved when editing amount
     if(longPressed.current){longPressed.current=false;return;}
     const now=Date.now();
     if(now-lastTap.current<300){
@@ -656,6 +659,7 @@ const GastoItem=memo(({item,pid,editId,setEditId,tarjetas,potsList,periodDate,on
   const catIcon=getCatIcon(item.cat)||getCatIcon(item.destino)||"📌";
   const catColor=CATCOLORS[item.cat]||CATCOLORS[item.destino]||"#94a3b8";
   const isSwipedLeft=swipeX<=-88;
+  const isSelected=selectedItems&&selectedItems.has(item.id);
   return(
     <div className="expense-row" style={{marginBottom:7,position:"relative",borderRadius:11,overflow:"hidden"}}>
       {/* Action buttons — only visible when swiped */}
@@ -672,10 +676,12 @@ const GastoItem=memo(({item,pid,editId,setEditId,tarjetas,potsList,periodDate,on
       {/* Main row — slides over action buttons */}
       <div onTouchStart={onRowTS} onTouchMove={onRowTM} onTouchEnd={onRowTE} onMouseDown={onRowMS}
         style={{display:"flex",alignItems:"center",gap:8,padding:"10px 11px",borderRadius:11,
-          background:stBg,border:`1px solid ${stBorder}`,
+          background:isSelected?`${T.accent}14`:stBg,
+          border:`1px solid ${isSelected?T.accent+"66":stBorder}`,
           transform:`translateX(${swipeX}px)`,
-          transition:"transform 0.3s cubic-bezier(0.34,1.2,0.64,1)",
-          position:"relative",zIndex:1,touchAction:"pan-y"}}>
+          transition:"transform 0.3s cubic-bezier(0.34,1.2,0.64,1), background 0.15s, border-color 0.15s",
+          position:"relative",zIndex:1,touchAction:"pan-y",
+          WebkitTapHighlightColor:"transparent"}}>
 
         <div onClick={handleCircleTap}
           style={{width:24,height:24,borderRadius:"50%",flexShrink:0,background:item.state==="paid"?"transparent":item.state==="reserved"?"rgba(210,153,34,0.25)":"transparent",border:`2px solid ${item.state==="paid"?"#3fb95055":item.state==="reserved"?"#d29922":T.border}`,display:"flex",alignItems:"center",justifyContent:"center",fontSize:11,cursor:"pointer",color:item.state==="paid"?"#3fb950":item.state==="reserved"?"#d29922":T.muted,fontWeight:700}}>
@@ -711,9 +717,19 @@ const GastoItem=memo(({item,pid,editId,setEditId,tarjetas,potsList,periodDate,on
               onBlur={()=>{const v=parseFloat(localAmt);if(v>0)onUpdate(item.id,"monto",v);setEditingAmt(false);}}
               onKeyDown={e=>{if(e.key==="Enter"){const v=parseFloat(localAmt);if(v>0)onUpdate(item.id,"monto",v);setEditingAmt(false);}if(e.key==="Escape")setEditingAmt(false);}}
               autoFocus/>
-          : <div onClick={e=>{e.stopPropagation();setLocalAmt(String(item.monto||""));setEditingAmt(true);setTimeout(()=>amtInputRef.current?.select(),30);}}
-              style={{fontFamily:"monospace",fontWeight:700,fontSize:13,color:item.state==="paid"?T.muted:item.state==="reserved"?"#d29922":dest.color||"#f85149",flexShrink:0,opacity:item.state==="paid"?0.4:1,cursor:"text",borderBottom:"1px dashed transparent",transition:"border-color 0.15s",WebkitTapHighlightColor:"transparent",userSelect:"none",WebkitUserSelect:"none"}}
-              onMouseEnter={e=>e.currentTarget.style.borderBottomColor=T.border}
+          : <div
+              onClick={e=>{
+                e.stopPropagation();
+                if(onToggleSelect&&onToggleSelect._selectMode){haptic(15);onToggleSelect(item.id);return;}
+                setLocalAmt(String(item.monto||""));setEditingAmt(true);setTimeout(()=>amtInputRef.current?.select(),30);
+              }}
+              style={{fontFamily:"monospace",fontWeight:700,fontSize:13,
+                color:isSelected?T.accent:item.state==="paid"?T.muted:item.state==="reserved"?"#d29922":dest.color||"#f85149",
+                flexShrink:0,opacity:item.state==="paid"?0.4:1,cursor:"text",
+                WebkitTapHighlightColor:"transparent",userSelect:"none",WebkitUserSelect:"none",
+                transform:isSelected?"scale(1.08)":"scale(1)",transition:"transform 0.15s, color 0.15s",
+                borderBottom:isSelected?"none":"1px dashed transparent"}}
+              onMouseEnter={e=>{if(!isSelected)e.currentTarget.style.borderBottomColor=T.border;}}
               onMouseLeave={e=>e.currentTarget.style.borderBottomColor="transparent"}>
               {fmt(item.monto)}
             </div>
@@ -1172,6 +1188,8 @@ function App(){
   const [snapDetail,setSnapDetail]=useState(null);
   const [expenseSearch,setExpenseSearch]=useState("");
   const [potsRevealed,setPotsRevealed]=useState(false);
+  const [selectedItems,setSelectedItems]=useState(new Set());
+  const [selectMode,setSelectMode]=useState(false);
   const [resetConfirm,setResetConfirm]=useState(null);
   const [themePicker,setThemePicker]=useState(false);
   const [resetAllConfirm,setResetAllConfirm]=useState(false);
@@ -1385,6 +1403,7 @@ function App(){
   useEffect(()=>{
     if(tab==="paychecks"&&!activeCheckPid&&monthPeriods.length>0){const cur=monthPeriods.find(p=>p.isCurrent)||monthPeriods[0];setActiveCheckPid(cur.id);}
     if(tab!=="overview")setPotsRevealed(false);
+    if(tab!=="paychecks"){setSelectedItems(new Set());setSelectMode(false);}
   },[tab]);
   useEffect(()=>{if(!quickCardId&&data.tarjetas.length>0)setQuickCardId(String(data.tarjetas[0].id));},[data.tarjetas]);
   const TABS_ORDER=useMemo(()=>["overview","paychecks","debts","calendar","history","settings"],[]);
@@ -1629,7 +1648,7 @@ function App(){
           <span style={{fontFamily:"monospace",fontSize:13,fontWeight:800,color:dst.color}}>{fmt(sub)}</span>
         </div>
         <DragList items={items}
-          renderItem={(item)=>(<GastoItem key={item.id} item={item} pid={pid} editId={editId} setEditId={(id)=>openEditId(id,gastos)} tarjetas={data.tarjetas} potsList={potsList} periodDate={periodDate}
+          renderItem={(item)=>(<GastoItem key={item.id} item={item} pid={pid} editId={editId} setEditId={(id)=>openEditId(id,gastos)} tarjetas={data.tarjetas} potsList={potsList} periodDate={periodDate} selectedItems={selectedItems} onToggleSelect={Object.assign(id=>{setSelectedItems(prev=>{const n=new Set(prev);n.has(id)?n.delete(id):n.add(id);return n;});},{_selectMode:selectMode})}
             onCycle={id=>cycleState(pid,id)} onLongPress={id=>setReserved(pid,id)}
             onUpdate={(id,f,v)=>updateGasto(pid,id,f,v)}
             onBatchUpdate={(id,fields)=>batchUpdateGasto(pid,id,fields)}
@@ -1697,7 +1716,7 @@ function App(){
               <span style={{fontFamily:"monospace",fontSize:13,fontWeight:800,color:dst.color}}>{fmt(sub)}</span>
             </div>
             <DragList items={sortedItems}
-              renderItem={(item,_,touch)=>(<GastoItem key={item.id} item={item} pid={pid} editId={editId} setEditId={(id)=>openEditId(id,gastos)} tarjetas={data.tarjetas} potsList={potsList} periodDate={periodDate}
+              renderItem={(item,_,touch)=>(<GastoItem key={item.id} item={item} pid={pid} editId={editId} setEditId={(id)=>openEditId(id,gastos)} tarjetas={data.tarjetas} potsList={potsList} periodDate={periodDate} selectedItems={selectedItems} onToggleSelect={Object.assign(id=>{setSelectedItems(prev=>{const n=new Set(prev);n.has(id)?n.delete(id):n.add(id);return n;});},{_selectMode:selectMode})}
                 onCycle={id=>cycleState(pid,id)} onLongPress={id=>setReserved(pid,id)}
                 onUpdate={(id,f,v)=>updateGasto(pid,id,f,v)}
                 onBatchUpdate={(id,fields)=>batchUpdateGasto(pid,id,fields)}
@@ -1820,7 +1839,17 @@ function App(){
         <div style={{fontSize:14,fontWeight:600,color:T.text,marginBottom:4}}>No expenses yet</div>
         <div style={{fontSize:11,color:T.muted,marginBottom:16,lineHeight:1.5}}>Add your bills, subscriptions<br/>and recurring expenses</div>
       </div>)}
-      <button style={{...BTN,width:"100%",marginTop:2,marginBottom:8,padding:"11px",background:`${T.accent}14`,color:T.accent,fontSize:13,fontWeight:600,border:`1px solid ${T.accent}33`,borderRadius:10}} onClick={()=>addGasto(pid)}>+ Add Expense</button>
+      <div style={{display:"flex",gap:6,marginTop:2,marginBottom:8}}>
+        <button style={{...BTN,flex:1,padding:"11px",background:`${T.accent}14`,color:T.accent,fontSize:13,fontWeight:600,border:`1px solid ${T.accent}33`,borderRadius:10}} onClick={()=>addGasto(pid)}>+ Add Expense</button>
+        <button style={{...BTN,padding:"11px 14px",fontSize:13,fontWeight:600,borderRadius:10,
+          background:selectMode?`${T.accent}22`:"transparent",
+          color:selectMode?T.accent:T.muted,
+          border:`1px solid ${selectMode?T.accent:T.border}`}}
+          title="Select expenses to sum"
+          onClick={()=>{setSelectMode(m=>{if(m){setSelectedItems(new Set());}return !m;});}}>
+          {selectMode?"✕ Done":"+ Sum"}
+        </button>
+      </div>
       <button style={{...BTN,width:"100%",padding:"8px",background:"transparent",color:T.muted,fontSize:11,border:"none",opacity:0.6}} onClick={()=>setResetConfirm({pid,label})}>🔄 New Cycle — Reset {label}</button>
     </div>);
   };
@@ -1855,6 +1884,9 @@ function App(){
         @keyframes editOpen{from{opacity:0;transform:translateY(-4px);}to{opacity:1;transform:translateY(0);}}
         @keyframes debtExit{0%{opacity:1;max-height:200px;margin-bottom:9px;}100%{opacity:0;max-height:0;margin-bottom:0;}}.debt-exit{animation:debtExit 0.28s cubic-bezier(0.4,0,1,1) forwards;}
         .expense-row:active{transform:scale(0.99);transition:transform 0.08s ease;}
+        *{-webkit-tap-highlight-color:transparent;}
+        div,span,p{-webkit-user-select:none;user-select:none;}
+        input,textarea{-webkit-user-select:text;user-select:text;}
         input,select,textarea{scroll-margin-bottom:200px;}
         input[type=number]:focus,input[type=text]:focus{border-color:${T.accent}!important;box-shadow:0 0 0 3px ${T.accent}26!important;outline:none;transition:border-color 0.15s,box-shadow 0.15s;}
         .debt-card-tap:active{transform:scale(0.988);transition:transform 0.08s ease;}
@@ -2552,6 +2584,25 @@ function App(){
           }}>💾 Save Monthly Snapshot</button>
         </div>)}
         {tab==="paychecks"&&(<div className="anim">
+          {/* Floating selection calculator pill */}
+          {selectedItems.size>0&&(()=>{
+            const allGastos=Object.values(data.periods||{}).flatMap(p=>p.gastos||[]);
+            const total=allGastos.filter(g=>selectedItems.has(g.id)).reduce((s,g)=>s+n(g.monto),0);
+            return(
+              <div style={{position:"fixed",bottom:"max(100px,calc(88px + env(safe-area-inset-bottom)))",left:"50%",transform:"translateX(-50%)",zIndex:250,
+                background:T.surface,border:`1px solid ${T.accent}`,borderRadius:24,
+                padding:"10px 16px",display:"flex",alignItems:"center",gap:12,
+                boxShadow:`0 4px 24px rgba(0,0,0,0.5), 0 0 0 1px ${T.accent}33`,
+                animation:"slideInDown 0.25s cubic-bezier(0.4,0,0.2,1)"}}>
+                <span style={{fontSize:11,color:T.muted}}>{selectedItems.size} item{selectedItems.size>1?"s":""}</span>
+                <span style={{fontFamily:"monospace",fontWeight:800,fontSize:18,color:T.accent}}>{fmt(total)}</span>
+                <button style={{...BTN,background:`${T.accent}20`,color:T.accent,padding:"4px 10px",fontSize:11,fontWeight:700,borderRadius:10,border:`1px solid ${T.accent}44`}}
+                  onClick={()=>{navigator.clipboard?.writeText(fmt(total));toast_(`📋 ${fmt(total)} copied`);}}>Copy</button>
+                <button style={{...BTN,background:"transparent",color:T.muted,fontSize:16,padding:"2px 4px",border:"none"}}
+                  onClick={()=>setSelectedItems(new Set())}>✕</button>
+              </div>
+            );
+          })()}
           {!data.proximoCobro&&(<div style={{textAlign:"center",padding:"40px 20px"}}>
             <div style={{fontSize:36,marginBottom:12}}>💰</div>
             <div style={{fontSize:15,fontWeight:700,color:T.text,marginBottom:6}}>Set up your paycheck first</div>
