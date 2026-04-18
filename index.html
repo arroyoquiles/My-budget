@@ -1883,7 +1883,7 @@ function App(){
       {/* ── Quick Expense Modal ── */}
       {quickOpen&&(
         <div style={{position:"fixed",inset:0,zIndex:300,background:"rgba(0,0,0,0.72)",display:"flex",flexDirection:"column",justifyContent:"flex-end"}} onClick={e=>{if(e.target===e.currentTarget){if(document.activeElement?.blur)document.activeElement.blur();setTimeout(()=>setQuickOpen(false),50);}}}>
-          <div style={{width:"100%",maxWidth:500,margin:"0 auto",background:T.surface,borderRadius:"20px 20px 0 0",border:`1px solid ${T.border}`,transform:`translateY(-${kbHeight}px)`,transition:"transform 0.15s ease-out"}}>
+          <div className="quick-modal-fullscreen" style={{width:"100%",maxWidth:500,margin:"0 auto",background:T.surface,borderRadius:"20px 20px 0 0",border:`1px solid ${T.border}`,transform:`translateY(-${kbHeight}px)`,transition:"transform 0.15s ease-out"}}>
             <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",padding:"13px 18px 11px",borderBottom:`1px solid ${T.border}`}}>
               <button style={{...BTN,background:"transparent",color:T.muted,fontSize:14,padding:"2px 6px"}} onClick={()=>{if(document.activeElement?.blur)document.activeElement.blur();setTimeout(()=>setQuickOpen(false),50);}}>✕</button>
               <div style={{fontSize:14,fontWeight:700}}>⚡ Quick Expense</div>
@@ -2018,14 +2018,14 @@ function App(){
 
                   return(
                   <div key={pot.id} className="expense-row" style={{marginBottom:6,position:"relative",borderRadius:12,overflow:"hidden",border:`1.5px solid ${isSelected?color+"88":T.border}`,transition:"border-color 0.2s"}}>
-                    {/* Hints — hidden when editing */}
-                    {!isEditing&&<div style={{position:"absolute",inset:0,display:"flex"}}>
+                    {/* Hints — instantly invisible when editing */}
+                    <div style={{position:"absolute",inset:0,display:"flex",visibility:isEditing?"hidden":"visible"}}>
                       <div style={{width:70,background:`${T.accent}dd`,display:"flex",alignItems:"center",justifyContent:"center",fontSize:18,cursor:"pointer",flexShrink:0}}
                         onClick={()=>{setEditingPotId(isEditing?null:pot.id);setMoveTo(pot.id);}}>✏️</div>
                       <div style={{flex:1,background:T.surface2}}/>
                       <div style={{width:70,background:"rgba(248,81,73,0.92)",display:"flex",alignItems:"center",justifyContent:"center",fontSize:18,cursor:"pointer",flexShrink:0}}
                         onClick={()=>{if(window.confirm(`Delete "${pot.name}"?`)){setData(p=>({...p,potsList:(p.potsList||[]).filter(pt=>pt.id!==pot.id)}));if(moveTo===pot.id)setMoveTo(potsList.find(p2=>p2.id!==pot.id)?.id||"");}}}>🗑</div>
-                    </div>}
+                    </div>
 
                     {/* Main row — NO border, NO borderRadius, clips to parent */}
                     <div id={"pot-row-"+pot.id}
@@ -2617,7 +2617,7 @@ function App(){
                 <button ref={sortBtnRef} style={{...BTN,width:52,height:26,padding:0,borderRadius:8,background:sortStrategy?`${T.accent}1f`:"transparent",color:sortStrategy?T.accent:T.muted,border:`1px solid ${sortStrategy?T.accent:T.border}`,fontSize:10,fontWeight:700,display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0}} onClick={()=>setSortMenuOpen(o=>!o)}>
                   {sortStrategy?<span>{sortLabels[sortStrategy]}</span>:<span style={{fontSize:11}}>⇅</span>}
                 </button>
-                {sortMenuOpen&&<div style={{position:"absolute",right:0,top:"100%",marginTop:4,zIndex:99999,background:T.surface,border:`1px solid ${T.border}`,borderRadius:10,overflow:"hidden",width:80,boxShadow:`0 4px 16px rgba(0,0,0,0.5)`}}>
+                {sortMenuOpen&&<div style={{position:"absolute",right:0,top:"100%",marginTop:4,zIndex:99999,background:T.surface,border:`1px solid ${T.border}`,borderRadius:10,overflow:"hidden",width:80,boxShadow:`0 4px 16px rgba(0,0,0,0.5)`,animation:"tabEnter 0.15s ease both"}}>
                     {[{v:null,l:"Off"},{v:"apr",l:"APR"},{v:"balance",l:"Small"}].map(({v,l})=>(
                       <button key={l} style={{...BTN,width:"100%",padding:"8px 12px",fontSize:12,borderRadius:0,background:sortStrategy===v?`${T.accent}18`:"transparent",color:sortStrategy===v?T.accent:T.muted,borderBottom:`1px solid ${T.border}`,fontWeight:sortStrategy===v?700:400,textAlign:"left"}} onClick={()=>{setSortStrategy(v);setSortMenuOpen(false);}}>{l}</button>
                     ))}
