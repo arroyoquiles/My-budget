@@ -537,11 +537,12 @@ const GastoItem=memo(({item,pid,editId,setEditId,tarjetas,potsList,periodDate,cu
   // Local edit state - buffers changes, commits on save
   const [localDestino,setLocalDestino]=useState(item.destino);
   const [localTarjetaRef,setLocalTarjetaRef]=useState(item.tarjetaRef||"");
+  const [localCat,setLocalCat]=useState(item.cat||"");
   const [newLabelInput,setNewLabelInput]=useState(false);
   const [newLabelName,setNewLabelName]=useState("");
   const [newLabelParent,setNewLabelParent]=useState("");
   const isEditing=editId===item.id;
-  React.useEffect(()=>{if(isEditing){setLocalDestino(item.destino);setLocalTarjetaRef(item.tarjetaRef||"");}}, [isEditing]);
+  React.useEffect(()=>{if(isEditing){setLocalDestino(item.destino);setLocalTarjetaRef(item.tarjetaRef||"");setLocalCat(item.cat||"");}}, [isEditing]);
   const swipeRef=useRef({startX:0,startY:0,dir:null,active:false});
   const lastTap=useRef(0);
   const tapTimer=useRef(null);
@@ -652,10 +653,25 @@ const GastoItem=memo(({item,pid,editId,setEditId,tarjetas,potsList,periodDate,cu
       {localDestino==="credit_card"&&(
         <div style={{marginBottom:10}}>
           <div style={{fontSize:10,color:T.muted,marginBottom:5}}>WHICH CARD?</div>
-          <select style={INP} value={localTarjetaRef} onChange={e=>{const cardName=e.target.value;const dueDay=getCardDueDay(cardName);setLocalTarjetaRef(cardName);if(dueDay)onUpdate(item.id,"diaPago",dueDay);}}>
+          <select style={INP} value={localTarjetaRef} onChange={e=>{const cardName=e.target.value;setLocalTarjetaRef(cardName);}}>
             <option value="">Select...</option>
             {tarjetas.map(t=><option key={t.id} value={t.nombre}>{t.nombre}{t.fechaPago?` (due ${t.fechaPago})`:""}</option>)}
           </select>
+        </div>
+      )}
+      {localDestino==="credit_card"&&(
+        <div style={{marginBottom:10}}>
+          <div style={{fontSize:10,color:T.muted,marginBottom:5}}>CATEGORY <span style={{opacity:0.5,fontWeight:400}}>(optional — for reporting)</span></div>
+          <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:4}}>
+            {["subscription","auto","utilities","gas","insurance","rent","other"].map(k=>{
+              const d=DEST[k]||{icon:"📌",label:k};
+              const isSel=localCat===k;
+              return(<button key={k} style={{cursor:"pointer",border:"none",borderRadius:9,fontFamily:"inherit",fontWeight:600,WebkitTapHighlightColor:"transparent",padding:"6px 8px",fontSize:11,textAlign:"left",background:isSel?`${d.color||T.accent}22`:"transparent",color:isSel?d.color||T.accent:T.muted,border:`1px solid ${isSel?d.color||T.accent:T.border}`,transition:"all 0.1s"}}
+                onMouseDown={e=>{e.preventDefault();setLocalCat(isSel?"":k);}}>
+                {d.icon} {d.label}
+              </button>);
+            })}
+          </div>
         </div>
       )}
       {/* Recurring toggle — first */}
@@ -688,7 +704,7 @@ const GastoItem=memo(({item,pid,editId,setEditId,tarjetas,potsList,periodDate,cu
         </div>
       )}
       <div style={{display:"flex",gap:8,marginTop:10}}>
-        <button style={{...BTN,flex:1,padding:"12px",background:"#238636",color:"#fff",fontSize:13,fontWeight:700,borderRadius:11,letterSpacing:0.8}} onClick={()=>{const updates={destino:localDestino,cat:localDestino,tarjetaRef:localDestino==="credit_card"?localTarjetaRef:""};onBatchUpdate(item.id,updates);setEditId(null);}}>✓  SAVE</button>
+        <button style={{...BTN,flex:1,padding:"12px",background:"#238636",color:"#fff",fontSize:13,fontWeight:700,borderRadius:11,letterSpacing:0.8}} onClick={()=>{const updates={destino:localDestino,cat:localDestino==="credit_card"?(localCat||"credit_card"):localDestino,tarjetaRef:localDestino==="credit_card"?localTarjetaRef:""};onBatchUpdate(item.id,updates);setEditId(null);}}>✓  SAVE</button>
         <button style={{...BTN,padding:"12px 16px",background:"transparent",color:T.muted,fontSize:12,borderRadius:11,border:"none",letterSpacing:0.5,opacity:0.6}} onClick={()=>setEditId(null)}>CANCEL</button>
         <button style={{...BTN,padding:"12px 14px",background:"rgba(248,81,73,0.1)",color:"#f85149",fontSize:14,borderRadius:11,border:"1px solid rgba(248,81,73,0.2)"}} onClick={e=>{const row=e.currentTarget.closest(".expense-row");if(row){row.style.animation="itemExit 0.28s ease forwards";setTimeout(()=>{onRemove(item.id);setEditId(null);},260);}else{onRemove(item.id);setEditId(null);}}}>🗑</button>
       </div>
@@ -3073,18 +3089,28 @@ function App(){
               monthGastos.forEach(g=>{
                 const cl=cls.find(l=>l.id===g.destino);
                 if(g.destino==="credit_card"){
-                  const cardName=g.tarjetaRef||"Credit Card";
-                  const cc=gds("credit_card",g.tarjetaRef,null,potsList,cls);
-                  add("cc_"+cardName,cardName,cc.icon,cc.color,g);
+                  // If has a category set, use that for reporting
+                  if(g.cat&&g.cat!=="credit_card"&&DEST[g.cat]){
+                    const d=DEST[g.cat];
+                    add("cat_"+g.cat,d.label,d.icon,d.color,g);
+                  } else {
+                    // No category — group by card name (payment to card)
+                    const cardName=g.tarjetaRef||"Credit Card";
+                    const cc=gds("credit_card",g.tarjetaRef,null,potsList,cls);
+                    add("cc_"+cardName,cardName,cc.icon,cc.color,g);
+                  }
                 } else if(cl){
                   if(cl.parent&&DEST[cl.parent]){const pd=DEST[cl.parent];add("cat_"+cl.parent,pd.label,pd.icon,pd.color,g);}
                   else{add("cl_"+cl.id,cl.name,"🏷️","#a78bfa",g);}
                 } else if(g.destino==="other"||g.destino==="temp"){
-                  add("loose_"+(g.nombre||"other"),g.nombre||"Other","📌",T.muted,g);
+                  // Group all temp together, all other together
+                  const grpKey=g.destino==="temp"?"__temp__":"__other__";
+                  const grpLabel=g.destino==="temp"?"Temporary":"Other";
+                  add(grpKey,grpLabel,g.destino==="temp"?"🔄":"📌",T.muted,g);
                 } else if(DEST[g.destino]){
                   const d=DEST[g.destino];add("cat_"+g.destino,d.label,d.icon,d.color,g);
                 } else {
-                  add("other","Other","📌",T.muted,g);
+                  add("__other__","Other","📌",T.muted,g);
                 }
               });
               const sorted=Object.entries(groups).sort((a,b)=>b[1].amt-a[1].amt);
