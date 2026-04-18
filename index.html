@@ -954,7 +954,7 @@ const GastoItem=memo(({item,pid,editId,setEditId,tarjetas,loans,potsList,periodD
             </div>
           </div>
           {/* SECONDARY DATA — APR · DUE · CUT symmetric */}
-          <div style={{display:"grid",gridTemplateColumns:"1fr 1fr"+(tipo==="card"?" 1fr":""),gap:8,marginBottom:12}}>
+          <div style={{display:"grid",gridTemplateColumns:"1fr 1fr"+(tipo==="card"?" 1fr":""),gap:8,marginBottom:tipo==="loan"?8:12}}>
             <div>
               <div style={{fontSize:9,color:T.muted,letterSpacing:1.5,fontWeight:600,marginBottom:5,textAlign:"center"}}>APR</div>
               <div style={{position:"relative"}}><span style={{position:"absolute",right:8,top:"50%",transform:"translateY(-50%)",fontSize:12,fontFamily:"monospace",fontWeight:700,color:debt.interes?T.accent+"99":T.muted+"55",pointerEvents:"none"}}>%</span><input style={{...INP,fontSize:13,padding:"7px 6px",paddingRight:20,userSelect:"text",WebkitUserSelect:"text",textAlign:"center"}} type="number" inputMode="decimal" placeholder="0" value={debt.interes||""} onChange={e=>onUpdate(debt.id,"interes",e.target.value)}/></div>
@@ -968,6 +968,11 @@ const GastoItem=memo(({item,pid,editId,setEditId,tarjetas,loans,potsList,periodD
               <input style={{...INP,fontSize:13,padding:"7px 6px",userSelect:"text",WebkitUserSelect:"text",textAlign:"center"}} type="number" inputMode="numeric" placeholder="—" min="1" max={new Date(new Date().getFullYear(),new Date().getMonth()+1,0).getDate()} value={debt.fechaCorte||""} onChange={e=>{const v=parseInt(e.target.value);const max=new Date(new Date().getFullYear(),new Date().getMonth()+1,0).getDate();if(!e.target.value){onUpdate(debt.id,"fechaCorte","");return;}if(v>=1&&v<=max)onUpdate(debt.id,"fechaCorte",v);}} onBlur={e=>{if(debt.fechaCorte){const max=new Date(new Date().getFullYear(),new Date().getMonth()+1,0).getDate();onUpdate(debt.id,"fechaCorte",Math.min(max,Math.max(1,parseInt(debt.fechaCorte)||1)));}}}/>
             </div>}
           </div>
+          {/* MONTHLY PAYMENT — loans only */}
+          {tipo==="loan"&&<div style={{marginBottom:12}}>
+            <div style={{fontSize:9,color:T.muted,letterSpacing:1.5,fontWeight:600,marginBottom:5}}>MONTHLY PAYMENT ($)</div>
+            <div className="amt-wrap"><span className="amt-prefix" style={{fontSize:14,color:debt.minimo?T.accent+"99":T.muted+"55"}}>$</span><input style={{...INP,fontSize:15,fontFamily:"monospace",fontWeight:700,paddingLeft:22,userSelect:"text",WebkitUserSelect:"text"}} type="number" inputMode="decimal" placeholder="0" value={debt.minimo||""} onChange={e=>onUpdate(debt.id,"minimo",e.target.value)}/></div>
+          </div>}
           {/* COLOR PICKER */}
           {tipo==="card"&&(<div style={{marginBottom:10}}>
             <button style={{...BTN,display:"flex",alignItems:"center",gap:5,padding:"4px 8px",borderRadius:7,background:T.surface2,border:`1px solid ${T.border}`,fontSize:10,color:T.muted}}
