@@ -151,7 +151,7 @@ const DEST = {
   lifestyle:    {label:"Lifestyle",      icon:"✨",color:"#a78bfa",bg:"rgba(167,139,250,0.1)", border:"rgba(167,139,250,0.3)"},
   other:        {label:"Other",         icon:"📌",color:"#8b949e",bg:"transparent",            border:"#21262d"},
 };
-const DEST_ORDER = ["credit_card","rent","auto","utilities","insurance","savings_acct","emergency","investment","groceries","gas","subscription","dining","entertainment","medical","lifestyle","temp","other"];
+const DEST_ORDER = ["credit_card","rent","auto","utilities","insurance","groceries","gas","subscription","dining","entertainment","medical","lifestyle","temp","other"];
 const POTS = {
   savings_acct:{label:"Savings",   icon:"🏦",color:"#3fb950",bg:"rgba(63,185,80,0.1)"},
   emergency:   {label:"Emergency", icon:"🆘",color:"#06b6d4",bg:"rgba(6,182,212,0.1)"},
@@ -221,7 +221,7 @@ const getLoanColor=(nombre)=>{
   const palette=["#f59e0b","#06b6d4","#eab308","#14b8a6","#fb923c","#e879f9"];
   return palette[h%palette.length];
 };
-const DORDER=["savings_acct","emergency","investment","rent","auto","insurance","utilities","gas","credit_card","groceries","subscription","dining","entertainment","medical","lifestyle","temp","other"];
+const DORDER=["rent","auto","insurance","utilities","gas","credit_card","groceries","subscription","dining","entertainment","medical","lifestyle","temp","other"];
 const DUE_DAY_CATS=new Set(["credit_card","rent","utilities","insurance","subscription","auto","medical"]);
 const gds=(d,r,cardObj,potsList)=>{
   if(d==="credit_card"&&r&&CC[r])return{...DEST.credit_card,...CC[r],label:r};
@@ -253,6 +253,20 @@ const gdf=dia=>{
   const c=new Date(y,m,clampDay(y,m,d));
   if(c<h){m++;if(m>11){m=0;y++;}return new Date(y,m,clampDay(y,m,d));}
   return c;
+};
+// Period-aware: uses the period's payday month as reference
+const gdfPeriod=(dia,periodDate)=>{
+  if(!dia||!periodDate)return gdf(dia);
+  const d=parseInt(dia);
+  const ref=new Date(periodDate);
+  const y=ref.getFullYear(),m=ref.getMonth();
+  return new Date(y,m,clampDay(y,m,d));
+};
+const getDUPeriod=(dia,periodDate)=>{
+  if(!dia||!periodDate)return getDU(dia);
+  const today=new Date();today.setHours(0,0,0,0);
+  const due=gdfPeriod(dia,periodDate);
+  return Math.ceil((due-today)/86400000);
 };
 const calcLoan=(balance,apr,pmt)=>{
   const b=n(balance),r=n(apr)/100/12,p=n(pmt);
@@ -437,7 +451,7 @@ const migrate=raw=>{
       {id:"emergency",    name:"Emergency",  icon:"🆘", color:"#06b6d4", balance:n(raw.pots?.emergency)||0},
       {id:"investment",   name:"Investment", icon:"📈", color:"#10b981", balance:n(raw.pots?.investment)||0},
     ],
-    potsHidden:raw.potsHidden||false,
+    potsHidden:raw.potsHidden!==undefined?raw.potsHidden:true,
     snapshots:raw.snapshots||[],
     ahorro:raw.ahorro||null,
     _sa:raw._sa||"",
@@ -457,7 +471,7 @@ const DD={
     {id:"emergency",    name:"Emergency",  icon:"🆘", color:"#06b6d4", balance:0},
     {id:"investment",   name:"Investment", icon:"📈", color:"#10b981", balance:0},
   ],
-  potsHidden:false,snapshots:[],ahorro:null,_sa:"",
+  potsHidden:true,snapshots:[],ahorro:null,_sa:"",
   notifEnabled:true,
 };
 const loadData=()=>{
@@ -505,7 +519,7 @@ const DragList=memo(({items,renderItem})=>{
   return(<div>{items.map((item,i)=>(<div key={item.id}>{renderItem(item,i,{})}</div>))}</div>);
 });
 const getCatIcon=(cat)=>CICONS[cat]||"📌";
-const GastoItem=memo(({item,pid,editId,setEditId,tarjetas,potsList,onCycle,onLongPress,onUpdate,onBatchUpdate,onRemove,T})=>{
+const GastoItem=memo(({item,pid,editId,setEditId,tarjetas,potsList,periodDate,onCycle,onLongPress,onUpdate,onBatchUpdate,onRemove,T})=>{
   const dest=gds(item.destino,item.tarjetaRef,null,potsList);
   const INP=mkINP(T),BTN=mkBTN(),CARD=mkCARD(T);
   const [swipeX,setSwipeX]=useState(0);
@@ -635,7 +649,7 @@ const GastoItem=memo(({item,pid,editId,setEditId,tarjetas,potsList,onCycle,onLon
     </div>
   );
   const stBg={pending:T.surface,reserved:T.surface,paid:T.surface}[item.state||"pending"];
-  const stBorder={pending:T.border,reserved:"rgba(210,153,34,0.3)",paid:"#2ea043"}[item.state||"pending"];
+  const stBorder={pending:T.border,reserved:"rgba(210,153,34,0.3)",paid:T.border}[item.state||"pending"];
   const catIcon=getCatIcon(item.cat)||getCatIcon(item.destino)||"📌";
   const catColor=CATCOLORS[item.cat]||CATCOLORS[item.destino]||"#94a3b8";
   const isSwipedLeft=swipeX<=-88;
@@ -661,22 +675,30 @@ const GastoItem=memo(({item,pid,editId,setEditId,tarjetas,potsList,onCycle,onLon
           position:"relative",zIndex:1,touchAction:"pan-y"}}>
 
         <div onClick={handleCircleTap}
-          style={{width:24,height:24,borderRadius:"50%",flexShrink:0,background:item.state==="paid"?"#2ea043":item.state==="reserved"?"rgba(210,153,34,0.25)":"transparent",border:`2px solid ${item.state==="paid"?"#2ea043":item.state==="reserved"?"#d29922":T.border}`,display:"flex",alignItems:"center",justifyContent:"center",fontSize:11,cursor:"pointer",color:item.state==="paid"?"#fff":item.state==="reserved"?"#d29922":T.muted,fontWeight:700}}>
+          style={{width:24,height:24,borderRadius:"50%",flexShrink:0,background:item.state==="paid"?"transparent":item.state==="reserved"?"rgba(210,153,34,0.25)":"transparent",border:`2px solid ${item.state==="paid"?"#3fb95055":item.state==="reserved"?"#d29922":T.border}`,display:"flex",alignItems:"center",justifyContent:"center",fontSize:11,cursor:"pointer",color:item.state==="paid"?"#3fb950":item.state==="reserved"?"#d29922":T.muted,fontWeight:700}}>
           {item.state==="paid"?"✓":item.state==="reserved"?"◑":""}
         </div>
         <div style={{width:26,height:26,borderRadius:7,background:catColor+"22",display:"flex",alignItems:"center",justifyContent:"center",fontSize:13,flexShrink:0}}>{catIcon}</div>
         <div onClick={handleCircleTap} style={{flex:1,minWidth:0,cursor:"pointer"}}>
           <div style={{display:"flex",alignItems:"center",gap:5,flexWrap:"wrap"}}>
-            <span style={{fontSize:13,fontWeight:600,color:item.state==="paid"?"#3fb950":item.state==="reserved"?"#d29922":T.text,textDecoration:item.state==="paid"?"line-through":"none",opacity:item.state==="paid"?0.75:1}}>{item.nombre||"Untitled"}</span>
+            <span style={{fontSize:13,fontWeight:600,color:item.state==="paid"?T.muted:item.state==="reserved"?"#d29922":T.text,textDecoration:"none",opacity:item.state==="paid"?0.45:1}}>{item.nombre||"Untitled"}</span>
             {item._recurring&&<span style={{fontSize:9,color:T.accent,opacity:0.6}}>🔁</span>}
             {item.destino!=="other"&&<span style={{fontSize:9,fontWeight:700,color:dest.color,background:dest.bg,border:`1px solid ${dest.border}`,borderRadius:5,padding:"1px 5px",flexShrink:0}}>{dest.icon} {dest.label}</span>}
           </div>
           <div style={{fontSize:10,color:item.state==="paid"?"#3fb950":item.state==="reserved"?"#d29922":T.muted,marginTop:1}}>
-            {item.state==="paid"?"✅ Paid":item.state==="reserved"?"◑ Reserved":"○ Pending"}
-            {item.diaPago&&item.state!=="paid"&&(()=>{const d=gdf(item.diaPago);return d?<span> · due {fmd(d)}</span>:null;})()}
+            {item.state==="paid"?"✓ done":item.state==="reserved"?"◑ Reserved":"○ Pending"}
+            {item.diaPago&&item.state!=="paid"&&(()=>{
+              const d=gdfPeriod(item.diaPago,periodDate);
+              if(!d)return null;
+              const today=new Date();today.setHours(0,0,0,0);
+              const dl=Math.ceil((d-today)/86400000);
+              const overdue=dl<0;
+              const urgent=dl>=0&&dl<=3;
+              return<span style={{color:overdue?"#f85149":urgent?"#d29922":T.muted}}>{overdue?` · overdue ${fmd(d)}`:`· due ${fmd(d)}`}</span>;
+            })()}
           </div>
         </div>
-        <div style={{fontFamily:"monospace",fontWeight:700,fontSize:13,color:item.state==="paid"?"#3fb950":item.state==="reserved"?"#d29922":dest.color||"#f85149",flexShrink:0}}>{fmt(item.monto)}</div>
+        <div style={{fontFamily:"monospace",fontWeight:700,fontSize:13,color:item.state==="paid"?T.muted:item.state==="reserved"?"#d29922":dest.color||"#f85149",flexShrink:0,opacity:item.state==="paid"?0.4:1}}>{fmt(item.monto)}</div>
         {(item.destino==="savings_acct"||item.destino==="emergency"||item.destino==="investment"||(item.destino&&item.destino.startsWith("pot_"))||((potsList||[]).some(p=>p.id===item.destino)))&&item.monto>0&&(
           <button
             style={{...mkBTN(),
@@ -1124,6 +1146,7 @@ function App(){
   },[moveOpen]);
   const [snapDetail,setSnapDetail]=useState(null);
   const [expenseSearch,setExpenseSearch]=useState("");
+  const [potsRevealed,setPotsRevealed]=useState(false);
   const [resetConfirm,setResetConfirm]=useState(null);
   const [themePicker,setThemePicker]=useState(false);
   const [resetAllConfirm,setResetAllConfirm]=useState(false);
@@ -1156,16 +1179,38 @@ function App(){
     if("Notification" in window&&Notification.permission==="default"){
       setTimeout(()=>Notification.requestPermission(),4000);
     }
+    // Auto-snapshot: on day 1 of month, dated last day of previous month
+    const now=new Date();
+    const mo=["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
+    if(now.getDate()===1){
+      const prevMonthEnd=new Date(now.getFullYear(),now.getMonth(),0); // last day of prev month
+      const prevMonthStr=mo[prevMonthEnd.getMonth()]+` ${prevMonthEnd.getFullYear()}`;
+      const hasSnap=(data.snapshots||[]).some(s=>s.fecha&&s.fecha.includes(mo[prevMonthEnd.getMonth()])&&s.fecha.includes(String(prevMonthEnd.getFullYear())));
+      if(!hasSnap){
+        const totalCards=data.tarjetas.reduce((s,t)=>n(t.balance)+s,0);
+        const totalLoans=(data.loans||[]).reduce((s,l)=>n(l.balance)+s,0);
+        const snap={id:Date.now(),fecha:prevMonthEnd.toLocaleDateString("en-US",{month:"short",day:"numeric",year:"numeric"}),sobrante:0,deuda:totalCards+totalLoans,totalCards,totalLoans,_auto:true};
+        setData(p=>{
+          const already=(p.snapshots||[]).some(s=>s.fecha&&s.fecha.includes(mo[prevMonthEnd.getMonth()])&&s.fecha.includes(String(prevMonthEnd.getFullYear())));
+          if(already)return p;
+          return{...p,snapshots:[snap,...(p.snapshots||[])].slice(0,24)};
+        });
+        setTimeout(()=>toast_(`📸 ${mo[prevMonthEnd.getMonth()]} snapshot saved`),2000);
+      }
+    }
   },[]);
+  const notifFiredRef=useRef(false);
   useEffect(()=>{
     if(!("Notification" in window)||!data.notifEnabled)return;
     if(Notification.permission==="default"){Notification.requestPermission();}
     if(Notification.permission!=="granted")return;
+    if(notifFiredRef.current)return; // only fire once per session
+    notifFiredRef.current=true;
     const today=new Date();today.setHours(0,0,0,0);
     const fire=(id,nombre,fechaPago,icon="💰")=>{
       if(!fechaPago)return;
       const day=parseInt(fechaPago);if(isNaN(day))return;
-      const due=new Date(today.getFullYear(),today.getMonth(),day);
+      const due=new Date(today.getFullYear(),today.getMonth(),clampDay(today.getFullYear(),today.getMonth(),day));
       if(due<today)due.setMonth(due.getMonth()+1);
       const dl=Math.round((due-today)/(864e5));
       if(dl>3)return;
@@ -1175,15 +1220,13 @@ function App(){
       const msg=dl===0?`${nombre} is DUE TODAY!`:dl===1?`${nombre} is due TOMORROW`:`${nombre} is due in ${dl} days`;
       try{new Notification(`${icon} My Budget`,{body:msg});}catch(e){}
     };
-    // Debts
     [...(data.tarjetas||[]),...(data.loans||[])].forEach(d=>fire(d.id,d.nombre,d.fechaPago,"💳"));
-    // Expenses with due dates
     Object.values(data.periods||{}).forEach(period=>{
       (period.gastos||[]).forEach(g=>{
         if(g.diaPago&&g.state!=="paid")fire(`exp_${g.id}`,g.nombre,String(g.diaPago),"📅");
       });
     });
-  },[data.tarjetas,data.loans,data.periods,data.notifEnabled]);
+  },[data.notifEnabled]);
   const hapticAC=useRef(null);
   const haptic=(type=30)=>{
     // iOS Safari: use AudioContext trick for real haptic feel
@@ -1245,18 +1288,18 @@ function App(){
   // Global pot handler for GastoItem → Pot button
   React.useEffect(()=>{
     window._addToPot=(potId,amount,itemId)=>{
-      const potsList=data.potsList||[];
-      const pot=potsList.find(p=>p.id===potId)||getPotInfo(null,potId);
-      if(!pot)return;
       setData(p=>{
-        const newPotsList=(p.potsList||[]).map(pt=>pt.id===potId?{...pt,balance:(n(pt.balance)||0)+n(amount)}:pt);
+        const pl=p.potsList||[];
+        const pot=pl.find(pt=>pt.id===potId)||getPotInfo(null,potId);
+        const newPotsList=pl.map(pt=>pt.id===potId?{...pt,balance:(n(pt.balance)||0)+n(amount)}:pt);
         const newPeriods={};
         Object.entries(p.periods||{}).forEach(([pid,per])=>{
           newPeriods[pid]={...per,gastos:(per.gastos||[]).map(g=>g.id===itemId?{...g,_potAdded:true}:g)};
         });
+        const name=pot?.name||pot?.label||potId;
+        setTimeout(()=>toast_(`✓ +${fmt(amount)} → ${pot?.icon||"🪣"} ${name}`),0);
         return{...p,potsList:newPotsList,periods:newPeriods};
       });
-      toast_(`✓ +${fmt(amount)} → ${pot.icon||"🪣"} ${pot.name||pot.label}`);
       haptic(20);
     };
     return()=>{delete window._addToPot;};
@@ -1305,7 +1348,10 @@ function App(){
   },[quickOpen]);
   useEffect(()=>{if(!quickPid&&currentPid)setQuickPid(currentPid);},[currentPid]);
   useEffect(()=>{if(currentPid&&!activeCheckPid)setActiveCheckPid(currentPid);},[currentPid]);
-  useEffect(()=>{if(tab==="paychecks"&&!activeCheckPid&&monthPeriods.length>0){const cur=monthPeriods.find(p=>p.isCurrent)||monthPeriods[0];setActiveCheckPid(cur.id);}},[tab]);
+  useEffect(()=>{
+    if(tab==="paychecks"&&!activeCheckPid&&monthPeriods.length>0){const cur=monthPeriods.find(p=>p.isCurrent)||monthPeriods[0];setActiveCheckPid(cur.id);}
+    if(tab!=="overview")setPotsRevealed(false);
+  },[tab]);
   useEffect(()=>{if(!quickCardId&&data.tarjetas.length>0)setQuickCardId(String(data.tarjetas[0].id));},[data.tarjetas]);
   const TABS_ORDER=useMemo(()=>["overview","paychecks","debts","calendar","history","settings"],[]);
   const handleSwipeTouchStart=useCallback(e=>{
@@ -1348,16 +1394,19 @@ function App(){
   },[]);
   // Auto-copy recurring expenses when switching to an empty period
   useEffect(()=>{
-    if(!activeCheckPid||monthPeriods.length<2)return;
+    if(!activeCheckPid)return;
     const curGastos=(data.periods[activeCheckPid]?.gastos)||[];
-    if(curGastos.length>0)return;
-    const otherPids=monthPeriods.filter(p=>p.id!==activeCheckPid).map(p=>p.id);
-    for(const pid of otherPids){
+    // Only copy if period is empty or has no recurring items yet
+    const hasRecurring=curGastos.some(x=>x._recurring);
+    if(hasRecurring)return;
+    // Find most recent other period with recurring items
+    const allPids=Object.keys(data.periods).filter(pid=>pid!==activeCheckPid);
+    for(const pid of allPids){
       const recurring=((data.periods[pid]?.gastos)||[]).filter(x=>x._recurring);
       if(recurring.length>0){
-        const copies=recurring.map(x=>({...x,id:Date.now()+Math.random(),state:"pending",pagado:false,_potAdded:false}));
-        setData(p=>({...p,periods:{...p.periods,[activeCheckPid]:{...(p.periods[activeCheckPid]||{}),gastos:copies}}}));
-        setTimeout(()=>toast_(`🔁 ${copies.length} recurring expense${copies.length>1?"s":""} copied`),100);
+        const copies=recurring.map(x=>({...x,id:Date.now()+Math.random()*1000|0,state:"pending",pagado:false,_potAdded:false}));
+        setData(p=>({...p,periods:{...p.periods,[activeCheckPid]:{...(p.periods[activeCheckPid]||{}),gastos:[...(p.periods[activeCheckPid]?.gastos||[]),...copies]}}}));
+        setTimeout(()=>toast_(`🔁 ${copies.length} recurring copied`),100);
         break;
       }
     }
@@ -1538,7 +1587,7 @@ function App(){
           <span style={{fontFamily:"monospace",fontSize:13,fontWeight:800,color:dst.color}}>{fmt(sub)}</span>
         </div>
         <DragList items={items}
-          renderItem={(item)=>(<GastoItem key={item.id} item={item} pid={pid} editId={editId} setEditId={(id)=>openEditId(id,gastos)} tarjetas={data.tarjetas} potsList={potsList}
+          renderItem={(item)=>(<GastoItem key={item.id} item={item} pid={pid} editId={editId} setEditId={(id)=>openEditId(id,gastos)} tarjetas={data.tarjetas} potsList={potsList} periodDate={periodDate}
             onCycle={id=>cycleState(pid,id)} onLongPress={id=>setReserved(pid,id)}
             onUpdate={(id,f,v)=>updateGasto(pid,id,f,v)}
             onBatchUpdate={(id,fields)=>batchUpdateGasto(pid,id,fields)}
@@ -1559,7 +1608,7 @@ function App(){
     return"#f85149";
   };
 
-  const renderCheckTabGrouped=(pid,gastos)=>{
+  const renderCheckTabGrouped=(pid,gastos,periodDate)=>{
     const fixedItems=[],flexItems=[];
     gastos.forEach(g=>{
       const cat=g.cat||g.destino||"other";
@@ -1606,7 +1655,7 @@ function App(){
               <span style={{fontFamily:"monospace",fontSize:13,fontWeight:800,color:dst.color}}>{fmt(sub)}</span>
             </div>
             <DragList items={sortedItems}
-              renderItem={(item,_,touch)=>(<GastoItem key={item.id} item={item} pid={pid} editId={editId} setEditId={(id)=>openEditId(id,gastos)} tarjetas={data.tarjetas} potsList={potsList}
+              renderItem={(item,_,touch)=>(<GastoItem key={item.id} item={item} pid={pid} editId={editId} setEditId={(id)=>openEditId(id,gastos)} tarjetas={data.tarjetas} potsList={potsList} periodDate={periodDate}
                 onCycle={id=>cycleState(pid,id)} onLongPress={id=>setReserved(pid,id)}
                 onUpdate={(id,f,v)=>updateGasto(pid,id,f,v)}
                 onBatchUpdate={(id,fields)=>batchUpdateGasto(pid,id,fields)}
@@ -1715,7 +1764,7 @@ function App(){
         <input style={{...INP,paddingLeft:30,fontSize:13,padding:"8px 10px 8px 30px"}} placeholder="Search expenses..." value={expenseSearch} onChange={e=>setExpenseSearch(e.target.value)}/>
         {expenseSearch&&<button style={{...BTN,position:"absolute",right:8,top:"50%",transform:"translateY(-50%)",background:"transparent",color:T.muted,fontSize:14,padding:"2px 6px",border:"none"}} onClick={()=>setExpenseSearch("")}>✕</button>}
       </div>}
-      {(()=>{const filtered=expenseSearch?gastos.filter(g=>(g.nombre||"").toLowerCase().includes(expenseSearch.toLowerCase())):gastos;return renderCheckTabGrouped(pid,filtered);})()} 
+      {(()=>{const filtered=expenseSearch?gastos.filter(g=>(g.nombre||"").toLowerCase().includes(expenseSearch.toLowerCase())):gastos;return renderCheckTabGrouped(pid,filtered,payday);})()} 
       {gastos.length===0&&(<div className="anim" style={{textAlign:"center",padding:"28px 20px 20px"}}>
         <svg width="52" height="52" viewBox="0 0 52 52" fill="none" xmlns="http://www.w3.org/2000/svg" style={{margin:"0 auto 12px",display:"block",opacity:0.35}}>
           <rect x="6" y="14" width="40" height="28" rx="6" stroke={T.muted} strokeWidth="2" fill="none"/>
@@ -1750,7 +1799,7 @@ function App(){
       onTouchStart={handleSwipeTouchStart}
       onTouchMove={handleSwipeTouchMove}
       onTouchEnd={handleSwipeTouchEnd}
-      style={{minHeight:"100vh",background:T.bg,color:T.text,fontFamily:"-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif"}}>
+      style={{minHeight:"100vh",background:T.bg,color:T.text,fontFamily:"-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif",paddingTop:urgentDebts.length>0&&!alertDim&&tab!=="debts"?34:0,transition:"padding-top 0.2s"}}>
       <style>{`
         @keyframes tabEnter{from{opacity:0;transform:scale(0.99);}to{opacity:1;transform:scale(1);}}.anim{animation:tabEnter 0.5s cubic-bezier(0.25,0.46,0.45,0.94) both;}@keyframes onboardPulse{0%,100%{box-shadow:0 0 0 0 rgba(88,166,255,0.5);}50%{box-shadow:0 0 0 8px rgba(88,166,255,0);}}.onboard-pulse{animation:onboardPulse 1.8s ease-in-out infinite;border-radius:inherit;}
         @keyframes itemEnter{from{opacity:0;}to{opacity:1;}}
@@ -1780,18 +1829,20 @@ function App(){
         .tabs{display:flex;gap:4px;overflow-x:auto;padding-bottom:2px;-webkit-overflow-scrolling:touch;scrollbar-width:none;margin-bottom:14px;}
         .tabs::-webkit-scrollbar{display:none;}
         .quick-modal-fullscreen{animation:slideInUp 0.22s ease;}
+        @keyframes potsSlideUp{from{opacity:0;transform:translateY(100%);}to{opacity:1;transform:translateY(0);}}
+        .pots-modal{animation:potsSlideUp 0.3s cubic-bezier(0.32,0.72,0,1) both;}
       `}</style>
       {toast&&<div style={{position:"fixed",top:"max(16px, env(safe-area-inset-top, 16px))",left:"50%",transform:"translateX(-50%)",zIndex:9999,background:toast.type==="err"?"#da3633":"#238636",color:"#fff",padding:"10px 20px",borderRadius:24,fontWeight:600,fontSize:13,boxShadow:"0 8px 32px rgba(0,0,0,0.4)",border:`1px solid ${toast.type==="err"?"rgba(248,81,73,0.4)":"rgba(46,160,67,0.4)"}`,whiteSpace:"nowrap",animation:"slideInDown 0.2s ease"}}>{toast.msg}</div>}
       <div id="confetti-container" style={{position:"fixed",inset:0,pointerEvents:"none",zIndex:9998,overflow:"hidden"}}/>
       <style>{`@keyframes slideInDown{from{opacity:0;transform:translateX(-50%) translateY(-12px);}to{opacity:1;transform:translateX(-50%) translateY(0);}}`}</style>
       {urgentDebts.length>0&&!alertDim&&tab!=="debts"&&(
-        <div style={{background:"rgba(248,81,73,0.12)",borderBottom:"1px solid rgba(248,81,73,0.25)",padding:"8px 16px",position:"sticky",top:0,zIndex:100,display:"flex",alignItems:"center",justifyContent:"space-between"}}>
+        <div style={{background:"rgba(248,81,73,0.10)",borderBottom:"1px solid rgba(248,81,73,0.2)",padding:"7px 16px",position:"fixed",top:0,left:0,right:0,zIndex:150,display:"flex",alignItems:"center",justifyContent:"space-between"}}>
           <div style={{display:"flex",alignItems:"center",gap:8}}>
-            <span style={{fontSize:13}}>🔴</span>
+            <span style={{fontSize:12}}>{urgentDebts.some(d=>getDU(d.fechaPago)===0)?"🔴":"🟠"}</span>
             <span style={{fontSize:12,color:"#f85149",fontWeight:600}}>{urgentDebts.length} payment{urgentDebts.length>1?"s":""} due soon</span>
           </div>
           <div style={{display:"flex",gap:8,alignItems:"center"}}>
-            <button style={{...BTN,background:"rgba(248,81,73,0.15)",color:"#f85149",padding:"3px 10px",fontSize:11,fontWeight:600,border:"1px solid rgba(248,81,73,0.3)",borderRadius:8}} onClick={()=>setTab("debts")}>View</button>
+            <button style={{...BTN,background:"rgba(248,81,73,0.15)",color:"#f85149",padding:"3px 10px",fontSize:11,fontWeight:600,border:"1px solid rgba(248,81,73,0.3)",borderRadius:8}} onClick={()=>{setTab("debts");setDebtsFilter(urgentDebts[0]?.tipo==="card"?"cards":"loans");}}>View</button>
             <button style={{...BTN,background:"transparent",color:"#f85149",padding:"3px 8px",fontSize:14,border:"none",opacity:0.6}} onClick={()=>{setAlertDim(true);sessionStorage.setItem("alertDim","1");}}>✕</button>
           </div>
         </div>
@@ -1856,8 +1907,8 @@ function App(){
         const POT_ICONS=["🪣","🏦","✈️","🚗","🏠","🎓","💊","🏖️","🎯","💍","🐾","🎮","👶","🛳️","💰","🔧","🌱","🎸"];
         const POT_COLORS=["#3fb950","#58a6ff","#a78bfa","#ec4899","#f97316","#d29922","#06b6d4","#f43f5e","#10b981","#8b5cf6"];
         return(
-        <div style={{position:"fixed",inset:0,zIndex:300,background:"rgba(0,0,0,0.75)",display:"flex",flexDirection:"column",justifyContent:"flex-end"}} onClick={e=>{if(e.target===e.currentTarget){setMoveOpen(false);setEditingPotId(null);}}} onTouchMove={e=>e.preventDefault()} onTouchStart={e=>e.stopPropagation()}>
-          <div style={{width:"100%",maxWidth:500,margin:"0 auto",background:T.surface,borderRadius:"20px 20px 0 0",border:`1px solid ${T.border}`,maxHeight:"88vh",display:"flex",flexDirection:"column"}}>
+        <div style={{position:"fixed",inset:0,zIndex:300,background:"rgba(0,0,0,0.75)"}} onClick={e=>{if(e.target===e.currentTarget){setMoveOpen(false);setEditingPotId(null);}}}>
+          <div className="pots-modal" style={{position:"fixed",bottom:0,left:0,right:0,width:"100%",maxWidth:500,margin:"0 auto",background:T.surface,borderRadius:"20px 20px 0 0",border:`1px solid ${T.border}`,maxHeight:"88vh",display:"flex",flexDirection:"column"}}>
 
             {/* Header — only title + close, no Hide button */}
             <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",padding:"16px 18px 12px",borderBottom:`1px solid ${T.border}`,flexShrink:0}}>
@@ -1868,62 +1919,133 @@ function App(){
             {/* Scrollable body — does NOT move with keyboard */}
             <div style={{overflowY:"auto",WebkitOverflowScrolling:"touch",padding:"12px 16px",paddingBottom:"max(28px,env(safe-area-inset-bottom,28px))",flex:1}}>
 
-              {/* Pot list — compact rows */}
-              {potsList.map(pot=>{
-                const bal=n(pot.balance)||0;
-                const color=pot.color||"#58a6ff";
-                const isEditing=editingPotId===pot.id;
-                const isSelected=moveTo===pot.id;
-                return(
-                <div key={pot.id} style={{marginBottom:6,borderRadius:12,border:`1px solid ${isSelected?color+"66":T.border}`,background:isSelected?color+"0d":T.surface2,overflow:"hidden",transition:"border-color 0.2s,background 0.2s"}}>
-                  {/* Compact pot row */}
-                  <div style={{display:"flex",alignItems:"center",gap:10,padding:"9px 12px"}}>
-                    <span style={{fontSize:18,flexShrink:0,cursor:"pointer"}} onClick={()=>setEditingPotId(isEditing?null:pot.id)}>{pot.icon||"🪣"}</span>
-                    {/* Tap name → edit */}
-                    <div style={{flex:1,minWidth:0,cursor:"pointer"}} onClick={()=>{setMoveTo(pot.id);setEditingPotId(isEditing?null:pot.id);}}>
-                      <div style={{fontSize:13,fontWeight:700,color:T.text}}>{pot.name}</div>
-                      <div style={{fontSize:11,fontFamily:"monospace",fontWeight:700,color:data.potsHidden?"#8b949e":color,opacity:data.potsHidden?0.5:1,transition:"opacity 0.12s"}}>
-                        {data.potsHidden?"••••":fmt(bal)}
-                      </div>
-                    </div>
-                    {/* + button only */}
-                    <button style={{...BTN,width:30,height:30,borderRadius:9,background:"rgba(63,185,80,0.12)",color:"#3fb950",border:"1px solid rgba(63,185,80,0.3)",fontSize:18,display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0}}
-                      onMouseDown={e=>e.stopPropagation()} onClick={e=>{e.stopPropagation();setMoveTo(pot.id);setMoveMode("add");setEditingPotId(null);}}>+</button>
-                    {/* Delete */}
-                    <button style={{...BTN,width:30,height:30,borderRadius:9,background:"rgba(248,81,73,0.08)",color:"#f85149",border:"1px solid rgba(248,81,73,0.2)",fontSize:14,display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0}}
-                      onMouseDown={e=>e.stopPropagation()} onClick={e=>{e.stopPropagation();
-                        if(window.confirm(`Delete "${pot.name}"?`)){
-                          setData(p=>({...p,potsList:(p.potsList||[]).filter(pt=>pt.id!==pot.id)}));
-                          if(moveTo===pot.id)setMoveTo(potsList.find(p2=>p2.id!==pot.id)?.id||"");
-                        }
-                      }}>🗑</button>
-                  </div>
+              {/* Pot list — swipe to edit/delete */}
+              {(()=>{
+                // swipe state per pot stored in a ref to avoid re-renders
+                if(!window._potSwipe)window._potSwipe={};
+                return potsList.map(pot=>{
+                  const bal=n(pot.balance)||0;
+                  const color=pot.color||"#58a6ff";
+                  const isEditing=editingPotId===pot.id;
+                  const isSelected=moveTo===pot.id;
+                  const swRef=window._potSwipe[pot.id]||(window._potSwipe[pot.id]={x:0,startX:0,startY:0,dir:null,active:false});
 
-                  {/* Edit panel — with Save button */}
-                  {isEditing&&<div style={{padding:"0 12px 12px",borderTop:`1px solid ${T.border}`,background:T.surface,animation:"editOpen 0.25s ease both"}}>
-                    <div style={{marginTop:10,marginBottom:8}}>
-                      <div style={{fontSize:9,color:T.muted,marginBottom:4,letterSpacing:1}}>NAME</div>
-                      <input style={{...INP,fontSize:13}} value={pot.name}
-                        onChange={e=>setData(p=>({...p,potsList:(p.potsList||[]).map(pt=>pt.id===pot.id?{...pt,name:e.target.value}:pt)}))}
-                        placeholder="Pot name" autoFocus/>
+                  const onTS=e=>{
+                    const t=e.touches[0];
+                    swRef.startX=t.clientX;swRef.startY=t.clientY;swRef.dir=null;swRef.active=false;
+                  };
+                  const onTM=e=>{
+                    const dx=e.touches[0].clientX-swRef.startX;
+                    const dy=e.touches[0].clientY-swRef.startY;
+                    if(!swRef.dir){if(Math.abs(dx)<6&&Math.abs(dy)<6)return;swRef.dir=Math.abs(dx)>Math.abs(dy)?"h":"v";}
+                    if(swRef.dir!=="h")return;
+                    swRef.active=true;if(e.cancelable)e.preventDefault();
+                    const el=document.getElementById("pot-row-"+pot.id);
+                    if(el){el.style.transition="none";el.style.transform=`translateX(${Math.max(-70,Math.min(60,dx))}px)`;}
+                  };
+                  const doSwipeEnd=(dx,potId,potName)=>{
+                    const el=document.getElementById("pot-row-"+potId);
+                    if(el){el.style.transition="transform 0.25s cubic-bezier(0.34,1.2,0.64,1)";el.style.transform="translateX(0px)";}
+                    if(dx<-50){
+                      setEditingPotId(isEditing?null:potId);setMoveTo(potId);
+                    } else if(dx>40){
+                      if(window.confirm(`Delete "${potName}"?`)){
+                        setData(p=>({...p,potsList:(p.potsList||[]).filter(pt=>pt.id!==potId)}));
+                        if(moveTo===potId)setMoveTo(potsList.find(p2=>p2.id!==potId)?.id||"");
+                      }
+                    }
+                    swRef.active=false;
+                  };
+                  const onTE=e=>{
+                    if(!swRef.active)return;
+                    doSwipeEnd(e.changedTouches[0].clientX-swRef.startX,pot.id,pot.name);
+                  };
+                  const onMS=e=>{
+                    if(e.button!==0)return;
+                    swRef.startX=e.clientX;swRef.startY=e.clientY;swRef.dir=null;swRef.active=false;
+                    const onMM=ev=>{
+                      const dx=ev.clientX-swRef.startX;
+                      const dy=ev.clientY-swRef.startY;
+                      if(!swRef.dir){if(Math.abs(dx)<6&&Math.abs(dy)<6)return;swRef.dir=Math.abs(dx)>Math.abs(dy)?"h":"v";}
+                      if(swRef.dir!=="h")return;
+                      swRef.active=true;
+                      const el=document.getElementById("pot-row-"+pot.id);
+                      if(el){el.style.transition="none";el.style.transform=`translateX(${Math.max(-70,Math.min(60,dx))}px)`;}
+                    };
+                    const onMU=ev=>{
+                      window.removeEventListener("mousemove",onMM);
+                      window.removeEventListener("mouseup",onMU);
+                      if(!swRef.active)return;
+                      doSwipeEnd(ev.clientX-swRef.startX,pot.id,pot.name);
+                    };
+                    window.addEventListener("mousemove",onMM);
+                    window.addEventListener("mouseup",onMU);
+                  };
+
+                  return(
+                  <div key={pot.id} className="expense-row" style={{marginBottom:6,position:"relative",borderRadius:12,overflow:"hidden",border:`1.5px solid ${isSelected?color+"88":T.border}`,transition:"border-color 0.2s"}}>
+                    {/* Action buttons behind */}
+                    <div style={{position:"absolute",inset:0,display:"flex"}}>
+                      <div style={{width:60,background:"#1e3a5f",display:"flex",alignItems:"center",justifyContent:"center",fontSize:16,cursor:"pointer"}}
+                        onClick={()=>{setEditingPotId(isEditing?null:pot.id);setMoveTo(pot.id);}}>✏️</div>
+                      <div style={{flex:1,background:T.surface2}}/>
+                      <div style={{width:70,background:"#7f1d1d",display:"flex",alignItems:"center",justifyContent:"center",fontSize:16,cursor:"pointer"}}
+                        onClick={()=>{if(window.confirm(`Delete "${pot.name}"?`)){setData(p=>({...p,potsList:(p.potsList||[]).filter(pt=>pt.id!==pot.id)}));if(moveTo===pot.id)setMoveTo(potsList.find(p2=>p2.id!==pot.id)?.id||"");}}}>🗑</div>
                     </div>
-                    <div style={{marginBottom:8}}>
-                      <div style={{fontSize:9,color:T.muted,marginBottom:6,letterSpacing:1}}>ICON</div>
-                      <div style={{display:"flex",flexWrap:"wrap",gap:5}}>
-                        {POT_ICONS.map(ic=><button key={ic} style={{...BTN,width:34,height:34,borderRadius:8,fontSize:17,background:pot.icon===ic?`${color}33`:T.surface2,border:`1px solid ${pot.icon===ic?color:T.border}`,transition:"all 0.15s"}} onClick={()=>setData(p=>({...p,potsList:(p.potsList||[]).map(pt=>pt.id===pot.id?{...pt,icon:ic}:pt)}))}>{ic}</button>)}
+
+                    {/* Main row — NO border, NO borderRadius, clips to parent */}
+                    <div id={"pot-row-"+pot.id}
+                      style={{display:"flex",alignItems:"center",gap:10,padding:"10px 12px",cursor:"pointer",
+                        background:isSelected?T.surface:T.surface2,
+                        position:"relative",zIndex:1,touchAction:"pan-y"}}
+                      onTouchStart={onTS} onTouchMove={onTM} onTouchEnd={onTE} onMouseDown={onMS}
+                      onClick={()=>{if(!swRef.active){setMoveTo(pot.id);setEditingPotId(null);}}}
+                    >
+                      <span style={{fontSize:18,flexShrink:0}}>{pot.icon||"🪣"}</span>
+                      <div style={{flex:1,minWidth:0}}>
+                        <div style={{fontSize:13,fontWeight:700,color:isSelected?color:T.text}}>{pot.name}</div>
+                        {/* Always show balance inside modal */}
+                        <div style={{fontSize:11,fontFamily:"monospace",fontWeight:700,color:color,opacity:0.85}}>{fmt(bal)}</div>
                       </div>
+                      {isSelected&&<div style={{width:6,height:6,borderRadius:"50%",background:color,flexShrink:0,boxShadow:`0 0 6px ${color}`}}/>}
                     </div>
-                    <div style={{marginBottom:12}}>
-                      <div style={{fontSize:9,color:T.muted,marginBottom:6,letterSpacing:1}}>COLOR</div>
-                      <div style={{display:"flex",gap:7,flexWrap:"wrap"}}>
-                        {POT_COLORS.map(c=><button key={c} style={{...BTN,width:26,height:26,borderRadius:"50%",background:c,border:pot.color===c?`3px solid ${T.text}`:`2px solid transparent`,transform:pot.color===c?"scale(1.25)":"scale(1)",transition:"all 0.15s"}} onClick={()=>setData(p=>({...p,potsList:(p.potsList||[]).map(pt=>pt.id===pot.id?{...pt,color:c}:pt)}))}/>)}
+
+                    {/* Edit panel */}
+                    {isEditing&&<div style={{padding:"0 12px 12px",borderTop:`1px solid ${T.border}`,background:T.surface,animation:"editOpen 0.25s ease both"}}>
+                      <div style={{marginTop:10,marginBottom:8}}>
+                        <div style={{fontSize:9,color:T.muted,marginBottom:4,letterSpacing:1}}>NAME</div>
+                        <input style={{...INP,fontSize:13}} value={pot.name}
+                          onChange={e=>setData(p=>({...p,potsList:(p.potsList||[]).map(pt=>pt.id===pot.id?{...pt,name:e.target.value}:pt)}))}
+                          placeholder="Pot name"/>
                       </div>
-                    </div>
-                    <button style={{...BTN,width:"100%",padding:"10px",background:"#238636",color:"#fff",fontSize:13,fontWeight:700,borderRadius:10}}
-                      onClick={()=>setEditingPotId(null)}>✓ Save</button>
-                  </div>}
-                </div>);
-              })}
+                      <div style={{marginBottom:8}}>
+                        <div style={{fontSize:9,color:T.muted,marginBottom:6,letterSpacing:1}}>ICON</div>
+                        <div style={{display:"flex",flexWrap:"wrap",gap:5}}>
+                          {POT_ICONS.map(ic=><button key={ic} style={{...BTN,width:34,height:34,borderRadius:8,fontSize:17,background:pot.icon===ic?`${color}33`:T.surface2,border:`1px solid ${pot.icon===ic?color:T.border}`,transition:"all 0.15s"}} onClick={()=>setData(p=>({...p,potsList:(p.potsList||[]).map(pt=>pt.id===pot.id?{...pt,icon:ic}:pt)}))}>{ic}</button>)}
+                        </div>
+                      </div>
+                      <div style={{marginBottom:12}}>
+                        <div style={{fontSize:9,color:T.muted,marginBottom:6,letterSpacing:1}}>COLOR</div>
+                        <div style={{display:"flex",gap:7,flexWrap:"wrap"}}>
+                          {POT_COLORS.map(c=><button key={c} style={{...BTN,width:26,height:26,borderRadius:"50%",background:c,border:pot.color===c?`3px solid ${T.text}`:`2px solid transparent`,transform:pot.color===c?"scale(1.25)":"scale(1)",transition:"all 0.15s"}} onClick={()=>setData(p=>({...p,potsList:(p.potsList||[]).map(pt=>pt.id===pot.id?{...pt,color:c}:pt)}))}/>)}
+                        </div>
+                      </div>
+                      <div style={{display:"flex",gap:8}}>
+                        <button style={{...BTN,flex:1,padding:"10px",background:"#238636",color:"#fff",fontSize:13,fontWeight:700,borderRadius:10}}
+                          onClick={()=>setEditingPotId(null)}>✓ Save</button>
+                        <button style={{...BTN,padding:"10px 14px",background:T.surface2,color:T.muted,fontSize:12,borderRadius:10,border:`1px solid ${T.border}`}}
+                          onClick={()=>{
+                            if(!pot.name||pot.name==="New Pot"){
+                              setData(p=>({...p,potsList:(p.potsList||[]).filter(pt=>pt.id!==pot.id)}));
+                              if(moveTo===pot.id)setMoveTo(potsList.find(p2=>p2.id!==pot.id)?.id||"");
+                            }
+                            setEditingPotId(null);
+                          }}>Cancel</button>
+                      </div>
+                    </div>}
+                  </div>);
+                });
+              })()}
 
               {/* Add new pot */}
               <button style={{...BTN,width:"100%",padding:"10px",marginBottom:14,background:`${T.accent}0d`,color:T.accent,fontSize:13,fontWeight:600,border:`1px dashed ${T.accent}33`,borderRadius:12,display:"flex",alignItems:"center",justifyContent:"center",gap:6}}
@@ -2293,39 +2415,44 @@ function App(){
           {/* RESERVES */}
           {(()=>{
             const potsList=data.potsList||[];
-            const hidden=data.potsHidden||false;
+            // hidden=true means privacy mode ON: show •••• unless user tapped to reveal
+            const hidden=data.potsHidden&&!potsRevealed;
             const totalPots=potsList.reduce((s,p)=>s+n(p.balance),0);
             return(<div style={{...CARD,padding:"13px 16px",marginBottom:12}}>
               <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:10}}>
                 <div style={{fontSize:10,color:T.muted,letterSpacing:1.5,fontWeight:700}}>🪣 POTS</div>
-                <div style={{display:"flex",alignItems:"center",gap:8}}>
-                  <button style={{...BTN,padding:"3px 8px",fontSize:10,background:T.surface2,color:T.muted,border:`1px solid ${T.border}`,borderRadius:7}} onClick={()=>setData(p=>({...p,potsHidden:!p.potsHidden}))}>{hidden?"👁 Show":"🙈 Hide"}</button>
-                  <button style={{...BTN,padding:"3px 8px",fontSize:10,background:`${T.accent}14`,color:T.accent,border:`1px solid ${T.accent}33`,borderRadius:7}} onClick={()=>{setMoveTo(potsList[0]?.id||"");setMoveTransferTo("");setMoveMode("add");setMoveOpen(true);}}>Manage</button>
-                </div>
+                <button style={{...BTN,padding:"3px 10px",fontSize:10,background:`${T.accent}14`,color:T.accent,border:`1px solid ${T.accent}33`,borderRadius:7}} onClick={()=>{setMoveTo(potsList[0]?.id||"");setEditingPotId(null);setMoveTransferTo("");setMoveMode("add");setMoveOpen(true);}}>Manage</button>
               </div>
               {potsList.length===0&&<div style={{fontSize:11,color:T.muted,textAlign:"center",padding:"8px 0"}}>No pots yet — tap Manage to add one</div>}
               {potsList.map((pot,i)=>{
                 const bal=n(pot.balance)||0;
                 const color=pot.color||"#58a6ff";
-                const displayBal=hidden?"••••":fmt(bal);
-                return(<div key={pot.id} style={{paddingBottom:i<potsList.length-1?9:0,marginBottom:i<potsList.length-1?9:0,borderBottom:i<potsList.length-1?`1px solid ${T.border}`:"none"}}>
+                return(<div key={pot.id} style={{paddingBottom:i<potsList.length-1?8:0,marginBottom:i<potsList.length-1?8:0,borderBottom:i<potsList.length-1?`1px solid ${T.border}`:"none"}}>
                   <div style={{display:"flex",alignItems:"center",gap:0}}>
-                    <span style={{fontSize:12,marginRight:5,flexShrink:0}}>{pot.icon||"🪣"}</span>
-                    <span style={{fontSize:11,fontWeight:600,color:T.text,flex:1}}>{pot.name}</span>
-                    <div style={{display:"flex",alignItems:"center",gap:6,flexShrink:0}}>
-                      <button style={{...BTN,width:28,height:28,borderRadius:8,background:"rgba(63,185,80,0.12)",color:"#3fb950",border:"1px solid rgba(63,185,80,0.3)",fontSize:16,display:"flex",alignItems:"center",justifyContent:"center"}} onClick={()=>{setMoveTo(pot.id);setMoveMode("add");setMoveOpen(true);}}>+</button>
-                      <button onClick={()=>setData(p=>({...p,potsHidden:!p.potsHidden}))}
-                        style={{...BTN,fontFamily:"monospace",fontWeight:800,fontSize:13,color:bal>0?color:T.muted,minWidth:56,textAlign:"center",background:"transparent",border:"none",padding:"2px 4px",transition:"opacity 0.12s",opacity:hidden?0.5:1}}>
-                        {displayBal}
+                    <span style={{fontSize:12,marginRight:6,flexShrink:0}}>{pot.icon||"🪣"}</span>
+                    {/* Tap name → open transaction modal */}
+                    <span style={{fontSize:11,fontWeight:600,color:T.text,flex:1,cursor:"pointer"}}
+                      onClick={()=>{setMoveTo(pot.id);setEditingPotId(null);setMoveMode("add");setMoveOpen(true);}}>
+                      {pot.name}
+                    </span>
+                    <div style={{display:"flex",alignItems:"center",gap:8,flexShrink:0}}>
+                      {/* Tap balance → reveal (only when potsHidden is ON) */}
+                      <button onClick={()=>{if(data.potsHidden)setPotsRevealed(r=>!r);}}
+                        style={{...BTN,fontFamily:"monospace",fontWeight:800,fontSize:13,color:bal>0?color:T.muted,background:"transparent",border:"none",padding:"2px 6px",transition:"opacity 0.12s",opacity:hidden?0.4:1,letterSpacing:hidden?1.5:0,cursor:data.potsHidden?"pointer":"default"}}>
+                        {hidden?"••••":fmt(bal)}
                       </button>
-                      <button style={{...BTN,width:28,height:28,borderRadius:8,background:"rgba(248,81,73,0.1)",color:"#f85149",border:"1px solid rgba(248,81,73,0.25)",fontSize:16,display:"flex",alignItems:"center",justifyContent:"center"}} onClick={()=>{setMoveTo(pot.id);setMoveMode("use");setMoveOpen(true);}}>−</button>
+                      <button style={{...BTN,width:26,height:26,borderRadius:8,background:"rgba(63,185,80,0.12)",color:"#3fb950",border:"1px solid rgba(63,185,80,0.3)",fontSize:15,display:"flex",alignItems:"center",justifyContent:"center"}}
+                        onClick={()=>{setMoveTo(pot.id);setMoveMode("add");setEditingPotId(null);setMoveOpen(true);}}>+</button>
                     </div>
                   </div>
                 </div>);
               })}
-              {potsList.length>0&&<div style={{marginTop:10,paddingTop:8,borderTop:`1px solid ${T.border}`,display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+              {potsList.length>0&&<div style={{marginTop:9,paddingTop:8,borderTop:`1px solid ${T.border}`,display:"flex",justifyContent:"space-between",alignItems:"center"}}>
                 <span style={{fontSize:10,color:T.muted}}>Total</span>
-                <span style={{fontFamily:"monospace",fontWeight:800,fontSize:13,color:T.accent,transition:"opacity 0.12s",opacity:hidden?0.5:1}}>{hidden?"••••":fmt(totalPots)}</span>
+                <button onClick={()=>{if(data.potsHidden)setPotsRevealed(r=>!r);}}
+                  style={{...BTN,fontFamily:"monospace",fontWeight:800,fontSize:13,color:T.accent,background:"transparent",border:"none",padding:0,transition:"opacity 0.12s",opacity:hidden?0.4:1,cursor:data.potsHidden?"pointer":"default"}}>
+                  {hidden?"••••":fmt(totalPots)}
+                </button>
               </div>}
             </div>);
           })()}
@@ -2365,7 +2492,20 @@ function App(){
           {data.proximoCobro&&(()=>{
             const pid=activeCheckPid||(monthPeriods.find(p=>p.isCurrent)||monthPeriods[0])?.id;
             const period=monthPeriods.find(p=>p.id===pid)||monthPeriods[0];
-            return period?renderCheckTab(period):null;
+            const curIdx=monthPeriods.findIndex(p=>p.id===pid);
+            const prevP=curIdx>0?monthPeriods[curIdx-1]:null;
+            const nextP=curIdx<monthPeriods.length-1?monthPeriods[curIdx+1]:null;
+            return(<>
+              {period&&renderCheckTab(period)}
+              {monthPeriods.length>1&&<div style={{display:"flex",gap:8,marginTop:4,paddingBottom:8}}>
+                <button style={{...BTN,flex:1,padding:"10px",background:prevP?T.surface2:"transparent",color:prevP?T.muted:"transparent",border:`1px solid ${prevP?T.border:"transparent"}`,borderRadius:11,fontSize:12,display:"flex",alignItems:"center",justifyContent:"center",gap:5}} onClick={()=>prevP&&setActiveCheckPid(prevP.id)} disabled={!prevP}>
+                  {prevP&&<>← {prevP.label}</>}
+                </button>
+                <button style={{...BTN,flex:1,padding:"10px",background:nextP?T.surface2:"transparent",color:nextP?T.muted:"transparent",border:`1px solid ${nextP?T.border:"transparent"}`,borderRadius:11,fontSize:12,display:"flex",alignItems:"center",justifyContent:"center",gap:5}} onClick={()=>nextP&&setActiveCheckPid(nextP.id)} disabled={!nextP}>
+                  {nextP&&<>{nextP.label} →</>}
+                </button>
+              </div>}
+            </>);
           })()}
         </div>)}
         {tab==="debts"&&(()=>{
@@ -3020,7 +3160,7 @@ function App(){
             <div style={{display:"flex",alignItems:"center",justifyContent:"space-between"}}>
               <div>
                 <div style={{fontSize:12,color:T.text,fontWeight:600,marginBottom:2}}>Hide pot balances</div>
-                <div style={{fontSize:10,color:T.muted}}>{data.potsHidden?"Balances hidden — tap any amount to reveal":"Balances visible"}</div>
+                <div style={{fontSize:10,color:T.muted}}>{data.potsHidden?"Tap balance to reveal — hides again on next open":"Always visible — no privacy mask"}</div>
               </div>
               <button style={{...BTN,width:52,height:28,borderRadius:14,padding:0,position:"relative",
                 background:data.potsHidden?T.accent:"rgba(255,255,255,0.1)",
