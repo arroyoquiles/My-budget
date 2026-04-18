@@ -658,7 +658,7 @@ const GastoItem=memo(({item,pid,editId,setEditId,tarjetas,loans,potsList,periodD
       {/* PAID WITH — locked to cash for pots */}
       <div style={{marginBottom:10}}>
         <div style={{fontSize:10,color:T.muted,marginBottom:6}}>PAID WITH</div>
-        {(potsList||[]).find(p=>p.id===localDestino)
+        {(potsList||[]).find(p=>p.id===localDestino)&&!localCat
           ? <div style={{fontSize:11,color:T.muted,padding:"6px 10px",background:T.surface2,borderRadius:9,border:`1px solid ${T.border}`}}>💵 Cash / Check — pots are funded from your account</div>
           : <div style={{display:"flex",gap:6,flexWrap:"wrap"}}>
               <button style={{...BTN,padding:"6px 12px",fontSize:11,borderRadius:9,
