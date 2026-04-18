@@ -44,6 +44,9 @@
     *{box-sizing:border-box;margin:0;padding:0;}
     html,body{height:100%;}
     body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;-webkit-tap-highlight-color:transparent;overscroll-behavior:none;transition:background 0.2s,color 0.2s;}
+    *{-webkit-tap-highlight-color:transparent;}
+    div,span{-webkit-user-select:none;user-select:none;}
+    input,textarea,select{-webkit-user-select:text;user-select:text;}
     body.dark{background:#080c14;color:#e6edf3;}
     body.light{background:#f0f4f8;color:#1c2128;}
     body.violet{background:#0a0814;color:#e6edf3;}
@@ -65,7 +68,7 @@
     .confetti-piece{position:fixed;width:8px;height:8px;top:-10px;animation:confettiFall linear forwards;pointer-events:none;z-index:9998;border-radius:2px;}
     ::-webkit-scrollbar{width:3px;}::-webkit-scrollbar-thumb{background:#30363d;}
     input[type=text],input[type=number],input[type=email],input[type=date],select,textarea{font-size:16px!important;-webkit-text-size-adjust:100%!important;}
-    .expense-row{user-select:none;-webkit-user-select:none;-webkit-touch-callout:none;-webkit-tap-highlight-color:transparent;}
+    .expense-row{user-select:none;-webkit-user-select:none;-webkit-touch-callout:none;}
     .dest-picker{display:grid;grid-template-columns:repeat(2,1fr);gap:5px;}
     /* Full-screen quick modal */
     .quick-modal-fullscreen{
@@ -151,7 +154,7 @@ const DEST = {
   lifestyle:    {label:"Lifestyle",      icon:"✨",color:"#a78bfa",bg:"rgba(167,139,250,0.1)", border:"rgba(167,139,250,0.3)"},
   other:        {label:"Other",         icon:"📌",color:"#8b949e",bg:"transparent",            border:"#21262d"},
 };
-const DEST_ORDER = ["credit_card","rent","auto","utilities","insurance","groceries","gas","subscription","dining","entertainment","medical","lifestyle","temp","other"];
+const DEST_ORDER = ["credit_card","rent","auto","utilities","gas","subscription","insurance","temp","other"];
 const POTS = {
   savings_acct:{label:"Savings",   icon:"🏦",color:"#3fb950",bg:"rgba(63,185,80,0.1)"},
   emergency:   {label:"Emergency", icon:"🆘",color:"#06b6d4",bg:"rgba(6,182,212,0.1)"},
@@ -223,11 +226,12 @@ const getLoanColor=(nombre)=>{
 };
 const DORDER=["rent","auto","insurance","utilities","gas","credit_card","groceries","subscription","dining","entertainment","medical","lifestyle","temp","other"];
 const DUE_DAY_CATS=new Set(["credit_card","rent","utilities","insurance","subscription","auto","medical"]);
-const gds=(d,r,cardObj,potsList)=>{
+const gds=(d,r,cardObj,potsList,customLabels)=>{
   if(d==="credit_card"&&r&&CC[r])return{...DEST.credit_card,...CC[r],label:r};
   if(d==="credit_card"&&cardObj&&cardObj._vc)return{...DEST.credit_card,...cardObj._vc,label:r||cardObj.nombre||"Credit Card"};
   if(d==="credit_card"&&r)return{...DEST.credit_card,label:r};
-  if(potsList&&d){const pot=(potsList).find(p=>p.id===d);if(pot){const c=pot.color||"#58a6ff";return{label:pot.name,icon:pot.icon||"🪣",color:c,bg:c+"1a",border:c+"44"};}}
+  if(potsList&&d){const pot=potsList.find(p=>p.id===d);if(pot){const c=pot.color||"#58a6ff";return{label:pot.name,icon:pot.icon||"🪣",color:c,bg:c+"1a",border:c+"44"};}}
+  if(customLabels&&d){const cl=customLabels.find(l=>l.id===d);if(cl)return{label:cl.name,icon:cl.icon||"🏷️",color:"#a78bfa",bg:"rgba(167,139,250,0.12)",border:"rgba(167,139,250,0.4)"};} 
   return DEST[d]||DEST.other;
 };
 const fmt=v=>new Intl.NumberFormat("en-US",{style:"currency",currency:"USD",maximumFractionDigits:0}).format(v||0);
@@ -254,13 +258,12 @@ const gdf=dia=>{
   if(c<h){m++;if(m>11){m=0;y++;}return new Date(y,m,clampDay(y,m,d));}
   return c;
 };
-// Period-aware: if due day < payday day, it's next month (e.g. payday Apr 15, due 1 = May 1)
+// Period-aware: if due day <= payday day, it's next month
 const gdfPeriod=(dia,periodDate)=>{
   if(!dia||!periodDate)return gdf(dia);
   const d=parseInt(dia);
   const ref=new Date(periodDate);
   let y=ref.getFullYear(),m=ref.getMonth();
-  // If due day is before or equal to payday day, it's the next month
   if(d<=ref.getDate()){m++;if(m>11){m=0;y++;}}
   return new Date(y,m,clampDay(y,m,d));
 };
@@ -399,7 +402,7 @@ const migrate=raw=>{
   if(!raw)return null;
   const dm={savings:"savings_acct",directo:"rent",temporal:"temp",ninguno:"other",tarjeta:"credit_card",savings_acct:"savings_acct",credit_card:"credit_card",rent:"rent",utilities:"utilities",auto:"auto",insurance:"insurance",groceries:"groceries",subscription:"subscription",gas:"gas",emergency:"emergency",investment:"investment",temp:"temp",dining:"dining",entertainment:"entertainment",medical:"medical",other:"other"};
   const cm={carro:"auto",vivienda:"rent",servicios:"subscription",gas:"gas",tarjeta:"credit_card",comida:"groceries",otro:"other",auto:"auto",rent:"rent",subscription:"subscription",credit_card:"credit_card",groceries:"groceries",other:"other",insurance:"insurance",utilities:"utilities",dining:"dining",entertainment:"entertainment",medical:"medical",lifestyle:"lifestyle"};
-  const mg=g=>({...g,cat:cm[g.cat]||cm[g.categoria]||"other",destino:dm[g.destino]||"other",diaPago:g.diaPago||null,tarjetaRef:g.tarjetaRef||"",state:g.state||(g.pagado?"paid":"pending"),_quick:g._quick||false});
+  const mg=g=>({...g,cat:cm[g.cat]||cm[g.categoria]||"other",destino:dm[g.destino]||(g.destino&&(g.destino.startsWith("label_")||g.destino.startsWith("pot_"))?g.destino:"other"),diaPago:g.diaPago||null,tarjetaRef:g.tarjetaRef||"",state:g.state||(g.pagado?"paid":"pending"),_quick:g._quick||false});
   const anchor=raw.proximoCobro||"";
   const freq=raw.payFreq||"biweekly"; // used internally for period calculation only
   let periods=raw.periods||{};
@@ -458,6 +461,7 @@ const migrate=raw=>{
     ahorro:raw.ahorro||null,
     _sa:raw._sa||"",
     notifEnabled:raw.notifEnabled!==false,
+    customLabels:raw.customLabels||[],
   };
 };
 const DD={
@@ -475,6 +479,7 @@ const DD={
   ],
   potsHidden:true,snapshots:[],ahorro:null,_sa:"",
   notifEnabled:true,
+  customLabels:[],
 };
 const loadData=()=>{
   try{
@@ -521,8 +526,8 @@ const DragList=memo(({items,renderItem})=>{
   return(<div>{items.map((item,i)=>(<div key={item.id}>{renderItem(item,i,{})}</div>))}</div>);
 });
 const getCatIcon=(cat)=>CICONS[cat]||"📌";
-const GastoItem=memo(({item,pid,editId,setEditId,tarjetas,potsList,periodDate,selectedItems,onToggleSelect,onCycle,onLongPress,onUpdate,onBatchUpdate,onRemove,T})=>{
-  const dest=gds(item.destino,item.tarjetaRef,null,potsList);
+const GastoItem=memo(({item,pid,editId,setEditId,tarjetas,potsList,periodDate,customLabels,onAddCustomLabel,onCycle,onLongPress,onUpdate,onBatchUpdate,onRemove,T})=>{
+  const dest=gds(item.destino,item.tarjetaRef,null,potsList,customLabels);
   const INP=mkINP(T),BTN=mkBTN(),CARD=mkCARD(T);
   const [swipeX,setSwipeX]=useState(0);
   const [editingAmt,setEditingAmt]=useState(false);
@@ -531,6 +536,8 @@ const GastoItem=memo(({item,pid,editId,setEditId,tarjetas,potsList,periodDate,se
   // Local edit state - buffers changes, commits on save
   const [localDestino,setLocalDestino]=useState(item.destino);
   const [localTarjetaRef,setLocalTarjetaRef]=useState(item.tarjetaRef||"");
+  const [newLabelInput,setNewLabelInput]=useState(false);
+  const [newLabelName,setNewLabelName]=useState("");
   const isEditing=editId===item.id;
   React.useEffect(()=>{if(isEditing){setLocalDestino(item.destino);setLocalTarjetaRef(item.tarjetaRef||"");}}, [isEditing]);
   const swipeRef=useRef({startX:0,startY:0,dir:null,active:false});
@@ -538,7 +545,7 @@ const GastoItem=memo(({item,pid,editId,setEditId,tarjetas,potsList,periodDate,se
   const tapTimer=useRef(null);
   const longPressed=useRef(false);
   const handleCircleTap=()=>{
-    if(editingAmt)return; // don't toggle paid/reserved when editing amount
+    if(editingAmt)return;
     if(longPressed.current){longPressed.current=false;return;}
     const now=Date.now();
     if(now-lastTap.current<300){
@@ -608,6 +615,38 @@ const GastoItem=memo(({item,pid,editId,setEditId,tarjetas,potsList,periodDate,se
               {pot.icon||"🪣"} {pot.name}
             </button>);
           })}
+          {(customLabels||[]).map(cl=>{
+            const isSelected=localDestino===cl.id;
+            return(<button key={cl.id} style={{cursor:"pointer",border:"none",borderRadius:10,fontFamily:"inherit",fontWeight:600,WebkitTapHighlightColor:"transparent",padding:"7px 9px",fontSize:11,textAlign:"left",background:isSelected?"rgba(167,139,250,0.15)":"#21262d",color:isSelected?"#a78bfa":T.muted,border:`1px solid ${isSelected?"rgba(167,139,250,0.5)":T.border}`,transition:"background 0.1s, color 0.1s, border-color 0.1s",whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}
+              onMouseDown={e=>{e.preventDefault();setLocalDestino(cl.id);setLocalTarjetaRef("");}}>
+              {cl.icon||"🏷️"} {cl.name}
+            </button>);
+          })}
+          {newLabelInput
+            ? <div style={{display:"flex",gap:4,gridColumn:"1/-1"}}>
+                <input autoFocus style={{...INP,flex:1,fontSize:11,padding:"6px 8px"}}
+                  placeholder="Label name..."
+                  value={newLabelName}
+                  onChange={e=>setNewLabelName(e.target.value)}
+                  onKeyDown={e=>{
+                    if(e.key==="Enter"&&newLabelName.trim()){
+                      const id="label_"+Date.now();
+                      onAddCustomLabel&&onAddCustomLabel(newLabelName.trim(),id);
+                      setLocalDestino(id);
+                      setNewLabelName("");setNewLabelInput(false);
+                    }
+                    if(e.key==="Escape"){setNewLabelInput(false);setNewLabelName("");}
+                  }}/>
+                <button style={{...{cursor:"pointer",border:"none",borderRadius:8,fontFamily:"inherit",fontWeight:700},background:"#238636",color:"#fff",padding:"6px 10px",fontSize:11,WebkitTapHighlightColor:"transparent"}}
+                  onMouseDown={e=>{e.preventDefault();if(newLabelName.trim()){const id="label_"+Date.now();onAddCustomLabel&&onAddCustomLabel(newLabelName.trim(),id);setLocalDestino(id);setNewLabelName("");setNewLabelInput(false);}}}>✓</button>
+                <button style={{...{cursor:"pointer",border:"none",borderRadius:8,fontFamily:"inherit",fontWeight:700},background:T.surface2,color:T.muted,padding:"6px 10px",fontSize:11,WebkitTapHighlightColor:"transparent"}}
+                  onMouseDown={e=>{e.preventDefault();setNewLabelInput(false);setNewLabelName("");}}>✕</button>
+              </div>
+            : <button style={{cursor:"pointer",border:"none",borderRadius:10,fontFamily:"inherit",fontWeight:600,WebkitTapHighlightColor:"transparent",padding:"7px 9px",fontSize:11,textAlign:"left",background:"transparent",color:T.muted,border:`1px dashed ${T.border}`,whiteSpace:"nowrap"}}
+                onMouseDown={e=>{e.preventDefault();setNewLabelInput(true);}}>
+                + New
+              </button>
+          }
         </div>
       </div>
       {localDestino==="credit_card"&&(
@@ -659,7 +698,6 @@ const GastoItem=memo(({item,pid,editId,setEditId,tarjetas,potsList,periodDate,se
   const catIcon=getCatIcon(item.cat)||getCatIcon(item.destino)||"📌";
   const catColor=CATCOLORS[item.cat]||CATCOLORS[item.destino]||"#94a3b8";
   const isSwipedLeft=swipeX<=-88;
-  const isSelected=selectedItems&&selectedItems.has(item.id);
   return(
     <div className="expense-row" style={{marginBottom:7,position:"relative",borderRadius:11,overflow:"hidden"}}>
       {/* Action buttons — only visible when swiped */}
@@ -676,12 +714,10 @@ const GastoItem=memo(({item,pid,editId,setEditId,tarjetas,potsList,periodDate,se
       {/* Main row — slides over action buttons */}
       <div onTouchStart={onRowTS} onTouchMove={onRowTM} onTouchEnd={onRowTE} onMouseDown={onRowMS}
         style={{display:"flex",alignItems:"center",gap:8,padding:"10px 11px",borderRadius:11,
-          background:isSelected?`${T.accent}14`:stBg,
-          border:`1px solid ${isSelected?T.accent+"66":stBorder}`,
+          background:stBg,border:`1px solid ${stBorder}`,
           transform:`translateX(${swipeX}px)`,
-          transition:"transform 0.3s cubic-bezier(0.34,1.2,0.64,1), background 0.15s, border-color 0.15s",
-          position:"relative",zIndex:1,touchAction:"pan-y",
-          WebkitTapHighlightColor:"transparent"}}>
+          transition:"transform 0.3s cubic-bezier(0.34,1.2,0.64,1)",
+          position:"relative",zIndex:1,touchAction:"pan-y"}}>
 
         <div onClick={handleCircleTap}
           style={{width:24,height:24,borderRadius:"50%",flexShrink:0,background:item.state==="paid"?"transparent":item.state==="reserved"?"rgba(210,153,34,0.25)":"transparent",border:`2px solid ${item.state==="paid"?"#3fb95055":item.state==="reserved"?"#d29922":T.border}`,display:"flex",alignItems:"center",justifyContent:"center",fontSize:11,cursor:"pointer",color:item.state==="paid"?"#3fb950":item.state==="reserved"?"#d29922":T.muted,fontWeight:700}}>
@@ -692,7 +728,7 @@ const GastoItem=memo(({item,pid,editId,setEditId,tarjetas,potsList,periodDate,se
           <div style={{display:"flex",alignItems:"center",gap:5,flexWrap:"wrap"}}>
             <span style={{fontSize:13,fontWeight:600,color:item.state==="paid"?T.muted:item.state==="reserved"?"#d29922":T.text,textDecoration:"none",opacity:item.state==="paid"?0.45:1}}>{item.nombre||"Untitled"}</span>
             {item._recurring&&<span style={{fontSize:9,color:T.accent,opacity:0.6}}>🔁</span>}
-            {item.destino!=="other"&&<span style={{fontSize:9,fontWeight:700,color:dest.color,background:dest.bg,border:`1px solid ${dest.border}`,borderRadius:5,padding:"1px 5px",flexShrink:0}}>{dest.icon} {dest.label}</span>}
+            {item.destino==="credit_card"&&item.tarjetaRef&&<span style={{fontSize:9,fontWeight:700,color:dest.color,background:dest.bg,border:`1px solid ${dest.border}`,borderRadius:5,padding:"1px 5px",flexShrink:0}}>{dest.icon} {dest.label}</span>}
           </div>
           <div style={{fontSize:10,color:item.state==="paid"?"#3fb950":item.state==="reserved"?"#d29922":T.muted,marginTop:1}}>
             {item.state==="paid"?"✓ done":item.state==="reserved"?"◑ Reserved":"○ Pending"}
@@ -714,22 +750,12 @@ const GastoItem=memo(({item,pid,editId,setEditId,tarjetas,potsList,periodDate,se
                 outline:"none",width:70,textAlign:"right",padding:"0 2px",flexShrink:0}}
               value={localAmt}
               onChange={e=>setLocalAmt(e.target.value)}
-              onBlur={()=>{const v=parseFloat(localAmt);if(v>0)onUpdate(item.id,"monto",v);setEditingAmt(false);}}
+              onBlur={()=>{setTimeout(()=>{const v=parseFloat(localAmt);if(v>0)onUpdate(item.id,"monto",v);setEditingAmt(false);},100);}}
               onKeyDown={e=>{if(e.key==="Enter"){const v=parseFloat(localAmt);if(v>0)onUpdate(item.id,"monto",v);setEditingAmt(false);}if(e.key==="Escape")setEditingAmt(false);}}
               autoFocus/>
-          : <div
-              onClick={e=>{
-                e.stopPropagation();
-                if(onToggleSelect&&onToggleSelect._selectMode){haptic(15);onToggleSelect(item.id);return;}
-                setLocalAmt(String(item.monto||""));setEditingAmt(true);setTimeout(()=>amtInputRef.current?.select(),30);
-              }}
-              style={{fontFamily:"monospace",fontWeight:700,fontSize:13,
-                color:isSelected?T.accent:item.state==="paid"?T.muted:item.state==="reserved"?"#d29922":dest.color||"#f85149",
-                flexShrink:0,opacity:item.state==="paid"?0.4:1,cursor:"text",
-                WebkitTapHighlightColor:"transparent",userSelect:"none",WebkitUserSelect:"none",
-                transform:isSelected?"scale(1.08)":"scale(1)",transition:"transform 0.15s, color 0.15s",
-                borderBottom:isSelected?"none":"1px dashed transparent"}}
-              onMouseEnter={e=>{if(!isSelected)e.currentTarget.style.borderBottomColor=T.border;}}
+          : <div onClick={e=>{e.stopPropagation();setLocalAmt(String(item.monto||""));setEditingAmt(true);setTimeout(()=>amtInputRef.current?.select(),30);}}
+              style={{fontFamily:"monospace",fontWeight:700,fontSize:13,color:item.state==="paid"?T.muted:item.state==="reserved"?"#d29922":dest.color||"#f85149",flexShrink:0,opacity:item.state==="paid"?0.4:1,cursor:"text",borderBottom:"1px dashed transparent",transition:"border-color 0.15s",WebkitTapHighlightColor:"transparent",userSelect:"none",WebkitUserSelect:"none"}}
+              onMouseEnter={e=>e.currentTarget.style.borderBottomColor=T.border}
               onMouseLeave={e=>e.currentTarget.style.borderBottomColor="transparent"}>
               {fmt(item.monto)}
             </div>
@@ -1054,7 +1080,7 @@ const DestinoSummary=memo(({gastos,T})=>{
   return(<div style={{marginBottom:14}}>
     <div style={{fontSize:10,color:T.muted,letterSpacing:1.5,fontWeight:700,marginBottom:8}}>BREAKDOWN BY DESTINATION</div>
     <div style={{border:`1px solid ${T.border}`,borderRadius:12,overflow:"hidden"}}>
-      {entries.map(([k,v],i)=>{const d=gds(v.d,v.r,null,[]);return(
+      {entries.map(([k,v],i)=>{const d=gds(v.d,v.r,null,[],[]);return(
         <div key={k} style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"9px 12px",background:i%2===0?T.surface:T.bg,borderBottom:i<entries.length-1?`1px solid ${T.border}`:"none"}}>
           <span style={{fontSize:12,color:d.color,fontWeight:600}}>{d.icon} {d.label}</span>
           <span style={{fontFamily:"monospace",fontWeight:800,color:d.color,fontSize:13}}>{fmt(v.total)}</span>
@@ -1188,8 +1214,6 @@ function App(){
   const [snapDetail,setSnapDetail]=useState(null);
   const [expenseSearch,setExpenseSearch]=useState("");
   const [potsRevealed,setPotsRevealed]=useState(false);
-  const [selectedItems,setSelectedItems]=useState(new Set());
-  const [selectMode,setSelectMode]=useState(false);
   const [resetConfirm,setResetConfirm]=useState(null);
   const [themePicker,setThemePicker]=useState(false);
   const [resetAllConfirm,setResetAllConfirm]=useState(false);
@@ -1403,7 +1427,6 @@ function App(){
   useEffect(()=>{
     if(tab==="paychecks"&&!activeCheckPid&&monthPeriods.length>0){const cur=monthPeriods.find(p=>p.isCurrent)||monthPeriods[0];setActiveCheckPid(cur.id);}
     if(tab!=="overview")setPotsRevealed(false);
-    if(tab!=="paychecks"){setSelectedItems(new Set());setSelectMode(false);}
   },[tab]);
   useEffect(()=>{if(!quickCardId&&data.tarjetas.length>0)setQuickCardId(String(data.tarjetas[0].id));},[data.tarjetas]);
   const TABS_ORDER=useMemo(()=>["overview","paychecks","debts","calendar","history","settings"],[]);
@@ -1641,14 +1664,14 @@ function App(){
       }
     }
     return Object.keys(groups).sort((a,b)=>(DORDER.indexOf(groups[a].d)+1||99)-(DORDER.indexOf(groups[b].d)+1||99)).map(k=>{
-      const{d,r,items}=groups[k];const dst=gds(d,r,null,potsList||[]);const sub=items.reduce((s,g)=>s+n(g.monto),0);
+      const{d,r,items}=groups[k];const dst=gds(d,r,null,potsList||[],data.customLabels||[]);const sub=items.reduce((s,g)=>s+n(g.monto),0);
       return(<div key={k} style={{marginBottom:14}}>
         <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"6px 10px",marginBottom:5,background:dst.bg,borderRadius:9,border:`1px solid ${dst.border}`}}>
           <span style={{fontSize:12,fontWeight:700,color:dst.color}}>{dst.icon} {dst.label}</span>
           <span style={{fontFamily:"monospace",fontSize:13,fontWeight:800,color:dst.color}}>{fmt(sub)}</span>
         </div>
         <DragList items={items}
-          renderItem={(item)=>(<GastoItem key={item.id} item={item} pid={pid} editId={editId} setEditId={(id)=>openEditId(id,gastos)} tarjetas={data.tarjetas} potsList={potsList} periodDate={periodDate} selectedItems={selectedItems} onToggleSelect={Object.assign(id=>{setSelectedItems(prev=>{const n=new Set(prev);n.has(id)?n.delete(id):n.add(id);return n;});},{_selectMode:selectMode})}
+          renderItem={(item)=>(<GastoItem key={item.id} item={item} pid={pid} editId={editId} setEditId={(id)=>openEditId(id,gastos)} tarjetas={data.tarjetas} potsList={potsList} periodDate={periodDate} customLabels={data.customLabels||[]} onAddCustomLabel={(name,id)=>{const lid=id||"label_"+Date.now();setData(p=>({...p,customLabels:[...(p.customLabels||[]),{id:lid,name,icon:"🏷️"}]}));}}
             onCycle={id=>cycleState(pid,id)} onLongPress={id=>setReserved(pid,id)}
             onUpdate={(id,f,v)=>updateGasto(pid,id,f,v)}
             onBatchUpdate={(id,fields)=>batchUpdateGasto(pid,id,fields)}
@@ -1657,9 +1680,7 @@ function App(){
     });
   };
   // Categories considered "Fixed" for visual grouping in Checks
-  const FIXED_CATS=new Set(["rent","insurance","subscription","utilities","auto","credit_card","savings_acct","emergency","investment","medical","loan",...(data.potsList||[]).map(p=>p.id)]);
   // Categories considered "Flexible"
-  const FLEXIBLE_CATS=new Set(["gas","groceries","dining","entertainment","temp","lifestyle","other"]);
 
   const getRemainingColor=(rem)=>{
     if(rem>=200)return"#3fb950";
@@ -1670,65 +1691,43 @@ function App(){
   };
 
   const renderCheckTabGrouped=(pid,gastos,periodDate)=>{
-    const fixedItems=[],flexItems=[];
+    const groups={};
     gastos.forEach(g=>{
-      const cat=g.cat||g.destino||"other";
-      if(FIXED_CATS.has(cat)||FIXED_CATS.has(g.destino))fixedItems.push(g);
-      else flexItems.push(g);
+      let k;
+      if(editId===g.id&&editGroupKeyRef.current!==null){k=editGroupKeyRef.current;}
+      else{k=g.destino==="credit_card"?(g.tarjetaRef||"Credit Card"):g.destino;}
+      if(!groups[k])groups[k]={d:g.destino,r:g.tarjetaRef,items:[]};
+      groups[k].items.push(g);
     });
-    const renderSection=(sectionItems,sectionLabel,sectionColor)=>{
-      if(!sectionItems.length)return null;
-      const groups={};
-      sectionItems.forEach(g=>{
-        let k;
-        if(editId===g.id&&editGroupKeyRef.current!==null){k=editGroupKeyRef.current;}
-        else{k=g.destino==="credit_card"?(g.tarjetaRef||"Credit Card"):g.destino;}
-        if(!groups[k])groups[k]={d:g.destino,r:g.tarjetaRef,items:[]};
-        groups[k].items.push(g);
-      });
-      if(editId!==null&&editGroupKeyRef.current!==null){
-        const k=editGroupKeyRef.current;
-        if(groups[k]){
-          const isCardRef=!DEST[k];
-          if(isCardRef){groups[k].d="credit_card";groups[k].r=k;}
-          else{groups[k].d=k;groups[k].r="";}
-        }
+    if(editId!==null&&editGroupKeyRef.current!==null){
+      const k=editGroupKeyRef.current;
+      if(groups[k]){
+        const isCardRef=!DEST[k];
+        if(isCardRef){groups[k].d="credit_card";groups[k].r=k;}
+        else{groups[k].d=k;groups[k].r="";}
       }
-      return(<div style={{marginBottom:16}}>
-        <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:8}}>
-          <span style={{fontSize:9,fontWeight:700,letterSpacing:1.5,color:sectionColor,textTransform:"uppercase"}}>{sectionLabel}</span>
-          <div style={{flex:1,height:1,background:sectionColor,opacity:0.2}}/>
+    }
+    return(<>{Object.keys(groups).sort((a,b)=>(DORDER.indexOf(groups[a].d)+1||99)-(DORDER.indexOf(groups[b].d)+1||99)).map(k=>{
+      const{d,r,items}=groups[k];const dst=gds(d,r,null,potsList||[],data.customLabels||[]);const sub=items.reduce((s,g)=>s+n(g.monto),0);
+      const sortedItems=[...items].sort((a,b)=>{
+        const hasA=a.diaPago!=null&&a.diaPago!=="";
+        const hasB=b.diaPago!=null&&b.diaPago!=="";
+        if(!hasA&&!hasB)return 0;if(!hasA)return 1;if(!hasB)return -1;
+        return parseInt(a.diaPago)-parseInt(b.diaPago);
+      });
+      return(<div key={k} style={{marginBottom:14}}>
+        <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"6px 10px",marginBottom:5,background:dst.bg,borderRadius:9,border:`1px solid ${dst.border}`}}>
+          <span style={{fontSize:12,fontWeight:700,color:dst.color}}>{dst.icon} {dst.label}</span>
+          <span style={{fontFamily:"monospace",fontSize:13,fontWeight:800,color:dst.color}}>{fmt(sub)}</span>
         </div>
-        {Object.keys(groups).sort((a,b)=>(DORDER.indexOf(groups[a].d)+1||99)-(DORDER.indexOf(groups[b].d)+1||99)).map(k=>{
-          const{d,r,items}=groups[k];const dst=gds(d,r,null,potsList||[]);const sub=items.reduce((s,g)=>s+n(g.monto),0);
-          // Sort items by diaPago ascending (items with no due date stay at end)
-          const sortedItems=[...items].sort((a,b)=>{
-            const hasA=a.diaPago!=null&&a.diaPago!=="";
-            const hasB=b.diaPago!=null&&b.diaPago!=="";
-            if(!hasA&&!hasB)return 0;
-            if(!hasA)return 1;
-            if(!hasB)return -1;
-            return parseInt(a.diaPago)-parseInt(b.diaPago);
-          });
-          return(<div key={k} style={{marginBottom:14}}>
-            <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"6px 10px",marginBottom:5,background:dst.bg,borderRadius:9,border:`1px solid ${dst.border}`}}>
-              <span style={{fontSize:12,fontWeight:700,color:dst.color}}>{dst.icon} {dst.label}</span>
-              <span style={{fontFamily:"monospace",fontSize:13,fontWeight:800,color:dst.color}}>{fmt(sub)}</span>
-            </div>
-            <DragList items={sortedItems}
-              renderItem={(item,_,touch)=>(<GastoItem key={item.id} item={item} pid={pid} editId={editId} setEditId={(id)=>openEditId(id,gastos)} tarjetas={data.tarjetas} potsList={potsList} periodDate={periodDate} selectedItems={selectedItems} onToggleSelect={Object.assign(id=>{setSelectedItems(prev=>{const n=new Set(prev);n.has(id)?n.delete(id):n.add(id);return n;});},{_selectMode:selectMode})}
-                onCycle={id=>cycleState(pid,id)} onLongPress={id=>setReserved(pid,id)}
-                onUpdate={(id,f,v)=>updateGasto(pid,id,f,v)}
-                onBatchUpdate={(id,fields)=>batchUpdateGasto(pid,id,fields)}
-                onRemove={id=>removeGasto(pid,id)} touch={touch} T={T}/>)}/>
-          </div>);
-        })}
+        <DragList items={sortedItems}
+          renderItem={(item,_,touch)=>(<GastoItem key={item.id} item={item} pid={pid} editId={editId} setEditId={(id)=>openEditId(id,gastos)} tarjetas={data.tarjetas} potsList={potsList} periodDate={periodDate} customLabels={data.customLabels||[]} onAddCustomLabel={(name,id)=>{const lid=id||"label_"+Date.now();setData(p=>({...p,customLabels:[...(p.customLabels||[]),{id:lid,name,icon:"🏷️"}]}));}}
+            onCycle={id=>cycleState(pid,id)} onLongPress={id=>setReserved(pid,id)}
+            onUpdate={(id,f,v)=>updateGasto(pid,id,f,v)}
+            onBatchUpdate={(id,fields)=>batchUpdateGasto(pid,id,fields)}
+            onRemove={id=>removeGasto(pid,id)} touch={touch} T={T}/>)}/>
       </div>);
-    };
-    return(<>
-      {renderSection(fixedItems,"Fixed","#6366f1")}
-      {renderSection(flexItems,"Flexible","#f59e0b")}
-    </>);
+    })}</>);
   };
 
   const renderCheckTab=(period)=>{
@@ -1839,17 +1838,7 @@ function App(){
         <div style={{fontSize:14,fontWeight:600,color:T.text,marginBottom:4}}>No expenses yet</div>
         <div style={{fontSize:11,color:T.muted,marginBottom:16,lineHeight:1.5}}>Add your bills, subscriptions<br/>and recurring expenses</div>
       </div>)}
-      <div style={{display:"flex",gap:6,marginTop:2,marginBottom:8}}>
-        <button style={{...BTN,flex:1,padding:"11px",background:`${T.accent}14`,color:T.accent,fontSize:13,fontWeight:600,border:`1px solid ${T.accent}33`,borderRadius:10}} onClick={()=>addGasto(pid)}>+ Add Expense</button>
-        <button style={{...BTN,padding:"11px 14px",fontSize:13,fontWeight:600,borderRadius:10,
-          background:selectMode?`${T.accent}22`:"transparent",
-          color:selectMode?T.accent:T.muted,
-          border:`1px solid ${selectMode?T.accent:T.border}`}}
-          title="Select expenses to sum"
-          onClick={()=>{setSelectMode(m=>{if(m){setSelectedItems(new Set());}return !m;});}}>
-          {selectMode?"✕ Done":"+ Sum"}
-        </button>
-      </div>
+      <button style={{...BTN,width:"100%",marginTop:2,marginBottom:8,padding:"11px",background:`${T.accent}14`,color:T.accent,fontSize:13,fontWeight:600,border:`1px solid ${T.accent}33`,borderRadius:10}} onClick={()=>addGasto(pid)}>+ Add Expense</button>
       <button style={{...BTN,width:"100%",padding:"8px",background:"transparent",color:T.muted,fontSize:11,border:"none",opacity:0.6}} onClick={()=>setResetConfirm({pid,label})}>🔄 New Cycle — Reset {label}</button>
     </div>);
   };
@@ -1884,9 +1873,6 @@ function App(){
         @keyframes editOpen{from{opacity:0;transform:translateY(-4px);}to{opacity:1;transform:translateY(0);}}
         @keyframes debtExit{0%{opacity:1;max-height:200px;margin-bottom:9px;}100%{opacity:0;max-height:0;margin-bottom:0;}}.debt-exit{animation:debtExit 0.28s cubic-bezier(0.4,0,1,1) forwards;}
         .expense-row:active{transform:scale(0.99);transition:transform 0.08s ease;}
-        *{-webkit-tap-highlight-color:transparent;}
-        div,span,p{-webkit-user-select:none;user-select:none;}
-        input,textarea{-webkit-user-select:text;user-select:text;}
         input,select,textarea{scroll-margin-bottom:200px;}
         input[type=number]:focus,input[type=text]:focus{border-color:${T.accent}!important;box-shadow:0 0 0 3px ${T.accent}26!important;outline:none;transition:border-color 0.15s,box-shadow 0.15s;}
         .debt-card-tap:active{transform:scale(0.988);transition:transform 0.08s ease;}
@@ -2584,25 +2570,6 @@ function App(){
           }}>💾 Save Monthly Snapshot</button>
         </div>)}
         {tab==="paychecks"&&(<div className="anim">
-          {/* Floating selection calculator pill */}
-          {selectedItems.size>0&&(()=>{
-            const allGastos=Object.values(data.periods||{}).flatMap(p=>p.gastos||[]);
-            const total=allGastos.filter(g=>selectedItems.has(g.id)).reduce((s,g)=>s+n(g.monto),0);
-            return(
-              <div style={{position:"fixed",bottom:"max(100px,calc(88px + env(safe-area-inset-bottom)))",left:"50%",transform:"translateX(-50%)",zIndex:250,
-                background:T.surface,border:`1px solid ${T.accent}`,borderRadius:24,
-                padding:"10px 16px",display:"flex",alignItems:"center",gap:12,
-                boxShadow:`0 4px 24px rgba(0,0,0,0.5), 0 0 0 1px ${T.accent}33`,
-                animation:"slideInDown 0.25s cubic-bezier(0.4,0,0.2,1)"}}>
-                <span style={{fontSize:11,color:T.muted}}>{selectedItems.size} item{selectedItems.size>1?"s":""}</span>
-                <span style={{fontFamily:"monospace",fontWeight:800,fontSize:18,color:T.accent}}>{fmt(total)}</span>
-                <button style={{...BTN,background:`${T.accent}20`,color:T.accent,padding:"4px 10px",fontSize:11,fontWeight:700,borderRadius:10,border:`1px solid ${T.accent}44`}}
-                  onClick={()=>{navigator.clipboard?.writeText(fmt(total));toast_(`📋 ${fmt(total)} copied`);}}>Copy</button>
-                <button style={{...BTN,background:"transparent",color:T.muted,fontSize:16,padding:"2px 4px",border:"none"}}
-                  onClick={()=>setSelectedItems(new Set())}>✕</button>
-              </div>
-            );
-          })()}
           {!data.proximoCobro&&(<div style={{textAlign:"center",padding:"40px 20px"}}>
             <div style={{fontSize:36,marginBottom:12}}>💰</div>
             <div style={{fontSize:15,fontWeight:700,color:T.text,marginBottom:6}}>Set up your paycheck first</div>
