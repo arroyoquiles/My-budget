@@ -1072,7 +1072,7 @@ const GastoItem=memo(({item,pid,editId,setEditId,tarjetas,potsList,periodDate,cu
     </div>
   );
 });
-const DestinoSummary=memo(({gastos,T})=>{
+const DestinoSummary=memo(({gastos,potsList,customLabels,T})=>{
   const bd={};
   gastos.forEach(g=>{const k=g.destino==="credit_card"?(g.tarjetaRef||"Credit Card"):g.destino;if(!bd[k])bd[k]={total:0,d:g.destino,r:g.tarjetaRef};bd[k].total+=n(g.monto);});
   const entries=Object.entries(bd).filter(([,v])=>v.total>0&&v.d!=="other");
@@ -1080,7 +1080,7 @@ const DestinoSummary=memo(({gastos,T})=>{
   return(<div style={{marginBottom:14}}>
     <div style={{fontSize:10,color:T.muted,letterSpacing:1.5,fontWeight:700,marginBottom:8}}>BREAKDOWN BY DESTINATION</div>
     <div style={{border:`1px solid ${T.border}`,borderRadius:12,overflow:"hidden"}}>
-      {entries.map(([k,v],i)=>{const d=gds(v.d,v.r,null,[],[]);return(
+      {entries.map(([k,v],i)=>{const d=gds(v.d,v.r,null,potsList||[],customLabels||[]);return(
         <div key={k} style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"9px 12px",background:i%2===0?T.surface:T.bg,borderBottom:i<entries.length-1?`1px solid ${T.border}`:"none"}}>
           <span style={{fontSize:12,color:d.color,fontWeight:600}}>{d.icon} {d.label}</span>
           <span style={{fontFamily:"monospace",fontWeight:800,color:d.color,fontSize:13}}>{fmt(v.total)}</span>
@@ -1818,7 +1818,7 @@ function App(){
         </div>
         <div style={{fontSize:10,color:T.muted,marginTop:4}}>Tap ● = paid · Double tap ◑ = reserved</div>
       </div>
-      <DestinoSummary gastos={gastos} T={T}/>
+      <DestinoSummary gastos={gastos} potsList={potsList} customLabels={data.customLabels||[]} T={T}/>
       {gastos.length>3&&<div style={{marginBottom:10,position:"relative"}}>
         <span style={{position:"absolute",left:10,top:"50%",transform:"translateY(-50%)",fontSize:13,pointerEvents:"none",opacity:0.4}}>🔍</span>
         <input style={{...INP,paddingLeft:30,fontSize:13,padding:"8px 10px 8px 30px"}} placeholder="Search expenses..." value={expenseSearch} onChange={e=>setExpenseSearch(e.target.value)}/>
