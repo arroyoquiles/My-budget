@@ -3092,32 +3092,32 @@ function App(){
                 if(!groups[key])groups[key]={label,icon,color,amt:0,paid:0,items:[]};
                 groups[key].amt+=n(g.monto);
                 if(g.state==="paid")groups[key].paid+=n(g.monto);
-                groups[key].items.push({nombre:g.nombre||"Untitled",amt:n(g.monto),paid:g.state==="paid"});
+                groups[key].items.push({
+                  nombre:g.nombre||"Untitled",
+                  amt:n(g.monto),
+                  paid:g.state==="paid",
+                  cardName:g.destino==="credit_card"&&g.tarjetaRef?g.tarjetaRef:null
+                });
               };
               monthGastos.forEach(g=>{
                 const cl=cls.find(l=>l.id===g.destino);
                 const cat=g.cat||g.destino;
                 if(cl){
-                  // Custom label
                   if(cl.parent&&DEST[cl.parent]){const pd=DEST[cl.parent];add("cat_"+cl.parent,pd.label,pd.icon,pd.color,g);}
                   else{add("cl_"+cl.id,cl.name,"🏷️","#a78bfa",g);}
                 } else if(potsList.find(p=>p.id===g.destino)){
-                  // Pot
                   const pot=potsList.find(p=>p.id===g.destino);
                   const c=pot.color||"#58a6ff";
                   add("pot_"+pot.id,pot.name,pot.icon||"🪣",c,g);
-                } else if(g.destino==="credit_card"&&(cat==="credit_card"||!cat)){
-                  // Card payment — no category set
-                  const cardName=g.tarjetaRef||"Credit Card";
-                  const cc=gds("credit_card",g.tarjetaRef,null,potsList,cls);
-                  add("cc_"+cardName,cardName,cc.icon,cc.color,g);
+                } else if(g.destino==="credit_card"&&(cat==="credit_card"||!cat||cat===g.destino)){
+                  // All card payments → one "Credit Cards" group
+                  add("__cards__","Credit Cards","💳","#ec4899",g);
                 } else if(cat&&cat!=="credit_card"&&DEST[cat]){
-                  // Has a real category (even if paid with card)
                   const d=DEST[cat];
                   add("cat_"+cat,d.label,d.icon,d.color,g);
                 } else if(g.destino==="other"||g.destino==="temp"||cat==="other"||cat==="temp"){
-                  const grpKey=cat==="temp"?"__temp__":"__other__";
-                  add(grpKey,cat==="temp"?"Temporary":"Other",cat==="temp"?"🔄":"📌",T.muted,g);
+                  const grpKey=cat==="temp"||g.destino==="temp"?"__temp__":"__other__";
+                  add(grpKey,cat==="temp"||g.destino==="temp"?"Temporary":"Other",cat==="temp"||g.destino==="temp"?"🔄":"📌",T.muted,g);
                 } else {
                   add("__other__","Other","📌",T.muted,g);
                 }
@@ -3163,9 +3163,12 @@ function App(){
                         </div>
                       </div>
                       {isExp&&<div style={{marginTop:8,paddingLeft:12,borderLeft:`2px solid ${v.color}44`,marginLeft:3,display:"flex",flexDirection:"column",gap:5,animation:"editOpen 0.2s cubic-bezier(0.4,0,0.2,1) both"}}>
-                        {v.items.sort((a,b)=>b.amt-a.amt).map((it,ii)=>(
+                        {v.items.sort((a,b)=>a.nombre.localeCompare(b.nombre)).map((it,ii)=>(
                           <div key={ii} style={{display:"flex",justifyContent:"space-between",alignItems:"center",opacity:it.paid?0.45:1}}>
-                            <span style={{fontSize:12,color:it.paid?T.muted:T.text}}>{it.paid?"✓ ":""}{it.nombre}</span>
+                            <span style={{fontSize:12,color:it.paid?T.muted:T.text}}>
+                              {it.paid?"✓ ":""}{it.nombre}
+                              {it.cardName&&<span style={{fontSize:10,color:T.muted,marginLeft:4}}>· {it.cardName}</span>}
+                            </span>
                             <span style={{fontFamily:"monospace",fontWeight:600,fontSize:12,color:it.paid?T.muted:v.color,marginLeft:8,flexShrink:0}}>{fmt(it.amt)}</span>
                           </div>
                         ))}
