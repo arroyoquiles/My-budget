@@ -672,8 +672,11 @@ const GastoItem=memo(({item,pid,editId,setEditId,tarjetas,loans,potsList,periodD
       <div style={{marginBottom:10}}>
         <div style={{fontSize:10,color:T.muted,marginBottom:6}}>PAID WITH</div>
         <div style={{display:"flex",gap:6,flexWrap:"wrap"}}>
-          <button style={{...BTN,padding:"6px 12px",fontSize:11,borderRadius:9,background:localDestino!=="credit_card"?"rgba(63,185,80,0.15)":"transparent",color:localDestino!=="credit_card"?"#3fb950":T.muted,border:`1px solid ${localDestino!=="credit_card"?"rgba(63,185,80,0.4)":T.border}`}}
-            onMouseDown={e=>{e.preventDefault();if(localDestino==="credit_card"){setLocalDestino(localCat||"other");setLocalTarjetaRef("");}}}> 
+          <button style={{...BTN,padding:"6px 12px",fontSize:11,borderRadius:9,
+            background:localDestino!=="credit_card"?"rgba(63,185,80,0.15)":"transparent",
+            color:localDestino!=="credit_card"?"#3fb950":T.muted,
+            border:`1px solid ${localDestino!=="credit_card"?"rgba(63,185,80,0.4)":T.border}`}}
+            onMouseDown={e=>{e.preventDefault();setLocalDestino(localCat==="credit_card"?"__cash__":localCat||"other");setLocalTarjetaRef("");}}>
             💵 Cash / Check
           </button>
           {tarjetas.map(t=>{
@@ -710,13 +713,15 @@ const GastoItem=memo(({item,pid,editId,setEditId,tarjetas,loans,potsList,periodD
       <div style={{display:"flex",gap:8,marginTop:10}}>
         <button style={{...BTN,flex:1,padding:"12px",background:"#238636",color:"#fff",fontSize:13,fontWeight:700,borderRadius:11,letterSpacing:0.8}}
           onClick={()=>{
-            const cat=localCat==="__card_payment__"?"credit_card":(localCat||localDestino);
-            const dest=localCat==="credit_card"&&localDestino!=="credit_card"?"credit_card":
-              localDestino==="credit_card"?"credit_card":
+            const cat=localCat||localDestino;
+            const isCardCat=localCat==="credit_card";
+            const paidWithCash=localDestino==="__cash__"||localDestino!=="credit_card";
+            const dest=isCardCat&&!paidWithCash?"credit_card":
+              isCardCat&&paidWithCash?"credit_card":
               (potsList||[]).find(p=>p.id===localDestino)?localDestino:
-              (customLabels||[]).find(l=>l.id===localDestino)?localDestino:cat;
-            const tRef=localCat==="credit_card"&&localDestino!=="credit_card"?localTarjetaRef:
-              localDestino==="credit_card"?localTarjetaRef:"";
+              (customLabels||[]).find(l=>l.id===localDestino)?localDestino:
+              localDestino==="__cash__"?cat:cat;
+            const tRef=isCardCat?localTarjetaRef:localDestino==="credit_card"?localTarjetaRef:"";
             const updates={destino:dest,cat,tarjetaRef:tRef};
             onBatchUpdate(item.id,updates);setEditId(null);
           }}>✓  SAVE</button>
