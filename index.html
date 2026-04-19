@@ -1967,6 +1967,9 @@ function App(){
                 onClick={()=>{
                   setTab("debts");
                   setDebtsFilter(d.tipo==="card"?"cards":"loans");
+                  // Close any currently expanded first
+                  setExpandedCardId(null);
+                  setExpandedLoanId(null);
                   setTimeout(()=>{
                     if(d.tipo==="card")setExpandedCardId(d.id);
                     else setExpandedLoanId(d.id);
@@ -2722,6 +2725,8 @@ function App(){
                 </div>
                 <button style={{...BTN,padding:"5px 11px",fontSize:11,fontWeight:700,background:"rgba(248,81,73,0.15)",color:"#f85149",border:"1px solid rgba(248,81,73,0.3)",borderRadius:8}} onClick={()=>{
                   setDebtsFilter(d.tipo==="card"?"cards":"loans");
+                  setExpandedCardId(null);
+                  setExpandedLoanId(null);
                   setTimeout(()=>{
                     if(d.tipo==="card")setExpandedCardId(d.id);
                     else setExpandedLoanId(d.id);
