@@ -1969,7 +1969,6 @@ function App(){
         <div style={{fontSize:11,color:T.muted,marginBottom:16,lineHeight:1.5}}>Add your bills, subscriptions<br/>and recurring expenses</div>
       </div>)}
       <button style={{...BTN,width:"100%",marginTop:2,marginBottom:8,padding:"11px",background:`${T.accent}14`,color:T.accent,fontSize:13,fontWeight:600,border:`1px solid ${T.accent}33`,borderRadius:10}} onClick={()=>addGasto(pid)}>+ Add Expense</button>
-      <button style={{...BTN,width:"100%",padding:"8px",background:"transparent",color:T.muted,fontSize:11,border:"none",opacity:0.6}} onClick={()=>setResetConfirm({pid,label})}>🔄 New Cycle — Reset {label}</button>
     </div>);
   };
   const hasActiveCheck=monthPeriods.some(p=>p.isCurrent);
@@ -2768,6 +2767,7 @@ function App(){
                   {nextP&&<>{nextP.label} →</>}
                 </button>
               </div>}
+              {period&&<button style={{...BTN,width:"100%",marginTop:4,marginBottom:8,padding:"8px",background:"transparent",color:T.muted,fontSize:11,border:"none",opacity:0.5}} onClick={()=>setResetConfirm({pid:period.id,label:period.label})}>🔄 New Cycle — Reset {period.label}</button>}
             </>);
           })()}
         </div>)}
