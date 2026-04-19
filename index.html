@@ -1264,6 +1264,7 @@ function App(){
   const swipeFromContent=useRef(false);
   const mainRef=useRef(null);
   const tabBarRef=useRef(null);
+  const tabBarInnerRef=useRef(null);
   const lastTabTapRef=useRef({id:null,t:0});
   const editGroupKeyRef=useRef(null);
 
@@ -1296,6 +1297,21 @@ function App(){
         setTimeout(()=>toast_(`📸 ${mo[prevMonthEnd.getMonth()]} snapshot saved`),2000);
       }
     }
+    // Block nav bar during iOS home indicator swipe
+    const BLOCK=500;
+    let t=null;
+    const onTS=e=>{
+      const y=e.touches[0].clientY;
+      if(y>window.innerHeight-35){
+        if(tabBarInnerRef.current)tabBarInnerRef.current.style.pointerEvents="none";
+        clearTimeout(t);
+        t=setTimeout(()=>{if(tabBarInnerRef.current)tabBarInnerRef.current.style.pointerEvents="all";},BLOCK);
+      }
+    };
+    const onTE=()=>{clearTimeout(t);t=setTimeout(()=>{if(tabBarInnerRef.current)tabBarInnerRef.current.style.pointerEvents="all";},BLOCK);};
+    document.addEventListener("touchstart",onTS,{passive:true});
+    document.addEventListener("touchend",onTE,{passive:true});
+    return()=>{document.removeEventListener("touchstart",onTS);document.removeEventListener("touchend",onTE);clearTimeout(t);};
   },[]);
   const notifFiredRef=useRef(false);
   useEffect(()=>{
@@ -2387,7 +2403,7 @@ function App(){
           const onTE=(e)=>{if(!dragRef.current.active){const idx=getIdx(e.changedTouches[0].clientX,e.currentTarget);if(TABS[idx])handleTabClick(TABS[idx].id);}dragRef.current.active=false;};
           return(
             <div ref={tabBarRef} style={{position:"fixed",bottom:0,left:0,right:0,zIndex:190,paddingBottom:"max(14px,env(safe-area-inset-bottom,14px))",paddingLeft:14,paddingRight:14,paddingTop:8,background:"transparent",pointerEvents:"none",WebkitTransform:"translateZ(0)",transform:"translateZ(0)",WebkitBackfaceVisibility:"hidden"}}>
-              <div onTouchStart={onTS} onTouchMove={onTM} onTouchEnd={onTE}
+              <div ref={tabBarInnerRef} onTouchStart={onTS} onTouchMove={onTM} onTouchEnd={onTE}
                 style={{display:"flex",alignItems:"center",background:T.surface,borderRadius:999,border:`1px solid ${T.border}`,boxShadow:`0 -1px 0 rgba(255,255,255,0.04),0 8px 32px rgba(0,0,0,0.6)`,padding:"4px 5px",gap:2,pointerEvents:"all",touchAction:"none"}}>
                 {TABS.map((t)=>{
                   const isActive=tab===t.id;
@@ -2704,7 +2720,14 @@ function App(){
                     <div style={{fontSize:10,color:"#f85149",fontWeight:600}}>{du===0?"Due TODAY":du===1?"Due TOMORROW":`Due in ${du}d`} · {fmt(d.balance)}</div>
                   </div>
                 </div>
-                <button style={{...BTN,padding:"5px 11px",fontSize:11,fontWeight:700,background:"rgba(248,81,73,0.15)",color:"#f85149",border:"1px solid rgba(248,81,73,0.3)",borderRadius:8}} onClick={()=>{setDebtsFilter(d.tipo==="card"?"cards":"loans");}}>View</button>
+                <button style={{...BTN,padding:"5px 11px",fontSize:11,fontWeight:700,background:"rgba(248,81,73,0.15)",color:"#f85149",border:"1px solid rgba(248,81,73,0.3)",borderRadius:8}} onClick={()=>{
+                  setDebtsFilter(d.tipo==="card"?"cards":"loans");
+                  setTimeout(()=>{
+                    if(d.tipo==="card")setExpandedCardId(d.id);
+                    else setExpandedLoanId(d.id);
+                    setTimeout(()=>{const el=document.getElementById(`debt-${d.id}`);if(el)el.scrollIntoView({behavior:"smooth",block:"center"});},300);
+                  },100);
+                }}>View</button>
               </div>);})}
             </div>)}
 
