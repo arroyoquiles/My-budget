@@ -1252,6 +1252,7 @@ function App(){
   const [quickPid,setQuickPid]=useState("");
   const [quickApplyTo,setQuickApplyTo]=useState("check");
   const [quickCardId,setQuickCardId]=useState("");
+  const [quickCardMode,setQuickCardMode]=useState("budget"); // "budget" or "cardonly"
   const [moveOpen,setMoveOpen]=useState(false);
   const [moveTo,setMoveTo]=useState("");
   const [moveTransferTo,setMoveTransferTo]=useState("");
@@ -1545,7 +1546,7 @@ function App(){
     if(tab==="paychecks"&&!activeCheckPid&&monthPeriods.length>0){const cur=monthPeriods.find(p=>p.isCurrent)||monthPeriods[0];setActiveCheckPid(cur.id);}
     if(tab!=="overview")setPotsRevealed(false);
   },[tab]);
-  useEffect(()=>{if(quickOpen){setQuickCardId("");}},[quickOpen]);
+  useEffect(()=>{if(quickOpen){setQuickCardId("");setQuickCardMode("budget");}},[quickOpen]);
   const TABS_ORDER=useMemo(()=>["overview","paychecks","debts","calendar","history","settings"],[]);
   const handleSwipeTouchStart=useCallback(e=>{
     const t=e.touches[0];
@@ -1747,22 +1748,25 @@ function App(){
     const nid=Date.now();
     const cardIdNum=quickCardId?parseInt(quickCardId):null;
     const card=cardIdNum?data.tarjetas.find(t=>t.id===cardIdNum):null;
-    // Add to check
-    updPeriodGastos(pid,g=>[...g,{id:nid,nombre:quickNote.trim(),monto:m,
-      cat:"temp",
-      state:"paid",pagado:true,
-      destino:"temp",
-      tarjetaRef:card?card.nombre:"",
-      diaPago:null,_quick:true}]);
-    // If paid with card, also charge the card
+    const isCardOnly=card&&quickCardMode==="cardonly";
+
+    if(!isCardOnly){
+      // Add to check
+      updPeriodGastos(pid,g=>[...g,{id:nid,nombre:quickNote.trim(),monto:m,
+        cat:"temp",state:"paid",pagado:true,
+        destino:"temp",tarjetaRef:card?card.nombre:"",
+        diaPago:null,_quick:true}]);
+    }
+    // If paid with card, charge the card
     if(card){
       const entry={fecha:new Date().toLocaleDateString("en-US",{month:"short",day:"numeric"}),tipo:"gasto",monto:m};
       setData(p=>({...p,tarjetas:p.tarjetas.map(t=>t.id!==cardIdNum?t:{...t,balance:n(t.balance)+m,historial:[entry,...(t.historial||[])].slice(0,10)})}));
-      toast_(`✅ "${quickNote.trim()}" ${fmt(m)} → check + charged to ${card.nombre}`);
+      if(isCardOnly){toast_(`💳 ${fmt(m)} charged to ${card.nombre}`);}
+      else{toast_(`✅ "${quickNote.trim()}" ${fmt(m)} → check + ${card.nombre}`);}
     } else {
       toast_(`✅ "${quickNote.trim()}" ${fmt(m)} added`);
     }
-    setQuickNote("");setQuickAmt("");setQuickCardId("");setQuickOpen(false);
+    setQuickNote("");setQuickAmt("");setQuickCardId("");setQuickCardMode("budget");setQuickOpen(false);
   };
 
   const addQuickExpense=()=>{
@@ -2213,7 +2217,7 @@ function App(){
                 </div>
               </div>
               {/* PAID WITH */}
-              <div style={{marginBottom:12}}>
+              <div style={{marginBottom:quickCardId?8:12}}>
                 <div style={{fontSize:9,color:T.muted,letterSpacing:1.2,fontWeight:700,marginBottom:6}}>PAID WITH</div>
                 <div style={{display:"flex",gap:6,flexWrap:"wrap"}}>
                   <button style={{...BTN,padding:"7px 14px",fontSize:12,borderRadius:9,
@@ -2239,6 +2243,37 @@ function App(){
                   })}
                 </div>
               </div>
+
+              {/* CARD MODE SELECTOR — only when card is selected */}
+              {quickCardId&&(
+                <div style={{marginBottom:12,borderRadius:14,overflow:"hidden",border:`1px solid ${T.border}`}}>
+                  <button style={{...BTN,width:"100%",padding:"12px 16px",display:"flex",alignItems:"center",gap:12,
+                    background:quickCardMode==="budget"?`${T.accent}15`:"transparent",
+                    borderBottom:`1px solid ${T.border}`,transition:"background 0.15s"}}
+                    onMouseDown={e=>e.preventDefault()} onClick={()=>setQuickCardMode("budget")}>
+                    <div style={{width:20,height:20,borderRadius:"50%",border:`2px solid ${quickCardMode==="budget"?T.accent:T.border}`,
+                      display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0,transition:"border-color 0.15s"}}>
+                      {quickCardMode==="budget"&&<div style={{width:10,height:10,borderRadius:"50%",background:T.accent}}/>}
+                    </div>
+                    <div style={{textAlign:"left"}}>
+                      <div style={{fontSize:13,fontWeight:600,color:quickCardMode==="budget"?T.text:T.muted}}>💰 In my budget</div>
+                      <div style={{fontSize:10,color:T.muted}}>Money's already in my check — just paid with card</div>
+                    </div>
+                  </button>
+                  <button style={{...BTN,width:"100%",padding:"12px 16px",display:"flex",alignItems:"center",gap:12,
+                    background:quickCardMode==="cardonly"?"rgba(236,72,153,0.1)":"transparent",transition:"background 0.15s"}}
+                    onMouseDown={e=>e.preventDefault()} onClick={()=>setQuickCardMode("cardonly")}>
+                    <div style={{width:20,height:20,borderRadius:"50%",border:`2px solid ${quickCardMode==="cardonly"?"#ec4899":T.border}`,
+                      display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0,transition:"border-color 0.15s"}}>
+                      {quickCardMode==="cardonly"&&<div style={{width:10,height:10,borderRadius:"50%",background:"#ec4899"}}/>}
+                    </div>
+                    <div style={{textAlign:"left"}}>
+                      <div style={{fontSize:13,fontWeight:600,color:quickCardMode==="cardonly"?"#ec4899":T.muted}}>💳 Card only</div>
+                      <div style={{fontSize:10,color:T.muted}}>Not in my budget — I'll pay the card later</div>
+                    </div>
+                  </button>
+                </div>
+              )}
               {/* CASH LEFTOVER PREVIEW */}
               {quickAmtNum>0&&!quickCardId&&(()=>{
                 const pid=quickPid||currentPid;
@@ -2272,7 +2307,7 @@ function App(){
                 </div>);
               })()}
               <button style={{...BTN,width:"100%",padding:"13px",background:"#238636",color:"#fff",fontSize:15,fontWeight:700,borderRadius:11}} onClick={addQuickUnified}>
-                ✅ Add — Already Paid
+                {quickCardId&&quickCardMode==="cardonly"?"💳 Charge to Card":"✅ Add — Already Paid"}
               </button>
             </div>
           </div>
