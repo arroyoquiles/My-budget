@@ -1755,9 +1755,9 @@ function App(){
     const card=cardIdNum?data.tarjetas.find(t=>t.id===cardIdNum):null;
     // Add to check
     updPeriodGastos(pid,g=>[...g,{id:nid,nombre:quickNote.trim(),monto:m,
-      cat:card?"credit_card":"other",
+      cat:"temp",
       state:"paid",pagado:true,
-      destino:card?"credit_card":"temp",
+      destino:"temp",
       tarjetaRef:card?card.nombre:"",
       diaPago:null,_quick:true}]);
     // If paid with card, also charge the card
