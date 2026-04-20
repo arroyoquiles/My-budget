@@ -72,15 +72,9 @@
     .dest-picker{display:grid;grid-template-columns:repeat(2,1fr);gap:5px;}
     /* Full-screen quick modal */
     .quick-modal-fullscreen{
-      position:fixed;
-      top:0;
-      left:0;
-      width:100vw;
-      z-index:301;
-      display:flex;
-      flex-direction:column;
-      background:var(--qm-bg,#161b22);
-      overflow:hidden;
+      width:100%;
+      max-width:500px;
+      margin:0 auto;
       -webkit-transform:translateZ(0);
       transform:translateZ(0);
     }
@@ -2245,7 +2239,7 @@ function App(){
                   })}
                 </div>
               </div>
-              {/* PREVIEW */}
+              {/* CASH LEFTOVER PREVIEW */}
               {quickAmtNum>0&&!quickCardId&&(()=>{
                 const pid=quickPid||currentPid;
                 const gastos=getPGastos(pid);
@@ -2259,16 +2253,22 @@ function App(){
                   </div>
                 </div>);
               })()}
-              {quickAmtNum>0&&quickCardId&&(()=>{
+              {/* CARD BALANCE PREVIEW */}
+              {quickCardId&&(()=>{
                 const card=data.tarjetas.find(t=>t.id===parseInt(quickCardId));
                 if(!card)return null;
-                const newBal=n(card.balance)+quickAmtNum;
-                const pct=n(card.limite)>0?Math.round(newBal/n(card.limite)*100):null;
-                return(<div style={{marginBottom:10,padding:"7px 11px",borderRadius:9,background:T.surface2,border:`1px solid ${T.border}`}}>
-                  <div style={{display:"flex",justifyContent:"space-between",fontSize:11}}>
-                    <span style={{color:T.muted}}>New card balance</span>
-                    <span style={{fontFamily:"monospace",fontWeight:700,color:"#ec4899"}}>{fmt(newBal)}{pct!==null&&<span style={{fontSize:10,color:pct>=90?"#f85149":pct>=70?"#d29922":T.muted,marginLeft:5}}>{pct}%</span>}</span>
+                const currentBal=n(card.balance);
+                const newBal=quickAmtNum>0?currentBal+quickAmtNum:null;
+                const pct=n(card.limite)>0?Math.round((newBal||currentBal)/n(card.limite)*100):null;
+                return(<div style={{marginBottom:10,padding:"8px 12px",borderRadius:9,background:T.surface2,border:`1px solid ${T.border}`}}>
+                  <div style={{display:"flex",justifyContent:"space-between",fontSize:11,marginBottom:newBal?4:0}}>
+                    <span style={{color:T.muted}}>Current balance</span>
+                    <span style={{fontFamily:"monospace",fontWeight:700,color:"#ec4899"}}>{fmt(currentBal)}</span>
                   </div>
+                  {newBal&&<div style={{display:"flex",justifyContent:"space-between",fontSize:11}}>
+                    <span style={{color:T.muted}}>After this charge</span>
+                    <span style={{fontFamily:"monospace",fontWeight:700,color:pct>=90?"#f85149":pct>=70?"#d29922":"#ec4899"}}>{fmt(newBal)}{pct!==null&&<span style={{fontSize:10,marginLeft:5}}>{pct}%</span>}</span>
+                  </div>}
                 </div>);
               })()}
               <button style={{...BTN,width:"100%",padding:"13px",background:"#238636",color:"#fff",fontSize:15,fontWeight:700,borderRadius:11}} onClick={addQuickUnified}>
