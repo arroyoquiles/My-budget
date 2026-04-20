@@ -1624,11 +1624,25 @@ function App(){
     haptic(20);
     const gastos=(data.periods[pid]?.gastos)||[];
     const item=gastos.find(x=>x.id===id);
+    const markingPaid=item&&item.state!=="paid";
     updPeriodGastos(pid,g=>g.map(x=>x.id!==id?x:{...x,state:x.state==="paid"?"pending":"paid",pagado:x.state!=="paid"}));
-    if(item&&item.debtRef&&item.state!=="paid"){
-      setTimeout(()=>setDebtPayConfirm({item,pid}),200);
+    // Auto-register debt payment if linked
+    if(item&&item.debtRef&&markingPaid){
+      const[tipo,idStr]=item.debtRef.split(":");
+      const debtId=parseInt(idStr);
+      const m=n(item.monto);
+      const entry={fecha:new Date().toLocaleDateString("en-US",{month:"short",day:"numeric"}),tipo:"pago",monto:m};
+      if(tipo==="card"){
+        setData(p=>({...p,tarjetas:p.tarjetas.map(t=>t.id!==debtId?t:{...t,balance:Math.max(0,n(t.balance)-m),historial:[entry,...(t.historial||[])].slice(0,10)})}));
+        const card=data.tarjetas.find(t=>t.id===debtId);
+        setTimeout(()=>toast_(`💳 ${fmt(m)} payment registered to ${card?.nombre||"card"}`),300);
+      } else {
+        setData(p=>({...p,loans:(p.loans||[]).map(l=>l.id!==debtId?l:{...l,balance:Math.max(0,n(l.balance)-m),historial:[entry,...(l.historial||[])].slice(0,10)})}));
+        const loan=(data.loans||[]).find(l=>l.id===debtId);
+        setTimeout(()=>toast_(`🏦 ${fmt(m)} payment registered to ${loan?.nombre||"loan"}`),300);
+      }
     }
-  },[data.periods]);
+  },[data.periods,data.tarjetas,data.loans]);
   const setReserved=useCallback((pid,id)=>updPeriodGastos(pid,g=>g.map(x=>x.id!==id?x:{...x,state:x.state==="reserved"?"pending":"reserved",pagado:false})),[]);
   const updateGasto=useCallback((pid,id,f,v)=>updPeriodGastos(pid,g=>g.map(x=>x.id===id?{...x,[f]:v}:x)),[]);
   const batchUpdateGasto=useCallback((pid,id,fields)=>updPeriodGastos(pid,g=>g.map(x=>x.id===id?{...x,...fields}:x)),[]);
@@ -2247,7 +2261,7 @@ function App(){
       <button style={{...BTN,position:"fixed",bottom:"max(90px, calc(78px + env(safe-area-inset-bottom)))",right:16,zIndex:200,height:44,paddingLeft:18,paddingRight:18,borderRadius:22,background:"linear-gradient(135deg,#2ea043,#238636)",color:"#fff",fontSize:14,fontWeight:700,boxShadow:"0 4px 24px rgba(35,134,54,0.6), 0 0 0 1px rgba(46,160,67,0.4)",display:"flex",alignItems:"center",gap:6,letterSpacing:0.3}} onClick={()=>{if(!data.proximoCobro){toast_("⚙️ Set up your paycheck in Settings first","err");return;}setQuickOpen(true);}}><span style={{fontSize:16}}>$</span>Quick +</button>
 
       {/* ── Quick Expense Modal ── */}
-      {gastoTypePicker&&(
+      {gastoTypePicker&&!gastoTypePicker.step&&(
         <div style={{position:"fixed",inset:0,zIndex:400,background:"rgba(0,0,0,0.6)",display:"flex",alignItems:"flex-end",justifyContent:"center"}}
           onClick={e=>{if(e.target===e.currentTarget)setGastoTypePicker(null);}}>
           <div style={{...CARD,width:"100%",maxWidth:500,borderRadius:"20px 20px 0 0",padding:"20px",paddingBottom:"max(28px,env(safe-area-inset-bottom,28px))",animation:"slideInUp 0.28s cubic-bezier(0.4,0,0.2,1) both"}}>
@@ -2265,7 +2279,7 @@ function App(){
                 <span style={{marginLeft:"auto",color:T.muted,fontSize:16}}>›</span>
               </button>
               {/* Debt payment */}
-              {(tarjetas.length>0||(data.loans||[]).length>0)&&(
+              {(data.tarjetas.length>0||(data.loans||[]).length>0)&&(
                 <button style={{...BTN,padding:"16px",borderRadius:14,background:T.surface2,border:`1px solid ${T.border}`,display:"flex",alignItems:"center",gap:14,textAlign:"left"}}
                   onClick={()=>{setGastoTypePicker({...gastoTypePicker,step:"debt"});}}>
                   <div style={{width:42,height:42,borderRadius:12,background:"rgba(236,72,153,0.15)",display:"flex",alignItems:"center",justifyContent:"center",fontSize:20,flexShrink:0}}>💳</div>
@@ -2295,15 +2309,15 @@ function App(){
                 if(!v)return;
                 const[tipo,idStr]=v.split(":");
                 const id=parseInt(idStr);
-                const debt=tipo==="card"?tarjetas.find(t=>t.id===id):(data.loans||[]).find(l=>l.id===id);
+                const debt=tipo==="card"?data.tarjetas.find(t=>t.id===id):(data.loans||[]).find(l=>l.id===id);
                 if(!debt)return;
                 const pid=gastoTypePicker.pid;
                 setGastoTypePicker(null);
                 setTimeout(()=>addGastoDebt(pid,v,debt,tipo),50);
               }}>
               <option value="">— Select debt —</option>
-              {tarjetas.length>0&&<optgroup label="💳 Credit Cards">
-                {tarjetas.map(t=><option key={t.id} value={`card:${t.id}`}>{t.nombre} — {fmt(n(t.minimo)||0)} min</option>)}
+              {data.tarjetas.length>0&&<optgroup label="💳 Credit Cards">
+                {data.tarjetas.map(t=><option key={t.id} value={`card:${t.id}`}>{t.nombre} — {fmt(n(t.minimo)||0)} min</option>)}
               </optgroup>}
               {(data.loans||[]).length>0&&<optgroup label="🏦 Loans">
                 {(data.loans||[]).map(l=><option key={l.id} value={`loan:${l.id}`}>{l.nombre} — {fmt(n(l.minimo)||0)} mo</option>)}
@@ -2314,38 +2328,6 @@ function App(){
           </div>
         </div>
       )}
-      {debtPayConfirm&&(()=>{
-        const{item}=debtPayConfirm;
-        const[type,idStr]=item.debtRef.split(":");
-        const id=parseInt(idStr);
-        const debt=type==="card"?data.tarjetas.find(t=>t.id===id):(data.loans||[]).find(l=>l.id===id);
-        if(!debt)return null;
-        const registerPayment=()=>{
-          const m=n(item.monto);
-          const entry={fecha:new Date().toLocaleDateString("en-US",{month:"short",day:"numeric"}),tipo:"pago",monto:m};
-          if(type==="card"){
-            setData(p=>({...p,tarjetas:p.tarjetas.map(t=>t.id!==id?t:{...t,balance:Math.max(0,n(t.balance)-m),historial:[entry,...(t.historial||[])].slice(0,10)})}));
-          } else {
-            setData(p=>({...p,loans:(p.loans||[]).map(l=>l.id!==id?l:{...l,balance:Math.max(0,n(l.balance)-m),historial:[entry,...(l.historial||[])].slice(0,10)})}));
-          }
-          toast_(`✅ $${m} payment registered to ${debt.nombre}`);
-          setDebtPayConfirm(null);
-        };
-        return(
-          <div style={{position:"fixed",inset:0,zIndex:400,background:"rgba(0,0,0,0.6)",display:"flex",alignItems:"flex-end",justifyContent:"center"}}>
-            <div style={{...CARD,width:"100%",maxWidth:500,borderRadius:"20px 20px 0 0",padding:"20px 20px",paddingBottom:"max(24px,env(safe-area-inset-bottom,24px))",animation:"slideInUp 0.28s cubic-bezier(0.4,0,0.2,1) both"}}>
-              <div style={{fontSize:13,fontWeight:700,color:T.text,marginBottom:4}}>Register payment in Debts?</div>
-              <div style={{fontSize:12,color:T.muted,marginBottom:16}}>
-                Mark <span style={{color:T.accent,fontWeight:600}}>{fmt(item.monto)}</span> payment to <span style={{color:T.accent,fontWeight:600}}>{debt.nombre}</span>?
-              </div>
-              <div style={{display:"flex",gap:10}}>
-                <button style={{...BTN,flex:1,padding:"12px",background:"#238636",color:"#fff",fontSize:13,fontWeight:700,borderRadius:11}} onClick={registerPayment}>✓ Yes, register</button>
-                <button style={{...BTN,flex:1,padding:"12px",background:T.surface2,color:T.muted,fontSize:13,borderRadius:11,border:`1px solid ${T.border}`}} onClick={()=>setDebtPayConfirm(null)}>Skip</button>
-              </div>
-            </div>
-          </div>
-        );
-      })()}
       {backupPrompt&&(
         <div style={{position:"fixed",inset:0,zIndex:500,background:"rgba(0,0,0,0.7)",display:"flex",alignItems:"center",justifyContent:"center",padding:24}}>
           <div style={{...CARD,padding:24,maxWidth:320,width:"100%",textAlign:"center"}}>
