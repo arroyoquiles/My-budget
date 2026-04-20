@@ -1348,27 +1348,7 @@ function App(){
   useEffect(()=>{localStorage.setItem(SK,JSON.stringify(data));},[data]);
   useEffect(()=>{
     const s=document.getElementById("splash");
-    // Face ID / Touch ID authentication
-    const doAuth=async()=>{
-      try{
-        if(window.PublicKeyCredential&&await PublicKeyCredential.isUserVerifyingPlatformAuthenticatorAvailable()){
-          const challenge=new Uint8Array(32);crypto.getRandomValues(challenge);
-          await navigator.credentials.get({publicKey:{challenge,timeout:60000,userVerification:"required",rpId:window.location.hostname||"localhost"}});
-        }
-      }catch(e){
-        // Auth failed or cancelled — lock the app
-        if(e.name!=="NotSupportedError"&&e.name!=="SecurityError"){
-          if(s){s.classList.remove("hide");s.style.display="flex";}
-          document.body.style.filter="blur(20px)";
-          setTimeout(()=>{document.body.style.filter="";doAuth();},500);
-          return;
-        }
-      }
-      document.body.style.filter="";
-      if(s){setTimeout(()=>{s.classList.add("hide");setTimeout(()=>s.remove(),500);},200);}
-    };
-    document.body.style.filter="blur(20px)";
-    setTimeout(doAuth,800);
+    if(s){setTimeout(()=>{s.classList.add("hide");setTimeout(()=>s.remove(),500);},1600);}
     if("Notification" in window&&Notification.permission==="default"){
       setTimeout(()=>Notification.requestPermission(),4000);
     }
