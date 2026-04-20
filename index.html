@@ -2219,38 +2219,59 @@ function App(){
               {/* PAID WITH */}
               <div style={{marginBottom:8}}>
                 <div style={{fontSize:9,color:T.muted,letterSpacing:1.2,fontWeight:700,marginBottom:6}}>PAID WITH</div>
-                <div style={{display:"flex",gap:6,flexWrap:"wrap",marginBottom:quickCardId?8:0}}>
-                  <button style={{...BTN,padding:"7px 14px",fontSize:12,borderRadius:9,
-                    background:!quickCardId?"rgba(63,185,80,0.15)":"transparent",
-                    color:!quickCardId?"#3fb950":T.muted,
-                    border:`1px solid ${!quickCardId?"rgba(63,185,80,0.4)":T.border}`}}
-                    onMouseDown={e=>e.preventDefault()} onClick={()=>setQuickCardId("")}>
-                    💵 Debit / Cash
-                  </button>
-                  {data.tarjetas.map(t=>{
-                    const tc=CC[t.nombre]||null;
-                    const cardColor=tc?.color||t._vc?.color||"#ec4899";
-                    const cardBorder=tc?.border||t._vc?.border||"rgba(236,72,153,0.4)";
-                    const dot=tc?.dot||t._vc?.dot||"💳";
-                    const isSel=quickCardId===String(t.id);
-                    return(<button key={t.id} style={{...BTN,padding:"7px 14px",fontSize:12,borderRadius:9,
-                      background:isSel?`${cardColor}22`:"transparent",
-                      color:isSel?cardColor:T.muted,
-                      border:`1px solid ${isSel?cardBorder:T.border}`}}
-                      onMouseDown={e=>e.preventDefault()} onClick={()=>setQuickCardId(String(t.id))}>
-                      {dot} {t.nombre}
-                    </button>);
-                  })}
+                {/* Fixed height container — no jumping */}
+                <div style={{height:120,borderRadius:12,border:`1px solid ${T.border}`,overflow:"hidden",position:"relative",background:T.surface2}}>
+                  {/* Debit/Cash row */}
+                  <div style={{position:"absolute",top:0,left:0,right:0,height:40,display:"flex",alignItems:"center",
+                    padding:"0 14px",cursor:"pointer",
+                    background:!quickCardId?"rgba(63,185,80,0.12)":"transparent",
+                    borderBottom:`1px solid ${T.border}`,transition:"background 0.15s"}}
+                    onClick={()=>setQuickCardId("")}>
+                    <span style={{fontSize:13,fontWeight:600,color:!quickCardId?"#3fb950":T.muted}}>💵 Debit / Cash</span>
+                    {!quickCardId&&<span style={{marginLeft:"auto",fontSize:11,color:"#3fb950"}}>✓</span>}
+                  </div>
+                  {/* Picker wheel for cards */}
+                  <div style={{position:"absolute",top:40,left:0,right:0,bottom:0,overflowY:"scroll",
+                    WebkitOverflowScrolling:"touch",scrollSnapType:"y mandatory",
+                    scrollbarWidth:"none"}}
+                    ref={el=>{
+                      if(!el)return;
+                      el.style.cssText+=";-webkit-overflow-scrolling:touch;";
+                      el.onscroll=()=>{
+                        // haptic tick on snap
+                        if(window.navigator.vibrate)window.navigator.vibrate(3);
+                      };
+                    }}>
+                    {/* Fade overlay top */}
+                    <div style={{position:"sticky",top:0,height:16,background:`linear-gradient(${T.surface2},transparent)`,zIndex:2,pointerEvents:"none"}}/>
+                    {data.tarjetas.map(t=>{
+                      const tc=CC[t.nombre]||null;
+                      const cardColor=tc?.color||t._vc?.color||"#ec4899";
+                      const dot=tc?.dot||t._vc?.dot||"💳";
+                      const isSel=quickCardId===String(t.id);
+                      return(<div key={t.id}
+                        style={{height:40,display:"flex",alignItems:"center",padding:"0 14px",
+                          scrollSnapAlign:"start",cursor:"pointer",flexShrink:0,
+                          background:isSel?`${cardColor}18`:"transparent",
+                          transition:"background 0.1s"}}
+                        onClick={()=>setQuickCardId(String(t.id))}>
+                        <span style={{fontSize:13,fontWeight:600,color:isSel?cardColor:T.muted}}>{dot} {t.nombre}</span>
+                        {isSel&&<span style={{marginLeft:"auto",fontSize:11,color:cardColor}}>✓</span>}
+                      </div>);
+                    })}
+                    {/* Fade overlay bottom */}
+                    <div style={{position:"sticky",bottom:0,height:16,background:`linear-gradient(transparent,${T.surface2})`,zIndex:2,pointerEvents:"none"}}/>
+                  </div>
                 </div>
 
-                {/* CARD BALANCE — right below cards */}
+                {/* CARD BALANCE — right below picker */}
                 {quickCardId&&(()=>{
                   const card=data.tarjetas.find(t=>t.id===parseInt(quickCardId));
                   if(!card)return null;
                   const currentBal=n(card.balance);
                   const newBal=quickAmtNum>0?currentBal+quickAmtNum:null;
                   const pct=n(card.limite)>0?Math.round((newBal||currentBal)/n(card.limite)*100):null;
-                  return(<div style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"6px 10px",background:T.surface2,borderRadius:9,marginBottom:8,border:`1px solid ${T.border}`}}>
+                  return(<div style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"6px 10px",background:T.surface2,borderRadius:9,marginTop:6,marginBottom:6,border:`1px solid ${T.border}`}}>
                     <span style={{fontSize:11,color:T.muted}}>{newBal?"After charge":"Current balance"}</span>
                     <span style={{fontFamily:"monospace",fontWeight:700,fontSize:12,color:newBal&&pct>=90?"#f85149":newBal&&pct>=70?"#d29922":"#ec4899"}}>
                       {fmt(newBal||currentBal)}{pct!==null&&<span style={{fontSize:10,color:T.muted,marginLeft:4}}>{pct}%</span>}
@@ -2258,36 +2279,26 @@ function App(){
                   </div>);
                 })()}
 
-                {/* CARD MODE SELECTOR */}
-                {quickCardId&&(
-                  <div style={{borderRadius:12,overflow:"hidden",border:`1px solid ${T.border}`}}>
-                    <button style={{...BTN,width:"100%",padding:"11px 14px",display:"flex",alignItems:"center",gap:12,
-                      background:quickCardMode==="budget"?`${T.accent}15`:"transparent",
-                      borderBottom:`1px solid ${T.border}`,transition:"background 0.15s"}}
-                      onMouseDown={e=>e.preventDefault()} onClick={()=>setQuickCardMode("budget")}>
-                      <div style={{width:18,height:18,borderRadius:"50%",border:`2px solid ${quickCardMode==="budget"?T.accent:T.border}`,
-                        display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0,transition:"all 0.15s"}}>
-                        {quickCardMode==="budget"&&<div style={{width:8,height:8,borderRadius:"50%",background:T.accent}}/>}
-                      </div>
-                      <div style={{textAlign:"left"}}>
-                        <div style={{fontSize:12,fontWeight:600,color:quickCardMode==="budget"?T.text:T.muted}}>📋 From check — Already planned</div>
-                        <div style={{fontSize:10,color:T.muted}}>Deducted from this check</div>
-                      </div>
-                    </button>
-                    <button style={{...BTN,width:"100%",padding:"11px 14px",display:"flex",alignItems:"center",gap:12,
-                      background:quickCardMode==="cardonly"?"rgba(236,72,153,0.08)":"transparent",transition:"background 0.15s"}}
-                      onMouseDown={e=>e.preventDefault()} onClick={()=>setQuickCardMode("cardonly")}>
-                      <div style={{width:18,height:18,borderRadius:"50%",border:`2px solid ${quickCardMode==="cardonly"?"#ec4899":T.border}`,
-                        display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0,transition:"all 0.15s"}}>
-                        {quickCardMode==="cardonly"&&<div style={{width:8,height:8,borderRadius:"50%",background:"#ec4899"}}/>}
-                      </div>
-                      <div style={{textAlign:"left"}}>
-                        <div style={{fontSize:12,fontWeight:600,color:quickCardMode==="cardonly"?"#ec4899":T.muted}}>💳 Card balance — Pay later</div>
-                        <div style={{fontSize:10,color:T.muted}}>Not in my budget</div>
-                      </div>
-                    </button>
-                  </div>
-                )}
+                {/* CARD MODE SELECTOR — fixed height, always same size */}
+                <div style={{height:quickCardId?88:0,overflow:"hidden",transition:"height 0.2s ease",borderRadius:12,marginTop:quickCardId?6:0,border:quickCardId?`1px solid ${T.border}`:"none"}}>
+                  <button style={{...BTN,width:"100%",height:44,padding:"0 14px",display:"flex",alignItems:"center",gap:10,
+                    background:quickCardMode==="budget"?`${T.accent}15`:"transparent",
+                    borderBottom:`1px solid ${T.border}`,transition:"background 0.15s"}}
+                    onMouseDown={e=>e.preventDefault()} onClick={()=>setQuickCardMode("budget")}>
+                    <div style={{width:16,height:16,borderRadius:"50%",border:`2px solid ${quickCardMode==="budget"?T.accent:T.border}`,display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0}}>
+                      {quickCardMode==="budget"&&<div style={{width:7,height:7,borderRadius:"50%",background:T.accent}}/>}
+                    </div>
+                    <span style={{fontSize:12,fontWeight:600,color:quickCardMode==="budget"?T.text:T.muted}}>📋 From check — Already planned</span>
+                  </button>
+                  <button style={{...BTN,width:"100%",height:44,padding:"0 14px",display:"flex",alignItems:"center",gap:10,
+                    background:quickCardMode==="cardonly"?"rgba(236,72,153,0.08)":"transparent",transition:"background 0.15s"}}
+                    onMouseDown={e=>e.preventDefault()} onClick={()=>setQuickCardMode("cardonly")}>
+                    <div style={{width:16,height:16,borderRadius:"50%",border:`2px solid ${quickCardMode==="cardonly"?"#ec4899":T.border}`,display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0}}>
+                      {quickCardMode==="cardonly"&&<div style={{width:7,height:7,borderRadius:"50%",background:"#ec4899"}}/>}
+                    </div>
+                    <span style={{fontSize:12,fontWeight:600,color:quickCardMode==="cardonly"?"#ec4899":T.muted}}>💳 Card balance — Pay later</span>
+                  </button>
+                </div>
               </div>
               {/* CASH LEFTOVER PREVIEW */}
               {quickAmtNum>0&&!quickCardId&&(()=>{
