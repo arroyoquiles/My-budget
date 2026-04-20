@@ -1746,6 +1746,31 @@ function App(){
     setQuickNote("");setQuickAmt("");setQuickOpen(false);toast_(`🛒 ${fmt(m)} charged to ${cardName}`);
   };
 
+  const addQuickUnified=()=>{
+    const m=parseFloat(quickAmt);
+    if(!m||m<=0||!quickNote.trim())return toast_("Add name and amount","err");
+    const pid=quickPid||currentPid;
+    const nid=Date.now();
+    const cardIdNum=quickCardId?parseInt(quickCardId):null;
+    const card=cardIdNum?data.tarjetas.find(t=>t.id===cardIdNum):null;
+    // Add to check
+    updPeriodGastos(pid,g=>[...g,{id:nid,nombre:quickNote.trim(),monto:m,
+      cat:card?"credit_card":"other",
+      state:"paid",pagado:true,
+      destino:card?"credit_card":"temp",
+      tarjetaRef:card?card.nombre:"",
+      diaPago:null,_quick:true}]);
+    // If paid with card, also charge the card
+    if(card){
+      const entry={fecha:new Date().toLocaleDateString("en-US",{month:"short",day:"numeric"}),tipo:"gasto",monto:m};
+      setData(p=>({...p,tarjetas:p.tarjetas.map(t=>t.id!==cardIdNum?t:{...t,balance:n(t.balance)+m,historial:[entry,...(t.historial||[])].slice(0,10)})}));
+      toast_(`✅ "${quickNote.trim()}" ${fmt(m)} → check + charged to ${card.nombre}`);
+    } else {
+      toast_(`✅ "${quickNote.trim()}" ${fmt(m)} added`);
+    }
+    setQuickNote("");setQuickAmt("");setQuickCardId("");setQuickOpen(false);
+  };
+
   const addQuickExpense=()=>{
     if(quickApplyTo==="card")addQuickExpenseToCard();
     else addQuickExpenseToCheck();
@@ -2051,6 +2076,10 @@ function App(){
           ))}
         </div>
         {pinError&&<div style={{fontSize:12,color:"#f85149",fontWeight:600}}>{pinError}</div>}
+        {pinSetup&&<button style={{padding:"6px 18px",background:"transparent",color:"rgba(255,255,255,0.4)",fontSize:12,border:"1px solid rgba(255,255,255,0.15)",borderRadius:9,cursor:"pointer",fontFamily:"inherit",WebkitTapHighlightColor:"transparent"}}
+          onMouseDown={e=>{e.preventDefault();setPinSetup(false);setPinInput("");setPinConfirm("");setPinStep(1);setPinError("");setAuthenticated(true);}}>
+          Cancel
+        </button>}
         {/* Number pad */}
         <div style={{display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:12,width:240}}>
           {[1,2,3,4,5,6,7,8,9,"",0,"⌫"].map((d,i)=>(
@@ -2176,44 +2205,75 @@ function App(){
               <div style={{fontSize:14,fontWeight:700}}>⚡ Quick Expense</div>
               <div style={{width:32}}/>
             </div>
-            <div style={{padding:"10px 16px 0"}}>
-              <div style={{display:"flex",gap:6,background:T.surface2,borderRadius:11,padding:3}}>
-                <button style={{...BTN,flex:1,padding:"8px",fontSize:12,borderRadius:9,background:quickApplyTo==="check"?T.bg:"transparent",color:quickApplyTo==="check"?T.accent:T.muted,border:quickApplyTo==="check"?`1px solid ${T.accent}`:"1px solid transparent"}} onMouseDown={e=>e.preventDefault()} onClick={()=>{switchQuickApplyTo("check");requestAnimationFrame(()=>{const el=document.querySelector('[data-quick-check-amt]');if(el)el.focus({preventScroll:true});});}}>💰 Check</button>
-                <button style={{...BTN,flex:1,padding:"8px",fontSize:12,borderRadius:9,background:quickApplyTo==="card"?T.bg:"transparent",color:quickApplyTo==="card"?"#94a3b8":T.muted,border:quickApplyTo==="card"?"1px solid rgba(148,163,184,0.5)":"1px solid transparent"}} onMouseDown={e=>e.preventDefault()} onClick={()=>{switchQuickApplyTo("card");requestAnimationFrame(()=>{if(window._quickCardAmtEl)window._quickCardAmtEl.focus({preventScroll:true});});}}>💳 Card</button>
+            <div style={{padding:"14px 16px",paddingBottom:"max(16px,env(safe-area-inset-bottom,16px))"}}>
+              {/* NAME */}
+              <div style={{marginBottom:10}}>
+                <div style={{fontSize:9,color:T.muted,letterSpacing:1.2,fontWeight:700,marginBottom:4}}>WHAT WAS IT?</div>
+                <input style={{...INP}} value={quickNote} onChange={e=>setQuickNote(e.target.value)} placeholder="e.g. Walmart, gas..."/>
               </div>
-            </div>
-            <div style={{padding:"10px 16px",paddingBottom:"max(16px,env(safe-area-inset-bottom,16px))"}}>
-              <div style={{minHeight:286,position:"relative"}}>
-                {/* CHECK MODE */}
-                <div style={{display:quickApplyTo==="check"?"block":"none"}}>
-                  <div style={{marginBottom:8}}><div style={{fontSize:9,color:T.muted,letterSpacing:1.2,fontWeight:700,marginBottom:4}}>WHAT WAS IT?</div><input style={{...INP}} value={quickNote} onChange={e=>setQuickNote(e.target.value)} placeholder="e.g. Walmart, gas..."/></div>
-                  <div style={{marginBottom:8}}><div style={{fontSize:9,color:T.muted,letterSpacing:1.2,fontWeight:700,marginBottom:4}}>AMOUNT ($)</div><div className="amt-wrap"><span className="amt-prefix" style={{fontSize:20,color:quickAmt?T.accent+"99":T.muted+"55"}}>$</span><input data-quick-check-amt style={{...INP,fontFamily:"monospace",fontWeight:700,fontSize:22,paddingLeft:28}} type="number" inputMode="decimal" value={quickAmt} onChange={e=>setQuickAmt(e.target.value)} placeholder="0.00"/></div></div>
-                  <div style={{marginBottom:8}}><div style={{fontSize:9,color:T.muted,letterSpacing:1.2,fontWeight:700,marginBottom:4}}>DEDUCT FROM</div><div style={{display:"flex",gap:6}}>{monthPeriods.map(p=>(<button key={p.id} style={{...BTN,flex:1,padding:"8px",fontSize:12,background:quickPid===p.id?`${T.accent}26`:T.surface2,color:quickPid===p.id?T.accent:T.muted,border:`1px solid ${quickPid===p.id?T.accent:T.border}`}} onClick={()=>setQuickPid(p.id)}>{p.isCurrent?"💰":"📋"} {p.label}{p.isCurrent?" ✓":""}</button>))}</div></div>
-                  <div style={{height:32,display:"flex",alignItems:"center"}}>{quickAmtNum>0&&quickPreviewCheck&&(<div style={{width:"100%",padding:"7px 11px",borderRadius:9,background:quickPreviewCheck.newLeftover>=0?"rgba(63,185,80,0.06)":"rgba(248,81,73,0.06)",border:`1px solid ${quickPreviewCheck.newLeftover>=0?"rgba(63,185,80,0.25)":"rgba(248,81,73,0.25)"}`}}><div style={{display:"flex",justifyContent:"space-between",fontSize:11}}><span style={{color:T.muted}}>Left over after this</span><span style={{fontFamily:"monospace",fontWeight:700,color:quickPreviewCheck.newLeftover>=0?"#3fb950":"#f85149"}}>{fmt(quickPreviewCheck.newLeftover)}</span></div></div>)}</div>
+              {/* AMOUNT */}
+              <div style={{marginBottom:10}}>
+                <div style={{fontSize:9,color:T.muted,letterSpacing:1.2,fontWeight:700,marginBottom:4}}>AMOUNT ($)</div>
+                <div className="amt-wrap"><span className="amt-prefix" style={{fontSize:20,color:quickAmt?T.accent+"99":T.muted+"55"}}>$</span>
+                  <input data-quick-check-amt style={{...INP,fontFamily:"monospace",fontWeight:700,fontSize:22,paddingLeft:28}} type="number" inputMode="decimal" value={quickAmt} onChange={e=>setQuickAmt(e.target.value)} placeholder="0.00"/>
                 </div>
-                {/* CARD MODE */}
-                <div style={{display:quickApplyTo==="card"?"block":"none"}}>
-                  <div style={{marginBottom:8}}><div style={{fontSize:9,color:T.muted,letterSpacing:1.2,fontWeight:700,marginBottom:4}}>AMOUNT ($)</div><div className="amt-wrap"><span className="amt-prefix" style={{fontSize:20,color:quickAmt?T.accent+"99":T.muted+"55"}}>$</span><input ref={el=>{window._quickCardAmtEl=el;}} style={{...INP,fontFamily:"monospace",fontWeight:700,fontSize:22,paddingLeft:28}} type="number" inputMode="decimal" value={quickAmt} onChange={e=>setQuickAmt(e.target.value)} placeholder="0.00"/></div></div>
-                  <div style={{height:32,display:"flex",alignItems:"center",marginBottom:8}}>{quickAmtNum>0&&quickPreviewCard&&(<div style={{width:"100%",padding:"7px 11px",borderRadius:9,background:T.surface2,border:`1px solid ${T.border}`}}><div style={{display:"flex",justifyContent:"space-between",fontSize:11}}><span style={{color:T.muted}}>New balance</span><span style={{fontFamily:"monospace",fontWeight:700,color:"#94a3b8"}}>{fmt(quickPreviewCard.newBalance)}{quickPreviewCard.pct!==null&&<span style={{fontSize:10,color:quickPreviewCard.pct>=90?"#f85149":quickPreviewCard.pct>=70?"#d29922":T.muted,marginLeft:5}}>{quickPreviewCard.pct}%</span>}</span></div></div>)}</div>
-                  <div style={{fontSize:9,color:T.muted,letterSpacing:1.2,fontWeight:700,marginBottom:4}}>WHICH CARD?</div>
-                  <div style={{display:"flex",flexDirection:"column",gap:4,overflowY:"auto",maxHeight:160,WebkitOverflowScrolling:"touch"}}
-                    ref={el=>{
-                      if(!el)return;
-                      el._touchStartY=0;
-                      el.ontouchstart=e=>{el._touchStartY=e.touches[0].clientY;};
-                      el.ontouchmove=e=>{
-                        const dy=e.touches[0].clientY-el._touchStartY;
-                        const atTop=el.scrollTop<=0&&dy>0;
-                        const atBot=el.scrollTop+el.clientHeight>=el.scrollHeight-1&&dy<0;
-                        const noScroll=el.scrollHeight<=el.clientHeight;
-                        if(noScroll||atTop||atBot){e.preventDefault();}
-                      };
-                    }}
-                  >                    {data.tarjetas.length===0?<div style={{fontSize:12,color:T.muted,padding:"8px 10px",background:T.surface2,borderRadius:9}}>No cards. Add one in Debts.</div>:data.tarjetas.map(t=>{const tc=CC[t.nombre]||null;const dot=tc?.dot||t._vc?.dot||"💳";const cardColor=tc?.color||t._vc?.color||"#ec4899";const cardBorder=tc?.border||t._vc?.border||"rgba(236,72,153,0.4)";const isSelected=quickCardId===String(t.id);return(<button key={t.id} style={{...BTN,padding:"8px 12px",fontSize:13,textAlign:"left",background:isSelected?"rgba(236,72,153,0.1)":T.surface2,color:isSelected?cardColor:T.text,border:`1px solid ${isSelected?cardBorder:T.border}`,display:"flex",alignItems:"center",gap:8,borderRadius:9,flexShrink:0}} onMouseDown={e=>e.preventDefault()} onClick={()=>setQuickCardId(String(t.id))}><span style={{fontSize:14,flexShrink:0}}>{dot}</span><span style={{fontWeight:600,fontSize:13}}>{t.nombre}</span></button>);})}
+              </div>
+              {/* PAID WITH */}
+              <div style={{marginBottom:12}}>
+                <div style={{fontSize:9,color:T.muted,letterSpacing:1.2,fontWeight:700,marginBottom:6}}>PAID WITH</div>
+                <div style={{display:"flex",gap:6,flexWrap:"wrap"}}>
+                  <button style={{...BTN,padding:"7px 14px",fontSize:12,borderRadius:9,
+                    background:!quickCardId?"rgba(63,185,80,0.15)":"transparent",
+                    color:!quickCardId?"#3fb950":T.muted,
+                    border:`1px solid ${!quickCardId?"rgba(63,185,80,0.4)":T.border}`}}
+                    onMouseDown={e=>e.preventDefault()} onClick={()=>setQuickCardId("")}>
+                    💵 Debit / Cash
+                  </button>
+                  {data.tarjetas.map(t=>{
+                    const tc=CC[t.nombre]||null;
+                    const cardColor=tc?.color||t._vc?.color||"#ec4899";
+                    const cardBorder=tc?.border||t._vc?.border||"rgba(236,72,153,0.4)";
+                    const dot=tc?.dot||t._vc?.dot||"💳";
+                    const isSel=quickCardId===String(t.id);
+                    return(<button key={t.id} style={{...BTN,padding:"7px 14px",fontSize:12,borderRadius:9,
+                      background:isSel?`${cardColor}22`:"transparent",
+                      color:isSel?cardColor:T.muted,
+                      border:`1px solid ${isSel?cardBorder:T.border}`}}
+                      onMouseDown={e=>e.preventDefault()} onClick={()=>setQuickCardId(String(t.id))}>
+                      {dot} {t.nombre}
+                    </button>);
+                  })}
+                </div>
+              </div>
+              {/* PREVIEW */}
+              {quickAmtNum>0&&!quickCardId&&(()=>{
+                const pid=quickPid||currentPid;
+                const gastos=getPGastos(pid);
+                const currentTotal=gastos.reduce((s,g)=>s+n(g.monto),0);
+                const periodAmt=getPeriodAmount(pid);
+                const newLeft=periodAmt-(currentTotal+quickAmtNum);
+                return(<div style={{marginBottom:10,padding:"7px 11px",borderRadius:9,background:newLeft>=0?"rgba(63,185,80,0.06)":"rgba(248,81,73,0.06)",border:`1px solid ${newLeft>=0?"rgba(63,185,80,0.25)":"rgba(248,81,73,0.25)"}`}}>
+                  <div style={{display:"flex",justifyContent:"space-between",fontSize:11}}>
+                    <span style={{color:T.muted}}>Left over after this</span>
+                    <span style={{fontFamily:"monospace",fontWeight:700,color:newLeft>=0?"#3fb950":"#f85149"}}>{fmt(newLeft)}</span>
                   </div>
-                </div>
-              </div>
-              <button style={{...BTN,width:"100%",padding:"13px",background:quickApplyTo==="card"?"#475569":"#238636",color:"#fff",fontSize:15,fontWeight:700,borderRadius:11}} onClick={addQuickExpense}>{quickApplyTo==="card"?"🛒 Charge to Card":"✅ Add — Already Paid"}</button>
+                </div>);
+              })()}
+              {quickAmtNum>0&&quickCardId&&(()=>{
+                const card=data.tarjetas.find(t=>t.id===parseInt(quickCardId));
+                if(!card)return null;
+                const newBal=n(card.balance)+quickAmtNum;
+                const pct=n(card.limite)>0?Math.round(newBal/n(card.limite)*100):null;
+                return(<div style={{marginBottom:10,padding:"7px 11px",borderRadius:9,background:T.surface2,border:`1px solid ${T.border}`}}>
+                  <div style={{display:"flex",justifyContent:"space-between",fontSize:11}}>
+                    <span style={{color:T.muted}}>New card balance</span>
+                    <span style={{fontFamily:"monospace",fontWeight:700,color:"#ec4899"}}>{fmt(newBal)}{pct!==null&&<span style={{fontSize:10,color:pct>=90?"#f85149":pct>=70?"#d29922":T.muted,marginLeft:5}}>{pct}%</span>}</span>
+                  </div>
+                </div>);
+              })()}
+              <button style={{...BTN,width:"100%",padding:"13px",background:"#238636",color:"#fff",fontSize:15,fontWeight:700,borderRadius:11}} onClick={addQuickUnified}>
+                ✅ Add — Already Paid
+              </button>
             </div>
           </div>
         </div>
