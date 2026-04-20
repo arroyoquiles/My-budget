@@ -710,52 +710,6 @@ const GastoItem=memo(({item,pid,editId,setEditId,tarjetas,loans,potsList,periodD
           </button>
         </div>
       )}
-      {/* LINK TO DEBT — only for credit card or auto category */}
-      {(localCat==="credit_card"||localCat==="auto")&&(tarjetas.length>0||(loans||[]).length>0)&&<div style={{marginBottom:10}}>
-        <div style={{fontSize:9,color:T.muted,letterSpacing:1.2,fontWeight:700,marginBottom:6}}>
-          🔗 LINK TO DEBT <span style={{fontWeight:400,opacity:0.6}}>(optional — auto-fills & tracks payment)</span>
-        </div>
-        <select style={{...INP,fontSize:14,fontWeight:600,WebkitAppearance:"auto",appearance:"auto",cursor:"pointer"}}
-          value={item.debtRef||""}
-          onChange={e=>{
-            const v=e.target.value;
-            if(!v){onUpdate(item.id,"debtRef",null);return;}
-            const[type,idStr]=v.split(":");
-            const id=parseInt(idStr);
-            if(type==="card"){
-              const card=tarjetas.find(t=>t.id===id);
-              if(card){
-                onBatchUpdate(item.id,{
-                  debtRef:v,
-                  nombre:card.nombre+" Payment",
-                  monto:n(card.minimo)||0,
-                  diaPago:card.fechaPago?parseInt(card.fechaPago)||null:null,
-                  _recurring:true
-                });
-              }
-            } else {
-              const loan=(loans||[]).find(l=>l.id===id);
-              if(loan){
-                onBatchUpdate(item.id,{
-                  debtRef:v,
-                  nombre:loan.nombre,
-                  monto:n(loan.minimo)||0,
-                  diaPago:loan.fechaPago?parseInt(loan.fechaPago)||null:null,
-                  _recurring:true
-                });
-              }
-            }
-          }}>
-          <option value="">— Not linked</option>
-          {localCat==="credit_card"&&tarjetas.length>0&&<optgroup label="Credit Cards">
-            {tarjetas.map(t=><option key={t.id} value={`card:${t.id}`}>{t.nombre}</option>)}
-          </optgroup>}
-          {localCat==="auto"&&(loans||[]).length>0&&<optgroup label="Loans">
-            {(loans||[]).map(l=><option key={l.id} value={`loan:${l.id}`}>{l.nombre}</option>)}
-          </optgroup>}
-        </select>
-        {item.debtRef&&<div style={{fontSize:10,color:T.accent,marginTop:4}}>✓ Auto-filled from Debts · payment will be tracked when marked paid</div>}
-      </div>}
       <div style={{display:"flex",gap:8,marginTop:10}}>
         <button style={{...BTN,flex:1,padding:"12px",background:"#238636",color:"#fff",fontSize:13,fontWeight:700,borderRadius:11,letterSpacing:0.8}}
           onClick={()=>{
@@ -1686,6 +1640,7 @@ function App(){
       diaPago:debt.fechaPago?parseInt(debt.fechaPago)||null:null,
       _quick:false,
       _recurring:true,
+      _recurringCheckOnly:true,
       debtRef
     }]);
     editGroupKeyRef.current=isCard?"credit_card":"auto";
