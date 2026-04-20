@@ -1545,7 +1545,7 @@ function App(){
     if(tab==="paychecks"&&!activeCheckPid&&monthPeriods.length>0){const cur=monthPeriods.find(p=>p.isCurrent)||monthPeriods[0];setActiveCheckPid(cur.id);}
     if(tab!=="overview")setPotsRevealed(false);
   },[tab]);
-  useEffect(()=>{if(!quickCardId&&data.tarjetas.length>0)setQuickCardId(String(data.tarjetas[0].id));},[data.tarjetas]);
+  useEffect(()=>{if(quickOpen){setQuickCardId("");}},[quickOpen]);
   const TABS_ORDER=useMemo(()=>["overview","paychecks","debts","calendar","history","settings"],[]);
   const handleSwipeTouchStart=useCallback(e=>{
     const t=e.touches[0];
