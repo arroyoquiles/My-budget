@@ -1170,27 +1170,54 @@ function App(){
   const lastDoneRef=useRef({});
   const cardOrderRef=useRef([]);
   const loanOrderRef=useRef([]);
+  const PASSKEY_KEY="mybudget_passkey_id";
   const authenticate=async()=>{
     setAuthError("");
     try{
-      if(window.PublicKeyCredential&&PublicKeyCredential.isUserVerifyingPlatformAuthenticatorAvailable){
-        const available=await PublicKeyCredential.isUserVerifyingPlatformAuthenticatorAvailable();
-        if(available){
-          try{
-            await navigator.credentials.get({publicKey:{challenge:crypto.getRandomValues(new Uint8Array(32)),timeout:60000,userVerification:"required",rpId:window.location.hostname||"localhost"}});
-          }catch(e){
-            if(e.name==="NotAllowedError"){setAuthError("Authentication cancelled. Tap to try again.");return;}
+      const credId=localStorage.getItem(PASSKEY_KEY);
+      if(credId){
+        // Verify with existing passkey
+        const assertion=await navigator.credentials.get({
+          publicKey:{
+            challenge:crypto.getRandomValues(new Uint8Array(32)),
+            timeout:60000,
+            userVerification:"required",
+            allowCredentials:[{type:"public-key",id:Uint8Array.from(atob(credId),c=>c.charCodeAt(0))}],
+            rpId:window.location.hostname||"localhost"
           }
-          setAuthenticated(true);return;
+        });
+        if(assertion)setAuthenticated(true);
+      } else {
+        // First time — register passkey
+        const cred=await navigator.credentials.create({
+          publicKey:{
+            challenge:crypto.getRandomValues(new Uint8Array(32)),
+            rp:{name:"My Budget",id:window.location.hostname||"localhost"},
+            user:{id:crypto.getRandomValues(new Uint8Array(16)),name:"mybudget_user",displayName:"My Budget"},
+            pubKeyCredParams:[{alg:-7,type:"public-key"},{alg:-257,type:"public-key"}],
+            authenticatorSelection:{authenticatorAttachment:"platform",userVerification:"required",residentKey:"required"},
+            timeout:60000
+          }
+        });
+        if(cred){
+          // Save credential ID
+          const idB64=btoa(String.fromCharCode(...new Uint8Array(cred.rawId)));
+          localStorage.setItem(PASSKEY_KEY,idB64);
+          setAuthenticated(true);
         }
       }
-      setAuthenticated(true);
-    }catch(e){setAuthenticated(true);}
+    }catch(e){
+      if(e.name==="NotAllowedError"||e.name==="AbortError"){
+        setAuthError("Authentication cancelled. Tap to try again.");
+      } else {
+        // Fallback — biometrics not supported
+        setAuthenticated(true);
+      }
+    }
   };
   useEffect(()=>{
     const check=async()=>{
       try{
-        // Check if user has disabled biometric auth
         const saved=localStorage.getItem("mybudget_v17");
         const parsed=saved?JSON.parse(saved):null;
         if(parsed&&parsed.biometricEnabled===false){setAuthenticated(true);setAuthChecked(true);return;}
@@ -1198,14 +1225,7 @@ function App(){
           const available=await PublicKeyCredential.isUserVerifyingPlatformAuthenticatorAvailable();
           setAuthChecked(true);
           if(!available){setAuthenticated(true);return;}
-          // Try to authenticate
-          try{
-            await navigator.credentials.get({publicKey:{challenge:crypto.getRandomValues(new Uint8Array(32)),timeout:60000,userVerification:"required",rpId:window.location.hostname||"localhost"}});
-            setAuthenticated(true);
-          }catch(e){
-            if(e.name==="NotAllowedError"){setAuthError("Tap to authenticate with Face ID / Touch ID");}
-            else{setAuthenticated(true);}
-          }
+          authenticate();
         } else {setAuthenticated(true);setAuthChecked(true);}
       }catch(e){setAuthenticated(true);setAuthChecked(true);}
     };
@@ -2053,15 +2073,15 @@ function App(){
     <>
     {!authenticated&&(
       <div style={{position:"fixed",inset:0,zIndex:9998,background:"#080c14",display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",gap:20}}>
-        <div style={{fontSize:60}}>🔒</div>
+        <div style={{fontSize:60}}>{authError?"🔒":"⏳"}</div>
         <div style={{fontSize:22,fontWeight:700,color:"#fff"}}>My Budget</div>
         <div style={{fontSize:13,color:"rgba(255,255,255,0.5)",textAlign:"center",maxWidth:260,lineHeight:1.5}}>
-          {authError||"Authenticating..."}
+          {authError||(localStorage.getItem(PASSKEY_KEY)?"Verifying identity...":"Setting up Face ID...")}
         </div>
         {authError&&(
-          <button style={{marginTop:8,padding:"12px 32px",background:"#238636",color:"#fff",border:"none",borderRadius:12,fontSize:15,fontWeight:700,cursor:"pointer"}}
+          <button style={{marginTop:8,padding:"12px 32px",background:"#238636",color:"#fff",border:"none",borderRadius:12,fontSize:15,fontWeight:700,cursor:"pointer",WebkitTapHighlightColor:"transparent"}}
             onClick={authenticate}>
-            Use Face ID / Touch ID
+            🔒 Try Again
           </button>
         )}
       </div>
