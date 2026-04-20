@@ -1272,7 +1272,8 @@ function App(){
   };
   const [activeCheckPid,setActiveCheckPid]=useState("");
   const globalEditingAmt=useRef(false);
-  const [debtPayConfirm,setDebtPayConfirm]=useState(null); // {item, pid}
+  const [debtPayConfirm,setDebtPayConfirm]=useState(null);
+  const [gastoTypePicker,setGastoTypePicker]=useState(null); // {pid} // {item, pid}
   const [amtInputVal,setAmtInputVal]=useState({});
   const [toast,setToast]=useState(null);
   const [backupPrompt,setBackupPrompt]=useState(false);
@@ -1649,9 +1650,31 @@ function App(){
   const removeGasto=useCallback((pid,id)=>updPeriodGastos(pid,g=>g.filter(x=>x.id!==id)),[]);
   const reorder=useCallback((pid,list)=>updPeriodGastos(pid,()=>list),[]);
   const addGasto=useCallback(pid=>{
+    setGastoTypePicker({pid});
+  },[]);
+  const addGastoRegular=useCallback(pid=>{
     const nid=Date.now();
     updPeriodGastos(pid,g=>[...g,{id:nid,nombre:"",monto:0,cat:"other",state:"pending",pagado:false,destino:"other",tarjetaRef:"",diaPago:null,_quick:false}]);
     editGroupKeyRef.current="other";
+    setTimeout(()=>setEditId(nid),30);
+  },[]);
+  const addGastoDebt=useCallback((pid,debtRef,debt,tipo)=>{
+    const nid=Date.now();
+    const isCard=tipo==="card";
+    updPeriodGastos(pid,g=>[...g,{
+      id:nid,
+      nombre:isCard?`${debt.nombre} Payment`:debt.nombre,
+      monto:n(debt.minimo)||0,
+      cat:isCard?"credit_card":"auto",
+      state:"pending",pagado:false,
+      destino:isCard?"credit_card":"auto",
+      tarjetaRef:isCard?debt.nombre:"",
+      diaPago:debt.fechaPago?parseInt(debt.fechaPago)||null:null,
+      _quick:false,
+      _recurring:true,
+      debtRef
+    }]);
+    editGroupKeyRef.current=isCard?"credit_card":"auto";
     setTimeout(()=>setEditId(nid),30);
   },[]);
   // Auto-archive previous month's checks when entering Check 1 of new month
@@ -2224,6 +2247,73 @@ function App(){
       <button style={{...BTN,position:"fixed",bottom:"max(90px, calc(78px + env(safe-area-inset-bottom)))",right:16,zIndex:200,height:44,paddingLeft:18,paddingRight:18,borderRadius:22,background:"linear-gradient(135deg,#2ea043,#238636)",color:"#fff",fontSize:14,fontWeight:700,boxShadow:"0 4px 24px rgba(35,134,54,0.6), 0 0 0 1px rgba(46,160,67,0.4)",display:"flex",alignItems:"center",gap:6,letterSpacing:0.3}} onClick={()=>{if(!data.proximoCobro){toast_("⚙️ Set up your paycheck in Settings first","err");return;}setQuickOpen(true);}}><span style={{fontSize:16}}>$</span>Quick +</button>
 
       {/* ── Quick Expense Modal ── */}
+      {gastoTypePicker&&(
+        <div style={{position:"fixed",inset:0,zIndex:400,background:"rgba(0,0,0,0.6)",display:"flex",alignItems:"flex-end",justifyContent:"center"}}
+          onClick={e=>{if(e.target===e.currentTarget)setGastoTypePicker(null);}}>
+          <div style={{...CARD,width:"100%",maxWidth:500,borderRadius:"20px 20px 0 0",padding:"20px",paddingBottom:"max(28px,env(safe-area-inset-bottom,28px))",animation:"slideInUp 0.28s cubic-bezier(0.4,0,0.2,1) both"}}>
+            <div style={{fontSize:15,fontWeight:700,color:T.text,marginBottom:4,textAlign:"center"}}>Add Expense</div>
+            <div style={{fontSize:12,color:T.muted,textAlign:"center",marginBottom:20}}>What type of expense?</div>
+            <div style={{display:"flex",flexDirection:"column",gap:10}}>
+              {/* Regular expense */}
+              <button style={{...BTN,padding:"16px",borderRadius:14,background:T.surface2,border:`1px solid ${T.border}`,display:"flex",alignItems:"center",gap:14,textAlign:"left"}}
+                onClick={()=>{const pid=gastoTypePicker.pid;setGastoTypePicker(null);setTimeout(()=>addGastoRegular(pid),50);}}>
+                <div style={{width:42,height:42,borderRadius:12,background:`${T.accent}22`,display:"flex",alignItems:"center",justifyContent:"center",fontSize:20,flexShrink:0}}>💰</div>
+                <div>
+                  <div style={{fontSize:14,fontWeight:700,color:T.text}}>Regular Expense</div>
+                  <div style={{fontSize:11,color:T.muted,marginTop:2}}>Gas, groceries, subscriptions...</div>
+                </div>
+                <span style={{marginLeft:"auto",color:T.muted,fontSize:16}}>›</span>
+              </button>
+              {/* Debt payment */}
+              {(tarjetas.length>0||(data.loans||[]).length>0)&&(
+                <button style={{...BTN,padding:"16px",borderRadius:14,background:T.surface2,border:`1px solid ${T.border}`,display:"flex",alignItems:"center",gap:14,textAlign:"left"}}
+                  onClick={()=>{setGastoTypePicker({...gastoTypePicker,step:"debt"});}}>
+                  <div style={{width:42,height:42,borderRadius:12,background:"rgba(236,72,153,0.15)",display:"flex",alignItems:"center",justifyContent:"center",fontSize:20,flexShrink:0}}>💳</div>
+                  <div>
+                    <div style={{fontSize:14,fontWeight:700,color:T.text}}>Debt Payment</div>
+                    <div style={{fontSize:11,color:T.muted,marginTop:2}}>Credit card or loan payment</div>
+                  </div>
+                  <span style={{marginLeft:"auto",color:T.muted,fontSize:16}}>›</span>
+                </button>
+              )}
+            </div>
+            <button style={{...BTN,width:"100%",marginTop:14,padding:"12px",background:"transparent",color:T.muted,fontSize:13,border:`1px solid ${T.border}`,borderRadius:11}}
+              onClick={()=>setGastoTypePicker(null)}>Cancel</button>
+          </div>
+        </div>
+      )}
+      {gastoTypePicker?.step==="debt"&&(
+        <div style={{position:"fixed",inset:0,zIndex:401,background:"rgba(0,0,0,0.6)",display:"flex",alignItems:"flex-end",justifyContent:"center"}}
+          onClick={e=>{if(e.target===e.currentTarget)setGastoTypePicker(null);}}>
+          <div style={{...CARD,width:"100%",maxWidth:500,borderRadius:"20px 20px 0 0",padding:"20px",paddingBottom:"max(28px,env(safe-area-inset-bottom,28px))",animation:"slideInUp 0.28s cubic-bezier(0.4,0,0.2,1) both"}}>
+            <div style={{fontSize:15,fontWeight:700,color:T.text,marginBottom:4,textAlign:"center"}}>💳 Debt Payment</div>
+            <div style={{fontSize:12,color:T.muted,textAlign:"center",marginBottom:16}}>Select which debt to pay</div>
+            <select style={{...INP,fontSize:15,fontWeight:600,WebkitAppearance:"auto",appearance:"auto",marginBottom:16,cursor:"pointer"}}
+              defaultValue=""
+              onChange={e=>{
+                const v=e.target.value;
+                if(!v)return;
+                const[tipo,idStr]=v.split(":");
+                const id=parseInt(idStr);
+                const debt=tipo==="card"?tarjetas.find(t=>t.id===id):(data.loans||[]).find(l=>l.id===id);
+                if(!debt)return;
+                const pid=gastoTypePicker.pid;
+                setGastoTypePicker(null);
+                setTimeout(()=>addGastoDebt(pid,v,debt,tipo),50);
+              }}>
+              <option value="">— Select debt —</option>
+              {tarjetas.length>0&&<optgroup label="💳 Credit Cards">
+                {tarjetas.map(t=><option key={t.id} value={`card:${t.id}`}>{t.nombre} — {fmt(n(t.minimo)||0)} min</option>)}
+              </optgroup>}
+              {(data.loans||[]).length>0&&<optgroup label="🏦 Loans">
+                {(data.loans||[]).map(l=><option key={l.id} value={`loan:${l.id}`}>{l.nombre} — {fmt(n(l.minimo)||0)} mo</option>)}
+              </optgroup>}
+            </select>
+            <button style={{...BTN,width:"100%",padding:"12px",background:"transparent",color:T.muted,fontSize:13,border:`1px solid ${T.border}`,borderRadius:11}}
+              onClick={()=>setGastoTypePicker({pid:gastoTypePicker.pid})}>← Back</button>
+          </div>
+        </div>
+      )}
       {debtPayConfirm&&(()=>{
         const{item}=debtPayConfirm;
         const[type,idStr]=item.debtRef.split(":");
