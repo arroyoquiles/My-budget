@@ -1170,67 +1170,48 @@ function App(){
   const lastDoneRef=useRef({});
   const cardOrderRef=useRef([]);
   const loanOrderRef=useRef([]);
-  const PASSKEY_KEY="mybudget_passkey_id";
-  const authenticate=async()=>{
-    setAuthError("");
-    try{
-      const credId=localStorage.getItem(PASSKEY_KEY);
-      if(credId){
-        // Verify with existing passkey
-        const assertion=await navigator.credentials.get({
-          publicKey:{
-            challenge:crypto.getRandomValues(new Uint8Array(32)),
-            timeout:60000,
-            userVerification:"required",
-            allowCredentials:[{type:"public-key",id:Uint8Array.from(atob(credId),c=>c.charCodeAt(0))}],
-            rpId:window.location.hostname||"localhost"
-          }
-        });
-        if(assertion)setAuthenticated(true);
+  const PIN_KEY="mybudget_pin";
+  const [pinInput,setPinInput]=useState("");
+  const [pinSetup,setPinSetup]=useState(false);
+  const [pinConfirm,setPinConfirm]=useState("");
+  const [pinStep,setPinStep]=useState(1); // 1=enter, 2=confirm
+  const [pinError,setPinError]=useState("");
+
+  useEffect(()=>{
+    const saved=localStorage.getItem("mybudget_v17");
+    const parsed=saved?JSON.parse(saved):null;
+    if(parsed&&parsed.biometricEnabled===false){setAuthenticated(true);setAuthChecked(true);return;}
+    const pin=localStorage.getItem(PIN_KEY);
+    setAuthChecked(true);
+    if(!pin){setPinSetup(true);} // No PIN set — setup mode
+  },[]);
+
+  const handlePinDigit=(d)=>{
+    if(pinSetup){
+      if(pinStep===1){
+        const next=pinInput+d;
+        setPinInput(next);
+        if(next.length===4){setPinConfirm(next);setPinInput("");setPinStep(2);setPinError("");}
       } else {
-        // First time — register passkey
-        const cred=await navigator.credentials.create({
-          publicKey:{
-            challenge:crypto.getRandomValues(new Uint8Array(32)),
-            rp:{name:"My Budget",id:window.location.hostname||"localhost"},
-            user:{id:crypto.getRandomValues(new Uint8Array(16)),name:"mybudget_user",displayName:"My Budget"},
-            pubKeyCredParams:[{alg:-7,type:"public-key"},{alg:-257,type:"public-key"}],
-            authenticatorSelection:{authenticatorAttachment:"platform",userVerification:"required",residentKey:"required"},
-            timeout:60000
-          }
-        });
-        if(cred){
-          // Save credential ID
-          const idB64=btoa(String.fromCharCode(...new Uint8Array(cred.rawId)));
-          localStorage.setItem(PASSKEY_KEY,idB64);
-          setAuthenticated(true);
+        const next=pinInput+d;
+        setPinInput(next);
+        if(next.length===4){
+          if(next===pinConfirm){localStorage.setItem(PIN_KEY,next);setAuthenticated(true);}
+          else{setPinError("PINs don't match. Try again.");setPinInput("");setPinStep(1);setPinConfirm("");}
         }
       }
-    }catch(e){
-      if(e.name==="NotAllowedError"||e.name==="AbortError"){
-        setAuthError("Authentication cancelled. Tap to try again.");
-      } else {
-        // Fallback — biometrics not supported
-        setAuthenticated(true);
+    } else {
+      const next=pinInput+d;
+      setPinInput(next);
+      if(next.length===4){
+        const saved=localStorage.getItem(PIN_KEY);
+        if(next===saved){setAuthenticated(true);}
+        else{setPinError("Wrong PIN");setTimeout(()=>{setPinInput("");setPinError("");},600);}
       }
     }
   };
-  useEffect(()=>{
-    const check=async()=>{
-      try{
-        const saved=localStorage.getItem("mybudget_v17");
-        const parsed=saved?JSON.parse(saved):null;
-        if(parsed&&parsed.biometricEnabled===false){setAuthenticated(true);setAuthChecked(true);return;}
-        if(window.PublicKeyCredential&&PublicKeyCredential.isUserVerifyingPlatformAuthenticatorAvailable){
-          const available=await PublicKeyCredential.isUserVerifyingPlatformAuthenticatorAvailable();
-          setAuthChecked(true);
-          if(!available){setAuthenticated(true);return;}
-          authenticate();
-        } else {setAuthenticated(true);setAuthChecked(true);}
-      }catch(e){setAuthenticated(true);setAuthChecked(true);}
-    };
-    check();
-  },[]);
+
+  const handlePinBack=()=>setPinInput(p=>p.slice(0,-1));
   const launchConfetti=()=>{
     const colors=["#58a6ff","#3fb950","#f97316","#ec4899","#a78bfa","#d29922","#06b6d4"];
     const container=document.getElementById("confetti-container");
@@ -2072,18 +2053,40 @@ function App(){
   return(
     <>
     {!authenticated&&(
-      <div style={{position:"fixed",inset:0,zIndex:9998,background:"#080c14",display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",gap:20}}>
-        <div style={{fontSize:60}}>{authError?"🔒":"⏳"}</div>
-        <div style={{fontSize:22,fontWeight:700,color:"#fff"}}>My Budget</div>
-        <div style={{fontSize:13,color:"rgba(255,255,255,0.5)",textAlign:"center",maxWidth:260,lineHeight:1.5}}>
-          {authError||(localStorage.getItem(PASSKEY_KEY)?"Verifying identity...":"Setting up Face ID...")}
+      <div style={{position:"fixed",inset:0,zIndex:9998,background:"#080c14",display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",gap:24,padding:32}}>
+        <div style={{fontSize:48,marginBottom:4}}>🔒</div>
+        <div style={{fontSize:20,fontWeight:700,color:"#fff"}}>My Budget</div>
+        <div style={{fontSize:13,color:"rgba(255,255,255,0.5)",textAlign:"center"}}>
+          {pinSetup?(pinStep===1?"Create a PIN":"Confirm your PIN"):"Enter your PIN"}
         </div>
-        {authError&&(
-          <button style={{marginTop:8,padding:"12px 32px",background:"#238636",color:"#fff",border:"none",borderRadius:12,fontSize:15,fontWeight:700,cursor:"pointer",WebkitTapHighlightColor:"transparent"}}
-            onClick={authenticate}>
-            🔒 Try Again
-          </button>
-        )}
+        {/* PIN dots */}
+        <div style={{display:"flex",gap:16,marginBottom:8}}>
+          {[0,1,2,3].map(i=>(
+            <div key={i} style={{width:14,height:14,borderRadius:"50%",
+              background:pinInput.length>i?"#58a6ff":"rgba(255,255,255,0.15)",
+              border:"2px solid rgba(255,255,255,0.2)",
+              transition:"background 0.15s",
+              transform:pinError&&pinInput.length===0?"scale(1.2)":"scale(1)"}}/>
+          ))}
+        </div>
+        {pinError&&<div style={{fontSize:12,color:"#f85149",fontWeight:600}}>{pinError}</div>}
+        {/* Number pad */}
+        <div style={{display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:12,width:240}}>
+          {[1,2,3,4,5,6,7,8,9,"",0,"⌫"].map((d,i)=>(
+            <button key={i} style={{
+              height:64,borderRadius:32,border:"none",
+              background:d===""?"transparent":d==="⌫"?"rgba(255,255,255,0.08)":"rgba(255,255,255,0.12)",
+              color:"#fff",fontSize:d==="⌫"?20:24,fontWeight:600,
+              cursor:d===""?"default":"pointer",
+              WebkitTapHighlightColor:"transparent",
+              transition:"background 0.1s",
+              fontFamily:"inherit"
+            }}
+            onMouseDown={e=>{e.preventDefault();if(d==="⌫")handlePinBack();else if(d!=="")handlePinDigit(String(d));}}>
+              {d}
+            </button>
+          ))}
+        </div>
       </div>
     )}
     <div ref={mainRef}
@@ -3644,8 +3647,8 @@ function App(){
             <div style={{fontSize:10,color:T.accent,letterSpacing:1.5,fontWeight:700,marginBottom:8}}>🔒 PRIVACY</div>
             <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:10}}>
               <div>
-                <div style={{fontSize:12,color:T.text,fontWeight:600,marginBottom:2}}>Face ID / Touch ID</div>
-                <div style={{fontSize:10,color:T.muted}}>Require biometric auth on open</div>
+                <div style={{fontSize:12,color:T.text,fontWeight:600,marginBottom:2}}>PIN Lock</div>
+                <div style={{fontSize:10,color:T.muted}}>Require PIN on open</div>
               </div>
               <button style={{...BTN,width:52,height:28,borderRadius:14,padding:0,position:"relative",
                 background:data.biometricEnabled!==false?T.accent:"rgba(255,255,255,0.1)",
