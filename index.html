@@ -651,25 +651,23 @@ const GastoItem=memo(({item,pid,editId,setEditId,tarjetas,loans,potsList,periodD
         </div>
       </div>
 
-      {/* PAID WITH */}
+      {/* PAID WITH — native select picker */}
       <div style={{marginBottom:10}}>
         <div style={{fontSize:10,color:T.muted,marginBottom:6}}>PAID WITH</div>
-        <div style={{display:"flex",gap:6,flexWrap:"wrap"}}>
-          <button style={{...BTN,padding:"6px 12px",fontSize:11,borderRadius:9,
-            background:localDestino!=="credit_card"?"rgba(63,185,80,0.15)":"transparent",
-            color:localDestino!=="credit_card"?"#3fb950":T.muted,
-            border:`1px solid ${localDestino!=="credit_card"?"rgba(63,185,80,0.4)":T.border}`}}
-            onMouseDown={e=>{e.preventDefault();setLocalDestino(localCat==="credit_card"?"__cash__":localCat||"other");setLocalTarjetaRef("");}}>
-            💵 Debit / Cash
-          </button>
+        <select style={{...INP,fontSize:14,fontWeight:600,WebkitAppearance:"auto",appearance:"auto",cursor:"pointer"}}
+          value={localDestino==="credit_card"?`card:${localTarjetaRef}`:"cash"}
+          onChange={e=>{
+            const v=e.target.value;
+            if(v==="cash"){setLocalDestino(localCat==="credit_card"?"__cash__":localCat||"other");setLocalTarjetaRef("");}
+            else{const name=v.replace("card:","");setLocalDestino("credit_card");setLocalTarjetaRef(name);}
+          }}>
+          <option value="cash">💵 Debit / Cash</option>
           {tarjetas.map(t=>{
-            const isSel=localDestino==="credit_card"&&localTarjetaRef===t.nombre;
-            return(<button key={t.id} style={{...BTN,padding:"6px 12px",fontSize:11,borderRadius:9,background:isSel?"rgba(236,72,153,0.15)":"transparent",color:isSel?"#ec4899":T.muted,border:`1px solid ${isSel?"rgba(236,72,153,0.4)":T.border}`}}
-              onMouseDown={e=>{e.preventDefault();setLocalDestino("credit_card");setLocalTarjetaRef(t.nombre);}}>
-              💳 {t.nombre}
-            </button>);
+            const tc=CC[t.nombre]||null;
+            const dot=tc?.dot||t._vc?.dot||"💳";
+            return(<option key={t.id} value={`card:${t.nombre}`}>{dot} {t.nombre}</option>);
           })}
-        </div>
+        </select>
       </div>
 
       {/* Due date — always available, sets recurring automatically */}
@@ -712,21 +710,51 @@ const GastoItem=memo(({item,pid,editId,setEditId,tarjetas,loans,potsList,periodD
           </button>
         </div>
       )}
-      {/* LINK TO DEBT — optional */}
-      {(tarjetas.length>0||(loans||[]).length>0)&&<div style={{marginBottom:10}}>
-        <div style={{fontSize:9,color:T.muted,letterSpacing:1.2,fontWeight:700,marginBottom:6}}>🔗 LINK TO DEBT <span style={{fontWeight:400,opacity:0.6}}>(optional)</span></div>
-        <select style={{...INP,fontSize:13}}
+      {/* LINK TO DEBT — only for credit card or auto category */}
+      {(localCat==="credit_card"||localCat==="auto")&&(tarjetas.length>0||(loans||[]).length>0)&&<div style={{marginBottom:10}}>
+        <div style={{fontSize:9,color:T.muted,letterSpacing:1.2,fontWeight:700,marginBottom:6}}>
+          🔗 LINK TO DEBT <span style={{fontWeight:400,opacity:0.6}}>(optional — auto-fills & tracks payment)</span>
+        </div>
+        <select style={{...INP,fontSize:14,fontWeight:600,WebkitAppearance:"auto",appearance:"auto",cursor:"pointer"}}
           value={item.debtRef||""}
-          onChange={e=>onUpdate(item.id,"debtRef",e.target.value||null)}>
+          onChange={e=>{
+            const v=e.target.value;
+            if(!v){onUpdate(item.id,"debtRef",null);return;}
+            const[type,idStr]=v.split(":");
+            const id=parseInt(idStr);
+            if(type==="card"){
+              const card=tarjetas.find(t=>t.id===id);
+              if(card){
+                onBatchUpdate(item.id,{
+                  debtRef:v,
+                  nombre:card.nombre+" Payment",
+                  monto:n(card.minimo)||0,
+                  diaPago:card.fechaPago?parseInt(card.fechaPago)||null:null,
+                  _recurring:true
+                });
+              }
+            } else {
+              const loan=(loans||[]).find(l=>l.id===id);
+              if(loan){
+                onBatchUpdate(item.id,{
+                  debtRef:v,
+                  nombre:loan.nombre,
+                  monto:n(loan.minimo)||0,
+                  diaPago:loan.fechaPago?parseInt(loan.fechaPago)||null:null,
+                  _recurring:true
+                });
+              }
+            }
+          }}>
           <option value="">— Not linked</option>
-          {tarjetas.length>0&&<optgroup label="Credit Cards">
+          {localCat==="credit_card"&&tarjetas.length>0&&<optgroup label="Credit Cards">
             {tarjetas.map(t=><option key={t.id} value={`card:${t.id}`}>{t.nombre}</option>)}
           </optgroup>}
-          {(loans||[]).length>0&&<optgroup label="Loans">
+          {localCat==="auto"&&(loans||[]).length>0&&<optgroup label="Loans">
             {(loans||[]).map(l=><option key={l.id} value={`loan:${l.id}`}>{l.nombre}</option>)}
           </optgroup>}
         </select>
-        {item.debtRef&&<div style={{fontSize:10,color:T.accent,marginTop:4}}>✓ When marked paid, app will ask to register payment in Debts</div>}
+        {item.debtRef&&<div style={{fontSize:10,color:T.accent,marginTop:4}}>✓ Auto-filled from Debts · payment will be tracked when marked paid</div>}
       </div>}
       <div style={{display:"flex",gap:8,marginTop:10}}>
         <button style={{...BTN,flex:1,padding:"12px",background:"#238636",color:"#fff",fontSize:13,fontWeight:700,borderRadius:11,letterSpacing:0.8}}
