@@ -2219,52 +2219,18 @@ function App(){
               {/* PAID WITH */}
               <div style={{marginBottom:8}}>
                 <div style={{fontSize:9,color:T.muted,letterSpacing:1.2,fontWeight:700,marginBottom:6}}>PAID WITH</div>
-                {/* Fixed height container — no jumping */}
-                <div style={{height:120,borderRadius:12,border:`1px solid ${T.border}`,overflow:"hidden",position:"relative",background:T.surface2}}>
-                  {/* Debit/Cash row */}
-                  <div style={{position:"absolute",top:0,left:0,right:0,height:40,display:"flex",alignItems:"center",
-                    padding:"0 14px",cursor:"pointer",
-                    background:!quickCardId?"rgba(63,185,80,0.12)":"transparent",
-                    borderBottom:`1px solid ${T.border}`,transition:"background 0.15s"}}
-                    onClick={()=>setQuickCardId("")}>
-                    <span style={{fontSize:13,fontWeight:600,color:!quickCardId?"#3fb950":T.muted}}>💵 Debit / Cash</span>
-                    {!quickCardId&&<span style={{marginLeft:"auto",fontSize:11,color:"#3fb950"}}>✓</span>}
-                  </div>
-                  {/* Picker wheel for cards */}
-                  <div style={{position:"absolute",top:40,left:0,right:0,bottom:0,overflowY:"scroll",
-                    WebkitOverflowScrolling:"touch",scrollSnapType:"y mandatory",
-                    scrollbarWidth:"none"}}
-                    ref={el=>{
-                      if(!el)return;
-                      el.style.cssText+=";-webkit-overflow-scrolling:touch;";
-                      el.onscroll=()=>{
-                        // haptic tick on snap
-                        if(window.navigator.vibrate)window.navigator.vibrate(3);
-                      };
-                    }}>
-                    {/* Fade overlay top */}
-                    <div style={{position:"sticky",top:0,height:16,background:`linear-gradient(${T.surface2},transparent)`,zIndex:2,pointerEvents:"none"}}/>
-                    {data.tarjetas.map(t=>{
-                      const tc=CC[t.nombre]||null;
-                      const cardColor=tc?.color||t._vc?.color||"#ec4899";
-                      const dot=tc?.dot||t._vc?.dot||"💳";
-                      const isSel=quickCardId===String(t.id);
-                      return(<div key={t.id}
-                        style={{height:40,display:"flex",alignItems:"center",padding:"0 14px",
-                          scrollSnapAlign:"start",cursor:"pointer",flexShrink:0,
-                          background:isSel?`${cardColor}18`:"transparent",
-                          transition:"background 0.1s"}}
-                        onClick={()=>setQuickCardId(String(t.id))}>
-                        <span style={{fontSize:13,fontWeight:600,color:isSel?cardColor:T.muted}}>{dot} {t.nombre}</span>
-                        {isSel&&<span style={{marginLeft:"auto",fontSize:11,color:cardColor}}>✓</span>}
-                      </div>);
-                    })}
-                    {/* Fade overlay bottom */}
-                    <div style={{position:"sticky",bottom:0,height:16,background:`linear-gradient(transparent,${T.surface2})`,zIndex:2,pointerEvents:"none"}}/>
-                  </div>
-                </div>
+                <select style={{...INP,fontSize:15,fontWeight:600,color:T.text,WebkitAppearance:"auto",appearance:"auto"}}
+                  value={quickCardId}
+                  onChange={e=>setQuickCardId(e.target.value)}>
+                  <option value="">💵 Debit / Cash</option>
+                  {data.tarjetas.map(t=>{
+                    const tc=CC[t.nombre]||null;
+                    const dot=tc?.dot||t._vc?.dot||"💳";
+                    return(<option key={t.id} value={String(t.id)}>{dot} {t.nombre}</option>);
+                  })}
+                </select>
 
-                {/* CARD BALANCE — right below picker */}
+                {/* CARD BALANCE */}
                 {quickCardId&&(()=>{
                   const card=data.tarjetas.find(t=>t.id===parseInt(quickCardId));
                   if(!card)return null;
@@ -2279,7 +2245,7 @@ function App(){
                   </div>);
                 })()}
 
-                {/* CARD MODE SELECTOR — fixed height, always same size */}
+                {/* CARD MODE SELECTOR */}
                 <div style={{height:quickCardId?88:0,overflow:"hidden",transition:"height 0.2s ease",borderRadius:12,marginTop:quickCardId?6:0,border:quickCardId?`1px solid ${T.border}`:"none"}}>
                   <button style={{...BTN,width:"100%",height:44,padding:"0 14px",display:"flex",alignItems:"center",gap:10,
                     background:quickCardMode==="budget"?`${T.accent}15`:"transparent",
