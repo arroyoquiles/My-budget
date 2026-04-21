@@ -671,38 +671,39 @@ const GastoItem=memo(({item,pid,editId,setEditId,tarjetas,loans,potsList,periodD
       </div>
 
       {/* Due date + Repeat in one row */}
-      {!item.debtRef&&<div style={{display:"flex",gap:8,alignItems:"center",marginBottom:10}}>
-        <div style={{flex:1}}>
-          <div style={{fontSize:9,color:T.muted,marginBottom:4,letterSpacing:1}}>📅 DUE DAY</div>
-          <input style={{...INP,fontFamily:"monospace",fontWeight:700,textAlign:"center"}} type="number" inputMode="numeric" placeholder="—" min="1" max={new Date(new Date().getFullYear(),new Date().getMonth()+1,0).getDate()} value={item.diaPago||""}
-            onChange={e=>{const v=parseInt(e.target.value);const max=new Date(new Date().getFullYear(),new Date().getMonth()+1,0).getDate();const val=e.target.value?Math.min(max,Math.max(1,v)):null;onUpdate(item.id,"diaPago",val);}}
-            onBlur={e=>{if(item.diaPago){const max=new Date(new Date().getFullYear(),new Date().getMonth()+1,0).getDate();onUpdate(item.id,"diaPago",Math.min(max,Math.max(1,parseInt(item.diaPago)||1)));}}}/>
-        </div>
-        <button style={{...BTN,flex:2,padding:"10px 12px",borderRadius:11,display:"flex",alignItems:"center",justifyContent:"space-between",
-          background:item._recurring?`${T.accent}10`:"transparent",
-          border:`1px solid ${item._recurring?T.accent+"55":T.border}`,transition:"all 0.2s"}}
-          onClick={()=>onUpdate(item.id,"_recurring",!item._recurring)}>
-          <div style={{display:"flex",alignItems:"center",gap:6}}>
-            <span style={{fontSize:14}}>🔁</span>
-            <div style={{textAlign:"left"}}>
-              <div style={{fontSize:11,fontWeight:600,color:item._recurring?T.accent:T.text}}>Repeat</div>
-              <div style={{fontSize:9,color:T.muted}}>{item._recurring?"Every cycle":"One-time"}</div>
+      {!item.debtRef&&<div style={{marginBottom:10}}>
+        <div style={{display:"flex",gap:8,alignItems:"stretch"}}>
+          <div style={{flex:1}}>
+            <div style={{fontSize:9,color:T.muted,marginBottom:4,letterSpacing:1}}>📅 DUE DAY</div>
+            <input style={{...INP,fontFamily:"monospace",fontWeight:700,textAlign:"center",height:44}} type="number" inputMode="numeric" placeholder="—" min="1" max={new Date(new Date().getFullYear(),new Date().getMonth()+1,0).getDate()} value={item.diaPago||""}
+              onChange={e=>{const v=parseInt(e.target.value);const max=new Date(new Date().getFullYear(),new Date().getMonth()+1,0).getDate();const val=e.target.value?Math.min(max,Math.max(1,v)):null;onUpdate(item.id,"diaPago",val);}}
+              onBlur={e=>{if(item.diaPago){const max=new Date(new Date().getFullYear(),new Date().getMonth()+1,0).getDate();onUpdate(item.id,"diaPago",Math.min(max,Math.max(1,parseInt(item.diaPago)||1)));}}}/>
+          </div>
+          <button style={{...BTN,flex:2,height:44,marginTop:17,padding:"0 12px",borderRadius:11,display:"flex",alignItems:"center",justifyContent:"space-between",
+            background:item._recurring?`${T.accent}10`:"transparent",
+            border:`1px solid ${item._recurring?T.accent+"55":T.border}`,transition:"all 0.2s"}}
+            onClick={()=>onUpdate(item.id,"_recurring",!item._recurring)}>
+            <div style={{display:"flex",alignItems:"center",gap:6}}>
+              <span style={{fontSize:14}}>🔁</span>
+              <div>
+                <div style={{fontSize:11,fontWeight:600,color:item._recurring?T.accent:T.text}}>Repeat</div>
+                <div style={{fontSize:9,color:T.muted}}>{item._recurring?"Every cycle":"One-time"}</div>
+              </div>
             </div>
-          </div>
-          <div style={{width:32,height:18,borderRadius:9,position:"relative",flexShrink:0,background:item._recurring?T.accent:"rgba(255,255,255,0.1)",border:`1px solid ${item._recurring?T.accent:T.border}`,transition:"background 0.2s"}}>
-            <div style={{position:"absolute",top:2,left:item._recurring?16:2,width:12,height:12,borderRadius:"50%",background:"#fff",transition:"left 0.2s cubic-bezier(0.34,1.56,0.64,1)",boxShadow:"0 1px 3px rgba(0,0,0,0.3)"}}/>
-          </div>
-        </button>
-      </div>}
-      {!item.debtRef&&item._recurring&&(
-        <div style={{display:"flex",gap:6,marginBottom:10,padding:"8px 12px",background:T.surface2,borderRadius:9,border:`1px solid ${T.border}`}}>
+            <div style={{width:32,height:18,borderRadius:9,position:"relative",flexShrink:0,background:item._recurring?T.accent:"rgba(255,255,255,0.1)",border:`1px solid ${item._recurring?T.accent:T.border}`,transition:"background 0.2s"}}>
+              <div style={{position:"absolute",top:2,left:item._recurring?16:2,width:12,height:12,borderRadius:"50%",background:"#fff",transition:"left 0.2s cubic-bezier(0.34,1.56,0.64,1)",boxShadow:"0 1px 3px rgba(0,0,0,0.3)"}}/>
+            </div>
+          </button>
+        </div>
+        {/* Repeat in — always visible, grayed when off */}
+        <div style={{display:"flex",gap:6,marginTop:6,padding:"8px 12px",background:T.surface2,borderRadius:9,border:`1px solid ${T.border}`,opacity:item._recurring?1:0.35,transition:"opacity 0.2s",pointerEvents:item._recurring?"all":"none"}}>
           <div style={{fontSize:11,color:T.muted,marginRight:4,alignSelf:"center"}}>Repeat in:</div>
           <button style={{...BTN,flex:1,padding:"5px 8px",fontSize:11,borderRadius:8,background:!item._recurringCheckOnly?"rgba(88,166,255,0.15)":"transparent",color:!item._recurringCheckOnly?"#58a6ff":T.muted,border:`1px solid ${!item._recurringCheckOnly?"rgba(88,166,255,0.4)":T.border}`}}
             onMouseDown={e=>{e.preventDefault();onUpdate(item.id,"_recurringCheckOnly",false);}}>All checks</button>
           <button style={{...BTN,flex:1,padding:"5px 8px",fontSize:11,borderRadius:8,background:item._recurringCheckOnly?"rgba(88,166,255,0.15)":"transparent",color:item._recurringCheckOnly?"#58a6ff":T.muted,border:`1px solid ${item._recurringCheckOnly?"rgba(88,166,255,0.4)":T.border}`}}
             onMouseDown={e=>{e.preventDefault();onUpdate(item.id,"_recurringCheckOnly",true);}}>Check {(checkIdx||0)+1} only</button>
         </div>
-      )}
+      </div>}
       {item.debtRef&&<div style={{fontSize:10,color:T.accent,marginBottom:10,padding:"6px 10px",background:`${T.accent}0d`,borderRadius:8}}>🔗 Linked to Debts · auto-repeats in this check · payment tracked on paid</div>}
       <div style={{display:"flex",gap:8,marginTop:10}}>
         <button style={{...BTN,flex:1,padding:"12px",background:"#238636",color:"#fff",fontSize:13,fontWeight:700,borderRadius:11,letterSpacing:0.8}}
@@ -2359,6 +2360,7 @@ function App(){
                   onMouseDown={()=>{if(document.activeElement&&document.activeElement.tagName==="INPUT")document.activeElement.blur();}}
                   onTouchStart={()=>{if(document.activeElement&&document.activeElement.tagName==="INPUT")document.activeElement.blur();}}
                   onChange={e=>setQuickCardId(e.target.value)}>
+                  <option value="" disabled>Select payment method...</option>
                   <option value="">💵 Debit / Cash</option>
                   {data.tarjetas.map(t=>{
                     const tc=CC[t.nombre]||null;
