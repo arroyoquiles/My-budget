@@ -1701,7 +1701,7 @@ function App(){
     });
     if(!recurring.length)return;
     const copies=recurring.map((x,i)=>({...x,id:Date.now()*1000+i*100+Math.floor(Math.random()*99),state:"pending",pagado:false,_potAdded:false}));
-    setData(p=>({...p,periods:{...p.periods,[activeCheckPid]:{...(p.periods[activeCheckPid]||{}),gastos:[...(p.periods[activeCheckPid]?.gastos||[]),...copies]}}}}));
+    setData(p=>({...p,periods:{...p.periods,[activeCheckPid]:{...(p.periods[activeCheckPid]||{}),gastos:[...(p.periods[activeCheckPid]?.gastos||[]),...copies]}}}});
     setTimeout(()=>toast_(`🔁 ${copies.length} recurring copied`),100);
   },[activeCheckPid]);
   const resetCheck=useCallback((pid,label)=>{
