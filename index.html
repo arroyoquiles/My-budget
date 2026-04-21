@@ -531,14 +531,20 @@ const GastoItem=memo(({item,pid,editId,setEditId,tarjetas,loans,potsList,periodD
   const [localAmt,setLocalAmt]=useState("");
   const amtInputRef=useRef(null);
   // Local edit state - buffers changes, commits on save
-  const [localDestino,setLocalDestino]=useState(item.destino);
+  const [localDestino,setLocalDestino]=useState(item.destino||"");
   const [localTarjetaRef,setLocalTarjetaRef]=useState(item.tarjetaRef||"");
-  const [localCat,setLocalCat]=useState(item.cat||"");
+  const [localCat,setLocalCat]=useState((item.cat&&item.cat!==item.destino)?item.cat:(item.destino||""));
   const [newLabelInput,setNewLabelInput]=useState(false);
   const [newLabelName,setNewLabelName]=useState("");
   const [newLabelParent,setNewLabelParent]=useState("");
   const isEditing=editId===item.id;
-  React.useEffect(()=>{if(isEditing){setLocalDestino(item.destino);setLocalTarjetaRef(item.tarjetaRef||"");setLocalCat(item.cat||"");}}, [isEditing]);
+  React.useEffect(()=>{
+    if(isEditing){
+      setLocalDestino(item.destino||"");
+      setLocalTarjetaRef(item.tarjetaRef||"");
+      setLocalCat((item.cat&&item.cat!==item.destino)?item.cat:(item.destino||""));
+    }
+  },[isEditing]);
   const swipeRef=useRef({startX:0,startY:0,dir:null,active:false});
   const lastTap=useRef(0);
   const tapTimer=useRef(null);
@@ -1621,7 +1627,7 @@ function App(){
   const addGastoRegular=useCallback(pid=>{
     const nid=Date.now();
     const scrollY=window.scrollY;
-    updPeriodGastos(pid,g=>[...g,{id:nid,nombre:"",monto:0,cat:"other",state:"pending",pagado:false,destino:"other",tarjetaRef:"",diaPago:null,_quick:false}]);
+    updPeriodGastos(pid,g=>[...g,{id:nid,nombre:"",monto:0,cat:"",state:"pending",pagado:false,destino:"",tarjetaRef:"",diaPago:null,_quick:false}]);
     editGroupKeyRef.current="other";
     setTimeout(()=>{
       window.scrollTo({top:scrollY,behavior:"instant"});
