@@ -604,7 +604,7 @@ const GastoItem=memo(({item,pid,editId,setEditId,tarjetas,loans,potsList,periodD
   if(editId===item.id)return(
     <div style={{marginBottom:8,...CARD,padding:"14px",border:`1px solid ${T.accent}`}}>
       {/* NAME */}
-      <div style={{marginBottom:10}}><div style={{fontSize:10,color:T.muted,marginBottom:5}}>NAME</div><input style={INP} value={item.nombre} onChange={e=>onUpdate(item.id,"nombre",e.target.value)} placeholder="Expense name"/></div>
+      <div style={{marginBottom:10}}><div style={{fontSize:10,color:T.muted,marginBottom:5}}>NAME</div><input autoFocus style={INP} value={item.nombre} onChange={e=>onUpdate(item.id,"nombre",e.target.value)} placeholder="Expense name"/></div>
       {/* AMOUNT */}
       <div style={{marginBottom:10}}><div style={{fontSize:10,color:T.muted,marginBottom:5}}>AMOUNT ($)</div><div className="amt-wrap"><span className="amt-prefix" style={{fontSize:14,color:item.monto?T.accent+"99":T.muted+"55"}}>$</span><input style={{...INP,paddingLeft:20}} type="number" inputMode="decimal" value={item.monto||""} onChange={e=>onUpdate(item.id,"monto",e.target.value)} placeholder="0"/></div></div>
 
@@ -1930,7 +1930,7 @@ function App(){
       return (aBot?999:DORDER.indexOf(groups[a].d)+1||50)-(bBot?999:DORDER.indexOf(groups[b].d)+1||50);
     }).map(k=>{
       const{d,r,items}=groups[k];
-      const dst=k==="__cards__"?DEST.credit_card:k==="__new__"?{icon:"📝",label:"New Expense",bg:"rgba(99,110,123,0.1)",border:"rgba(99,110,123,0.2)",color:"#8b949e"}:gds(d,r,null,potsList||[],data.customLabels||[]);
+      const dst=k==="__cards__"?DEST.credit_card:k==="__new__"?{icon:"✦",label:"New · pick a category",bg:"rgba(88,166,255,0.06)",border:"rgba(88,166,255,0.18)",color:"#58a6ff"}:gds(d,r,null,potsList||[],data.customLabels||[]);
       const sub=items.reduce((s,g)=>s+n(g.monto),0);
       return(<div key={k} style={{marginBottom:14}}>
         <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"6px 10px",marginBottom:5,background:dst.bg,borderRadius:9,border:`1px solid ${dst.border}`}}>
