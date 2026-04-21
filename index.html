@@ -1225,9 +1225,13 @@ function App(){
   const [pinError,setPinError]=useState("");
 
   useEffect(()=>{
+    const saved=localStorage.getItem("mybudget_v17");
+    const parsed=saved?JSON.parse(saved):null;
+    if(parsed&&parsed.biometricEnabled===false){setAuthenticated(true);setAuthChecked(true);return;}
     const pin=localStorage.getItem(PIN_KEY);
     setAuthChecked(true);
-    if(!pin){setAuthenticated(true);}
+    if(!pin){setAuthenticated(true);} // No PIN set yet — let them in, they can set it in Settings
+    // PIN exists — show lock screen (authenticated stays false)
   },[]);
 
   const handlePinDigit=(d)=>{
@@ -1438,7 +1442,7 @@ function App(){
         if(g.diaPago&&g.state!=="paid")fire(`exp_${g.id}`,g.nombre,String(g.diaPago),"📅");
       });
     });
-  },[data.notifEnabled,data.tarjetas,data.loans,data.periods]);
+  },[data.notifEnabled]);
   const hapticAC=useRef(null);
   const haptic=(type=30)=>{
     // iOS Safari: use AudioContext trick for real haptic feel
@@ -1465,7 +1469,7 @@ function App(){
   const freq=data.payFreq||"biweekly";
   const anchor=data.proximoCobro||"";
   const globalCheckAmount=n(data.checkAmount||0);
-  const today=useMemo(()=>{const d=new Date();d.setHours(0,0,0,0);return d;});
+  const today=useMemo(()=>{const d=new Date();d.setHours(0,0,0,0);return d;},[]);
   const monthPeriods=useMemo(()=>buildMonthPeriods(anchor,freq),[anchor,freq,today]);
   const currentPeriod=monthPeriods.find(p=>p.isCurrent)||monthPeriods[0];
   const currentPid=currentPeriod?.id||"";
@@ -1666,7 +1670,6 @@ function App(){
     const curGastos=(data.periods[activeCheckPid]?.gastos)||[];
     const checkIdx=monthPeriods.findIndex(p=>p.id===activeCheckPid);
     if(checkIdx<0)return;
-    // Search all other pids (same month AND previous months)
     const allOtherPids=Object.keys(data.periods).filter(pid=>pid!==activeCheckPid);
     const byMonth={};
     allOtherPids.forEach(pid=>{
@@ -1688,7 +1691,6 @@ function App(){
       }
     }
     if(!sourcePid)return;
-    // Skip items already present in this check (by nombre+destino)
     const curKeys=new Set(curGastos.filter(x=>x._recurring).map(x=>x.nombre+"||"+x.destino));
     const recurring=((data.periods[sourcePid]?.gastos)||[]).filter(x=>{
       if(!x._recurring)return false;
@@ -3895,23 +3897,11 @@ function App(){
                 <div style={{fontSize:10,color:T.muted}}>{localStorage.getItem(PIN_KEY)?"PIN set — required on open":"No PIN set"}</div>
               </div>
               <button style={{...BTN,width:52,height:28,borderRadius:14,padding:0,position:"relative",
-                background:!!localStorage.getItem(PIN_KEY)?T.accent:"rgba(255,255,255,0.1)",
-                border:`1px solid ${!!localStorage.getItem(PIN_KEY)?T.accent:T.border}`,
+                background:data.biometricEnabled!==false?T.accent:"rgba(255,255,255,0.1)",
+                border:`1px solid ${data.biometricEnabled!==false?T.accent:T.border}`,
                 transition:"background 0.25s, border-color 0.25s"}}
-                onClick={()=>{
-                  const hasPin=!!localStorage.getItem(PIN_KEY);
-                  if(hasPin){
-                    if(window.confirm("Remove PIN lock?")){
-                      localStorage.removeItem(PIN_KEY);
-                      setData(p=>({...p,biometricEnabled:false}));
-                      toast_("🔓 PIN removed");
-                    }
-                  } else {
-                    setData(p=>({...p,biometricEnabled:true}));
-                    setPinSetup(true);setPinStep(1);setPinInput("");setPinConfirm("");setPinError("");setAuthenticated(false);
-                  }
-                }}>
-                <div style={{position:"absolute",top:3,left:!!localStorage.getItem(PIN_KEY)?26:3,width:20,height:20,borderRadius:"50%",
+                onClick={()=>setData(p=>({...p,biometricEnabled:p.biometricEnabled===false?true:false}))}>
+                <div style={{position:"absolute",top:3,left:data.biometricEnabled!==false?26:3,width:20,height:20,borderRadius:"50%",
                   background:"#fff",transition:"left 0.25s cubic-bezier(0.34,1.56,0.64,1)",
                   boxShadow:"0 1px 4px rgba(0,0,0,0.3)"}}/>
               </button>
