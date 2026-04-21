@@ -1620,9 +1620,13 @@ function App(){
   },[]);
   const addGastoRegular=useCallback(pid=>{
     const nid=Date.now();
+    const scrollY=window.scrollY;
     updPeriodGastos(pid,g=>[...g,{id:nid,nombre:"",monto:0,cat:"other",state:"pending",pagado:false,destino:"other",tarjetaRef:"",diaPago:null,_quick:false}]);
     editGroupKeyRef.current="other";
-    setTimeout(()=>setEditId(nid),30);
+    setTimeout(()=>{
+      window.scrollTo({top:scrollY,behavior:"instant"});
+      setEditId(nid);
+    },30);
   },[]);
   const addGastoDebt=useCallback((pid,debtRef,debt,tipo)=>{
     const nid=Date.now();
@@ -1642,7 +1646,11 @@ function App(){
       debtRef
     }]);
     editGroupKeyRef.current=isCard?"credit_card":"auto";
-    setTimeout(()=>setEditId(nid),30);
+    const scrollY=window.scrollY;
+    setTimeout(()=>{
+      window.scrollTo({top:scrollY,behavior:"instant"});
+      setEditId(nid);
+    },30);
   },[]);
   // Auto-archive previous month's checks when entering Check 1 of new month
   useEffect(()=>{
@@ -2302,18 +2310,22 @@ function App(){
             toast_(`💳 ${fmt(m)} charged to ${card.nombre}`);
             setDebtPayConfirm(null);
           };
+        const revertPaid=()=>{
+          updPeriodGastos(debtPayConfirm.pid,g=>g.map(x=>x.id!==item.id?x:{...x,state:"pending",pagado:false}));
+          setDebtPayConfirm(null);
+        };
         return(
             <div style={{position:"fixed",inset:0,zIndex:450,background:"rgba(0,0,0,0.6)",display:"flex",alignItems:"flex-end",justifyContent:"center"}}
-              onClick={e=>{if(e.target===e.currentTarget)setDebtPayConfirm(null);}}>
+              onClick={e=>{if(e.target===e.currentTarget)revertPaid();}}>
               <div style={{width:"100%",maxWidth:500,background:T.surface,borderRadius:"20px 20px 0 0",border:`1px solid ${T.border}`,padding:"20px",paddingBottom:"max(28px,env(safe-area-inset-bottom,28px))",animation:"slideInUp 0.28s cubic-bezier(0.4,0,0.2,1) both",position:"relative"}}>
-                <button style={{...BTN,position:"absolute",top:14,right:14,background:"transparent",color:T.muted,fontSize:18,padding:"2px 8px",border:"none"}} onClick={()=>setDebtPayConfirm(null)}>✕</button>
+                <button style={{...BTN,position:"absolute",top:14,right:14,background:"transparent",color:T.muted,fontSize:18,padding:"2px 8px",border:"none"}} onClick={revertPaid}>✕</button>
                 <div style={{fontSize:15,fontWeight:700,color:T.text,marginBottom:6,textAlign:"center"}}>Charge to card?</div>
                 <div style={{fontSize:13,color:T.muted,textAlign:"center",marginBottom:20}}>
                   Add <span style={{color:"#ec4899",fontWeight:700}}>{fmt(m)}</span> charge to <span style={{color:"#ec4899",fontWeight:700}}>{card.nombre}</span>?
                 </div>
                 <div style={{display:"flex",gap:10}}>
                   <button style={{...BTN,flex:1,padding:"13px",background:"#ec4899",color:"#fff",fontSize:14,fontWeight:700,borderRadius:11}} onClick={doCharge}>💳 Yes, charge</button>
-                  <button style={{...BTN,flex:1,padding:"13px",background:T.surface2,color:T.muted,fontSize:14,borderRadius:11,border:`1px solid ${T.border}`}} onClick={()=>setDebtPayConfirm(null)}>Skip</button>
+                  <button style={{...BTN,flex:1,padding:"13px",background:T.surface2,color:T.muted,fontSize:14,borderRadius:11,border:`1px solid ${T.border}`}} onClick={revertPaid}>Skip</button>
                 </div>
               </div>
             </div>
@@ -2337,18 +2349,22 @@ function App(){
           toast_(`✅ ${fmt(m)} payment registered to ${debt.nombre}`);
           setDebtPayConfirm(null);
         };
+          const revertPaid=()=>{
+          updPeriodGastos(debtPayConfirm.pid,g=>g.map(x=>x.id!==debtPayConfirm.item.id?x:{...x,state:"pending",pagado:false}));
+          setDebtPayConfirm(null);
+        };
         return(
           <div style={{position:"fixed",inset:0,zIndex:450,background:"rgba(0,0,0,0.6)",display:"flex",alignItems:"flex-end",justifyContent:"center"}}
-            onClick={e=>{if(e.target===e.currentTarget)setDebtPayConfirm(null);}}>
+            onClick={e=>{if(e.target===e.currentTarget)revertPaid();}}>
             <div style={{width:"100%",maxWidth:500,background:T.surface,borderRadius:"20px 20px 0 0",border:`1px solid ${T.border}`,padding:"20px",paddingBottom:"max(28px,env(safe-area-inset-bottom,28px))",animation:"slideInUp 0.28s cubic-bezier(0.4,0,0.2,1) both",position:"relative"}}>
-              <button style={{...BTN,position:"absolute",top:14,right:14,background:"transparent",color:T.muted,fontSize:18,padding:"2px 8px",border:"none"}} onClick={()=>setDebtPayConfirm(null)}>✕</button>
+              <button style={{...BTN,position:"absolute",top:14,right:14,background:"transparent",color:T.muted,fontSize:18,padding:"2px 8px",border:"none"}} onClick={revertPaid}>✕</button>
               <div style={{fontSize:15,fontWeight:700,color:T.text,marginBottom:6,textAlign:"center"}}>Register payment?</div>
               <div style={{fontSize:13,color:T.muted,textAlign:"center",marginBottom:20}}>
                 Record <span style={{color:T.accent,fontWeight:700}}>{fmt(m)}</span> payment to <span style={{color:T.accent,fontWeight:700}}>{debt.nombre}</span> in Debts?
               </div>
               <div style={{display:"flex",gap:10}}>
                 <button style={{...BTN,flex:1,padding:"13px",background:"#238636",color:"#fff",fontSize:14,fontWeight:700,borderRadius:11}} onClick={registerPayment}>✓ Yes, register</button>
-                <button style={{...BTN,flex:1,padding:"13px",background:T.surface2,color:T.muted,fontSize:14,borderRadius:11,border:`1px solid ${T.border}`}} onClick={()=>setDebtPayConfirm(null)}>Skip</button>
+                <button style={{...BTN,flex:1,padding:"13px",background:T.surface2,color:T.muted,fontSize:14,borderRadius:11,border:`1px solid ${T.border}`}} onClick={revertPaid}>Skip</button>
               </div>
             </div>
           </div>
