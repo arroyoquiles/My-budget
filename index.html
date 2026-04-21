@@ -655,14 +655,22 @@ const GastoItem=memo(({item,pid,editId,setEditId,tarjetas,loans,potsList,periodD
       <div style={{marginBottom:10}}>
         <div style={{fontSize:10,color:T.muted,marginBottom:6}}>PAID WITH</div>
         <select style={{...INP,fontSize:14,fontWeight:600,WebkitAppearance:"auto",appearance:"auto",cursor:"pointer"}}
-          value={localDestino==="credit_card"?`card:${localTarjetaRef}`:"cash"}
+          value={localDestino==="credit_card"&&localTarjetaRef?`card:${localTarjetaRef}`:"cash"}
           onChange={e=>{
             const v=e.target.value;
-            if(v==="cash"){setLocalDestino(localCat==="credit_card"?"__cash__":localCat||"other");setLocalTarjetaRef("");}
-            else{const name=v.replace("card:","");setLocalDestino("credit_card");setLocalTarjetaRef(name);}
+            if(v==="cash"){
+              const fallback=(localCat&&localCat!=="credit_card")?localCat:"other";
+              setLocalDestino(fallback);
+              setLocalTarjetaRef("");
+            } else {
+              const name=v.replace("card:","");
+              setLocalDestino("credit_card");
+              setLocalTarjetaRef(name);
+            }
           }}>
           <option value="cash">💵 Debit / Cash</option>
-          {tarjetas.map(t=>{
+          {/* Hide card options for debt payments */}
+          {!item.debtRef&&tarjetas.map(t=>{
             const tc=CC[t.nombre]||null;
             const dot=tc?.dot||t._vc?.dot||"💳";
             return(<option key={t.id} value={`card:${t.nombre}`}>{dot} {t.nombre}</option>);
@@ -2355,13 +2363,12 @@ function App(){
               <div style={{marginBottom:8}}>
                 <div style={{fontSize:9,color:T.muted,letterSpacing:1.2,fontWeight:700,marginBottom:6}}>PAID WITH</div>
                 <select style={{...INP,fontSize:15,fontWeight:600,color:T.text,WebkitAppearance:"auto",appearance:"auto",cursor:"pointer"}}
-                  value={quickCardId}
+                  value={quickCardId||"cash"}
                   onFocus={()=>{if(document.activeElement?.blur)document.activeElement.blur();}}
                   onMouseDown={()=>{if(document.activeElement&&document.activeElement.tagName==="INPUT")document.activeElement.blur();}}
                   onTouchStart={()=>{if(document.activeElement&&document.activeElement.tagName==="INPUT")document.activeElement.blur();}}
-                  onChange={e=>setQuickCardId(e.target.value)}>
-                  <option value="" disabled>Select payment method...</option>
-                  <option value="">💵 Debit / Cash</option>
+                  onChange={e=>setQuickCardId(e.target.value==="cash"?"":e.target.value)}>
+                  <option value="cash">💵 Debit / Cash</option>
                   {data.tarjetas.map(t=>{
                     const tc=CC[t.nombre]||null;
                     const dot=tc?.dot||t._vc?.dot||"💳";
