@@ -1641,13 +1641,15 @@ function App(){
     const nid=Date.now();
     const isCard=tipo==="card";
     const realCat=isCard?"credit_card":"auto";
+    editGroupKeyRef.current=isCard?"__cards__":realCat;
+    const scrollY=window.scrollY;
     updPeriodGastos(pid,g=>[...g,{
       id:nid,
       nombre:isCard?`${debt.nombre} Payment`:debt.nombre,
       monto:n(debt.minimo)||0,
       cat:realCat,
       state:"pending",pagado:false,
-      destino:"__new__",
+      destino:realCat,
       tarjetaRef:isCard?debt.nombre:"",
       diaPago:debt.fechaPago?parseInt(debt.fechaPago)||null:null,
       _quick:false,
@@ -1655,11 +1657,10 @@ function App(){
       _recurringCheckOnly:true,
       debtRef
     }]);
-    editGroupKeyRef.current="__new__";
-    const scrollY=window.scrollY;
     setTimeout(()=>{
       window.scrollTo({top:scrollY,behavior:"instant"});
       setEditId(nid);
+      setTimeout(()=>window.scrollTo({top:scrollY,behavior:"instant"}),100);
     },30);
   },[]);
   // Auto-archive previous month's checks when entering Check 1 of new month
