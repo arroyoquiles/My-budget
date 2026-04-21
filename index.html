@@ -654,28 +654,23 @@ const GastoItem=memo(({item,pid,editId,setEditId,tarjetas,loans,potsList,periodD
       {/* PAID WITH — native select picker */}
       <div style={{marginBottom:10}}>
         <div style={{fontSize:10,color:T.muted,marginBottom:6}}>PAID WITH</div>
-        <select style={{...INP,fontSize:14,fontWeight:600,WebkitAppearance:"auto",appearance:"auto",cursor:"pointer"}}
-          value={localDestino==="credit_card"&&localTarjetaRef?`card:${localTarjetaRef}`:"cash"}
-          onChange={e=>{
-            const v=e.target.value;
-            if(v==="cash"){
-              const fallback=(localCat&&localCat!=="credit_card")?localCat:"other";
-              setLocalDestino(fallback);
-              setLocalTarjetaRef("");
-            } else {
-              const name=v.replace("card:","");
-              setLocalDestino("credit_card");
-              setLocalTarjetaRef(name);
-            }
-          }}>
-          <option value="cash">💵 Debit / Cash</option>
-          {/* Hide card options for debt payments */}
-          {!item.debtRef&&tarjetas.map(t=>{
-            const tc=CC[t.nombre]||null;
-            const dot=tc?.dot||t._vc?.dot||"💳";
-            return(<option key={t.id} value={`card:${t.nombre}`}>{dot} {t.nombre}</option>);
-          })}
-        </select>
+        {item.debtRef
+          ? <div style={{...INP,display:"flex",alignItems:"center",gap:8,color:T.muted,fontSize:14}}>💵 Debit / Cash</div>
+          : <select style={{...INP,fontSize:14,fontWeight:600,WebkitAppearance:"auto",appearance:"auto",cursor:"pointer"}}
+              value={localTarjetaRef?`card:${localTarjetaRef}`:"cash"}
+              onChange={e=>{
+                const v=e.target.value;
+                if(v==="cash"){setLocalTarjetaRef("");}
+                else{const name=v.replace("card:","");setLocalTarjetaRef(name);setLocalDestino("credit_card");}
+              }}>
+              <option value="cash">💵 Debit / Cash</option>
+              {tarjetas.map(t=>{
+                const tc=CC[t.nombre]||null;
+                const dot=tc?.dot||t._vc?.dot||"💳";
+                return(<option key={t.id} value={`card:${t.nombre}`}>{dot} {t.nombre}</option>);
+              })}
+            </select>
+        }
       </div>
 
       {/* Due date + Repeat in one row */}
@@ -719,14 +714,15 @@ const GastoItem=memo(({item,pid,editId,setEditId,tarjetas,loans,potsList,periodD
             const cat=localCat||localDestino;
             const isPot=(potsList||[]).find(p=>p.id===localDestino);
             const isCustom=(customLabels||[]).find(l=>l.id===localDestino);
-            const isPaidWithCard=localDestino==="credit_card"&&localTarjetaRef;
-            // destino = the category, not the payment method
+            const isPaidWithCard=!!localTarjetaRef;
             let dest;
             if(isPot)dest=localDestino;
             else if(isCustom)dest=localDestino;
-            else if(isPaidWithCard)dest=cat==="credit_card"?"credit_card":(cat||"other"); // card payment TO card stays credit_card, else use category
             else if(localDestino==="__cash__")dest=cat||"other";
-            else dest=localDestino;
+            else dest=cat||localDestino;
+            // If paying a card directly (category = credit_card), destino = credit_card
+            if(cat==="credit_card"&&isPaidWithCard)dest="credit_card";
+            if(cat==="credit_card"&&!isPaidWithCard)dest="credit_card";
             const tRef=isPaidWithCard?localTarjetaRef:"";
             const updates={destino:dest,cat,tarjetaRef:tRef};
             onBatchUpdate(item.id,updates);
@@ -1585,13 +1581,16 @@ function App(){
     const gastos=(data.periods[pid]?.gastos)||[];
     const item=gastos.find(x=>x.id===id);
     const markingPaid=item&&item.state!=="paid";
+    // If already registered debt payment, don't allow unpaid
+    if(item&&item._debtPaid&&!markingPaid){
+      toast_("Payment already registered in Debts","err");
+      return;
+    }
     updPeriodGastos(pid,g=>g.map(x=>x.id!==id?x:{...x,state:x.state==="paid"?"pending":"paid",pagado:x.state!=="paid"}));
     if(item&&markingPaid){
-      if(item.debtRef){
-        // Debt payment — confirm register in Debts
+      if(item.debtRef&&!item._debtPaid){
         setTimeout(()=>setDebtPayConfirm({item,pid}),200);
-      } else if(item.tarjetaRef&&item.destino==="credit_card"){
-        // Regular expense paid with card — confirm charge
+      } else if(item.tarjetaRef&&!item.debtRef&&!item._debtPaid){
         setTimeout(()=>setDebtPayConfirm({item,pid,isCharge:true}),200);
       }
     }
@@ -2277,10 +2276,10 @@ function App(){
               }}>
               <option value="">— Select debt —</option>
               {data.tarjetas.length>0&&<optgroup label="💳 Credit Cards">
-                {data.tarjetas.map(t=><option key={t.id} value={`card:${t.id}`}>{t.nombre} — {fmt(n(t.minimo)||0)} min</option>)}
+                {data.tarjetas.map(t=><option key={t.id} value={`card:${t.id}`}>{t.nombre}</option>)}
               </optgroup>}
               {(data.loans||[]).length>0&&<optgroup label="🏦 Loans">
-                {(data.loans||[]).map(l=><option key={l.id} value={`loan:${l.id}`}>{l.nombre} — {fmt(n(l.minimo)||0)} mo</option>)}
+                {(data.loans||[]).map(l=><option key={l.id} value={`loan:${l.id}`}>{l.nombre} — {fmt(n(l.minimo)||0)} payment</option>)}
               </optgroup>}
             </select>
             <button style={{...BTN,width:"100%",padding:"12px",background:"transparent",color:T.muted,fontSize:13,border:`1px solid ${T.border}`,borderRadius:11}}
@@ -2299,13 +2298,15 @@ function App(){
           const doCharge=()=>{
             const entry={fecha:new Date().toLocaleDateString("en-US",{month:"short",day:"numeric"}),tipo:"gasto",monto:m};
             setData(p=>({...p,tarjetas:p.tarjetas.map(t=>t.nombre!==item.tarjetaRef?t:{...t,balance:n(t.balance)+m,historial:[entry,...(t.historial||[])].slice(0,10)})}));
+            updPeriodGastos(debtPayConfirm.pid,g=>g.map(x=>x.id!==item.id?x:{...x,_debtPaid:true}));
             toast_(`💳 ${fmt(m)} charged to ${card.nombre}`);
             setDebtPayConfirm(null);
           };
-          return(
+        return(
             <div style={{position:"fixed",inset:0,zIndex:450,background:"rgba(0,0,0,0.6)",display:"flex",alignItems:"flex-end",justifyContent:"center"}}
               onClick={e=>{if(e.target===e.currentTarget)setDebtPayConfirm(null);}}>
-              <div style={{width:"100%",maxWidth:500,background:T.surface,borderRadius:"20px 20px 0 0",border:`1px solid ${T.border}`,padding:"20px",paddingBottom:"max(28px,env(safe-area-inset-bottom,28px))",animation:"slideInUp 0.28s cubic-bezier(0.4,0,0.2,1) both"}}>
+              <div style={{width:"100%",maxWidth:500,background:T.surface,borderRadius:"20px 20px 0 0",border:`1px solid ${T.border}`,padding:"20px",paddingBottom:"max(28px,env(safe-area-inset-bottom,28px))",animation:"slideInUp 0.28s cubic-bezier(0.4,0,0.2,1) both",position:"relative"}}>
+                <button style={{...BTN,position:"absolute",top:14,right:14,background:"transparent",color:T.muted,fontSize:18,padding:"2px 8px",border:"none"}} onClick={()=>setDebtPayConfirm(null)}>✕</button>
                 <div style={{fontSize:15,fontWeight:700,color:T.text,marginBottom:6,textAlign:"center"}}>Charge to card?</div>
                 <div style={{fontSize:13,color:T.muted,textAlign:"center",marginBottom:20}}>
                   Add <span style={{color:"#ec4899",fontWeight:700}}>{fmt(m)}</span> charge to <span style={{color:"#ec4899",fontWeight:700}}>{card.nombre}</span>?
@@ -2324,20 +2325,23 @@ function App(){
         const debtId=parseInt(idStr);
         const debt=tipo==="card"?data.tarjetas.find(t=>t.id===debtId):(data.loans||[]).find(l=>l.id===debtId);
         if(!debt)return null;
-        const registerPayment=()=>{
+          const registerPayment=()=>{
           const entry={fecha:new Date().toLocaleDateString("en-US",{month:"short",day:"numeric"}),tipo:"pago",monto:m};
           if(tipo==="card"){
             setData(p=>({...p,tarjetas:p.tarjetas.map(t=>t.id!==debtId?t:{...t,balance:Math.max(0,n(t.balance)-m),historial:[entry,...(t.historial||[])].slice(0,10)})}));
           } else {
             setData(p=>({...p,loans:(p.loans||[]).map(l=>l.id!==debtId?l:{...l,balance:Math.max(0,n(l.balance)-m),historial:[entry,...(l.historial||[])].slice(0,10)})}));
           }
+          // Mark as debt paid to prevent double payment
+          updPeriodGastos(debtPayConfirm.pid,g=>g.map(x=>x.id!==debtPayConfirm.item.id?x:{...x,_debtPaid:true}));
           toast_(`✅ ${fmt(m)} payment registered to ${debt.nombre}`);
           setDebtPayConfirm(null);
         };
         return(
           <div style={{position:"fixed",inset:0,zIndex:450,background:"rgba(0,0,0,0.6)",display:"flex",alignItems:"flex-end",justifyContent:"center"}}
             onClick={e=>{if(e.target===e.currentTarget)setDebtPayConfirm(null);}}>
-            <div style={{width:"100%",maxWidth:500,background:T.surface,borderRadius:"20px 20px 0 0",border:`1px solid ${T.border}`,padding:"20px",paddingBottom:"max(28px,env(safe-area-inset-bottom,28px))",animation:"slideInUp 0.28s cubic-bezier(0.4,0,0.2,1) both"}}>
+            <div style={{width:"100%",maxWidth:500,background:T.surface,borderRadius:"20px 20px 0 0",border:`1px solid ${T.border}`,padding:"20px",paddingBottom:"max(28px,env(safe-area-inset-bottom,28px))",animation:"slideInUp 0.28s cubic-bezier(0.4,0,0.2,1) both",position:"relative"}}>
+              <button style={{...BTN,position:"absolute",top:14,right:14,background:"transparent",color:T.muted,fontSize:18,padding:"2px 8px",border:"none"}} onClick={()=>setDebtPayConfirm(null)}>✕</button>
               <div style={{fontSize:15,fontWeight:700,color:T.text,marginBottom:6,textAlign:"center"}}>Register payment?</div>
               <div style={{fontSize:13,color:T.muted,textAlign:"center",marginBottom:20}}>
                 Record <span style={{color:T.accent,fontWeight:700}}>{fmt(m)}</span> payment to <span style={{color:T.accent,fontWeight:700}}>{debt.nombre}</span> in Debts?
