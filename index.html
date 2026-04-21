@@ -546,6 +546,12 @@ const GastoItem=memo(({item,pid,editId,setEditId,tarjetas,loans,potsList,periodD
       setLocalCat(initCat(item.destino,item.cat));
     }
   },[isEditing]);
+  React.useEffect(()=>{
+    if(!isEditing)return;
+    const prev=document.body.style.overflow;
+    document.body.style.overflow="hidden";
+    return()=>{document.body.style.overflow=prev;};
+  },[isEditing]);
   const swipeRef=useRef({startX:0,startY:0,dir:null,active:false});
   const lastTap=useRef(0);
   const tapTimer=useRef(null);
@@ -602,14 +608,8 @@ const GastoItem=memo(({item,pid,editId,setEditId,tarjetas,loans,potsList,periodD
   // isCardPayment = paying the card itself (no category)
   const isCardPayment=localDestino==="credit_card"&&!localCat;
   if(editId===item.id)return(
-    <>{/* Ghost row */}
-    <div style={{marginBottom:7,...CARD,opacity:0.35,pointerEvents:"none",padding:"10px 12px",display:"flex",alignItems:"center",gap:8}}>
-      <div style={{width:22,height:22,borderRadius:"50%",border:`2px solid ${T.border}`,flexShrink:0}}/>
-      <div style={{flex:1,fontSize:13,color:T.muted,fontWeight:600,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{item.nombre||"New expense…"}</div>
-      <div style={{fontFamily:"monospace",fontSize:13,color:T.muted}}>{item.monto?fmt(item.monto):""}</div>
-    </div>
-    {ReactDOM.createPortal(
-      <div style={{position:"fixed",inset:0,zIndex:600,background:"rgba(0,0,0,0.72)",backdropFilter:"blur(8px)",WebkitBackdropFilter:"blur(8px)",display:"flex",alignItems:"flex-end",justifyContent:"center"}}
+    <>{ReactDOM.createPortal(
+      <div style={{position:"fixed",inset:0,zIndex:600,background:"rgba(0,0,0,0.72)",backdropFilter:"blur(8px)",WebkitBackdropFilter:"blur(8px)",display:"flex",alignItems:"flex-end",justifyContent:"center",animation:"fadeIn 0.2s ease both"}}
         onMouseDown={e=>{if(e.target===e.currentTarget)setEditId(null);}}
         onTouchEnd={e=>{if(e.target===e.currentTarget)setEditId(null);}}>
         <div style={{width:"100%",maxWidth:500,background:T.surface,borderRadius:"20px 20px 0 0",border:`1px solid ${T.accent}55`,padding:"20px",paddingBottom:"max(32px,env(safe-area-inset-bottom,32px))",maxHeight:"90vh",overflowY:"auto",animation:"slideInUp 0.28s cubic-bezier(0.4,0,0.2,1) both"}}
@@ -1261,6 +1261,13 @@ function App(){
   const [backupPrompt,setBackupPrompt]=useState(false);
   const [locked,setLocked]=useState(true);
   const [editId,setEditId]=useState(null);
+  useEffect(()=>{
+    if(editId!==null){
+      const prev=document.body.style.overflow;
+      document.body.style.overflow="hidden";
+      return()=>{document.body.style.overflow=prev;};
+    }
+  },[editId]);
   const [accion,setAccion]=useState(null);
   const [montoAccion,setMontoAccion]=useState("");
   const [alertDim,setAlertDim]=useState(()=>{
@@ -2203,6 +2210,7 @@ function App(){
         input[type=number]:focus,input[type=text]:focus{border-color:${T.accent}!important;box-shadow:0 0 0 3px ${T.accent}26!important;outline:none;transition:border-color 0.15s,box-shadow 0.15s;}
         .debt-card-tap:active{transform:scale(0.988);transition:transform 0.08s ease;}
         @keyframes slideInDown{from{opacity:0;transform:translateY(-8px);}to{opacity:1;transform:translateY(0);}}
+        @keyframes fadeIn{from{opacity:0;}to{opacity:1;}}
         @keyframes slideInUp{from{opacity:0;transform:translateY(100%);}to{opacity:1;transform:translateY(0);}}
         @keyframes pulse{0%,100%{opacity:1;}50%{opacity:0.6;}}
         input[type=range]{width:100%;accent-color:#58a6ff;}
