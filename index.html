@@ -602,7 +602,20 @@ const GastoItem=memo(({item,pid,editId,setEditId,tarjetas,loans,potsList,periodD
   // isCardPayment = paying the card itself (no category)
   const isCardPayment=localDestino==="credit_card"&&!localCat;
   if(editId===item.id)return(
-    <div style={{marginBottom:8,...CARD,padding:"14px",border:`1px solid ${T.accent}`}}>
+    <>{/* Ghost row */}
+    <div style={{marginBottom:7,...CARD,opacity:0.35,pointerEvents:"none",padding:"10px 12px",display:"flex",alignItems:"center",gap:8}}>
+      <div style={{width:22,height:22,borderRadius:"50%",border:`2px solid ${T.border}`,flexShrink:0}}/>
+      <div style={{flex:1,fontSize:13,color:T.muted,fontWeight:600,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{item.nombre||"New expense…"}</div>
+      <div style={{fontFamily:"monospace",fontSize:13,color:T.muted}}>{item.monto?fmt(item.monto):""}</div>
+    </div>
+    {ReactDOM.createPortal(
+      <div style={{position:"fixed",inset:0,zIndex:600,background:"rgba(0,0,0,0.72)",backdropFilter:"blur(8px)",WebkitBackdropFilter:"blur(8px)",display:"flex",alignItems:"flex-end",justifyContent:"center"}}
+        onMouseDown={e=>{if(e.target===e.currentTarget)setEditId(null);}}
+        onTouchEnd={e=>{if(e.target===e.currentTarget)setEditId(null);}}>
+        <div style={{width:"100%",maxWidth:500,background:T.surface,borderRadius:"20px 20px 0 0",border:`1px solid ${T.accent}55`,padding:"20px",paddingBottom:"max(32px,env(safe-area-inset-bottom,32px))",maxHeight:"90vh",overflowY:"auto",animation:"slideInUp 0.28s cubic-bezier(0.4,0,0.2,1) both"}}
+          onMouseDown={e=>e.stopPropagation()} onTouchEnd={e=>e.stopPropagation()}>
+          <div style={{width:36,height:4,borderRadius:2,background:T.border,margin:"0 auto 16px"}}/>
+          <div id={`edit-form-${item.id}`} style={{}}>
       {/* NAME */}
       <div style={{marginBottom:10}}><div style={{fontSize:10,color:T.muted,marginBottom:5}}>NAME</div><input autoFocus style={INP} value={item.nombre} onChange={e=>onUpdate(item.id,"nombre",e.target.value)} placeholder="Expense name"/></div>
       {/* AMOUNT */}
@@ -742,9 +755,13 @@ const GastoItem=memo(({item,pid,editId,setEditId,tarjetas,loans,potsList,periodD
             setEditId(null);
           }}>✓  SAVE</button>
         <button style={{...BTN,padding:"12px 16px",background:"transparent",color:T.muted,fontSize:12,borderRadius:11,border:"none",letterSpacing:0.5,opacity:0.6}} onClick={()=>setEditId(null)}>CANCEL</button>
-        <button style={{...BTN,padding:"12px 14px",background:"rgba(248,81,73,0.1)",color:"#f85149",fontSize:14,borderRadius:11,border:"1px solid rgba(248,81,73,0.2)"}} onClick={e=>{const row=e.currentTarget.closest(".expense-row");if(row){row.style.animation="itemExit 0.28s ease forwards";setTimeout(()=>{onRemove(item.id);setEditId(null);},260);}else{onRemove(item.id);setEditId(null);}}}>🗑</button>
+        <button style={{...BTN,padding:"12px 14px",background:"rgba(248,81,73,0.1)",color:"#f85149",fontSize:14,borderRadius:11,border:"1px solid rgba(248,81,73,0.2)"}} onClick={e=>{onRemove(item.id);setEditId(null);}}>🗑</button>
       </div>
-    </div>
+          </div>
+        </div>
+      </div>
+    ,document.body)}
+    </>
   );
   const stBg={pending:T.surface,reserved:T.surface,paid:T.surface}[item.state||"pending"];
   const stBorder={pending:T.border,reserved:"rgba(210,153,34,0.3)",paid:T.border}[item.state||"pending"];
@@ -1635,6 +1652,7 @@ function App(){
     setTimeout(()=>{
       window.scrollTo({top:scrollY,behavior:"instant"});
       setEditId(nid);
+      setTimeout(()=>{const el=document.getElementById(`edit-form-${nid}`);if(el)el.scrollIntoView({behavior:"smooth",block:"center"});},80);
     },30);
   },[]);
   const addGastoDebt=useCallback((pid,debtRef,debt,tipo)=>{
@@ -1660,7 +1678,7 @@ function App(){
     setTimeout(()=>{
       window.scrollTo({top:scrollY,behavior:"instant"});
       setEditId(nid);
-      setTimeout(()=>window.scrollTo({top:scrollY,behavior:"instant"}),100);
+      setTimeout(()=>{const el=document.getElementById(`edit-form-${nid}`);if(el)el.scrollIntoView({behavior:"smooth",block:"center"});},80);
     },30);
   },[]);
   // Auto-archive previous month's checks when entering Check 1 of new month
@@ -1745,9 +1763,9 @@ function App(){
         editGroupKeyRef.current=item.destino==="credit_card"?"__cards__":item.destino;
       }
       setEditId(id);
+      setTimeout(()=>{const el=document.getElementById(`edit-form-${id}`);if(el)el.scrollIntoView({behavior:"smooth",block:"center"});},80);
     }
   },[]);
-
   const updateTarjeta=useCallback((id,f,v)=>setData(p=>({...p,tarjetas:p.tarjetas.map(t=>t.id===id?{...t,[f]:v}:t)})),[]);
   const updateLoan=useCallback((id,f,v)=>setData(p=>({...p,loans:(p.loans||[]).map(l=>l.id===id?{...l,[f]:v}:l)})),[]);
   const removeTarjeta=useCallback(id=>{setData(p=>({...p,tarjetas:p.tarjetas.filter(t=>t.id!==id)}));toast_("🗑 Removed");},[]);
@@ -2238,7 +2256,7 @@ function App(){
 
       {/* ── Quick Expense Modal ── */}
       {gastoTypePicker&&!gastoTypePicker.step&&(
-        <div style={{position:"fixed",inset:0,zIndex:400,background:"rgba(0,0,0,0.6)",display:"flex",alignItems:"flex-end",justifyContent:"center"}}
+        <div style={{position:"fixed",inset:0,zIndex:400,background:"rgba(0,0,0,0.55)",backdropFilter:"blur(8px)",WebkitBackdropFilter:"blur(8px)",display:"flex",alignItems:"flex-end",justifyContent:"center"}}
           onTouchEnd={e=>{if(e.target===e.currentTarget)setGastoTypePicker(null);}}
           onClick={e=>{if(e.target===e.currentTarget)setGastoTypePicker(null);}}>
           <div style={{width:"100%",maxWidth:500,background:T.surface,borderRadius:"20px 20px 0 0",border:`1px solid ${T.border}`,padding:"20px",paddingBottom:"max(28px,env(safe-area-inset-bottom,28px))",animation:"slideInUp 0.28s cubic-bezier(0.4,0,0.2,1) both"}}
@@ -2276,7 +2294,7 @@ function App(){
         </div>
       )}
       {gastoTypePicker?.step==="debt"&&(
-        <div style={{position:"fixed",inset:0,zIndex:401,background:"rgba(0,0,0,0.6)",display:"flex",alignItems:"flex-end",justifyContent:"center"}}
+        <div style={{position:"fixed",inset:0,zIndex:401,background:"rgba(0,0,0,0.55)",backdropFilter:"blur(8px)",WebkitBackdropFilter:"blur(8px)",display:"flex",alignItems:"flex-end",justifyContent:"center"}}
           onTouchEnd={e=>{if(e.target===e.currentTarget)setGastoTypePicker(null);}}
           onClick={e=>{if(e.target===e.currentTarget)setGastoTypePicker(null);}}>
           <div style={{width:"100%",maxWidth:500,background:T.surface,borderRadius:"20px 20px 0 0",border:`1px solid ${T.border}`,padding:"20px",paddingBottom:"max(28px,env(safe-area-inset-bottom,28px))",animation:"slideInUp 0.28s cubic-bezier(0.4,0,0.2,1) both"}}
