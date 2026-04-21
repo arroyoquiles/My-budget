@@ -548,9 +548,16 @@ const GastoItem=memo(({item,pid,editId,setEditId,tarjetas,loans,potsList,periodD
   },[isEditing]);
   React.useEffect(()=>{
     if(!isEditing)return;
-    const prev=document.body.style.overflow;
-    document.body.style.overflow="hidden";
-    return()=>{document.body.style.overflow=prev;};
+    const scrollY=window.scrollY;
+    document.body.style.cssText+=";overflow:hidden;position:fixed;top:-"+scrollY+"px;left:0;right:0;";
+    return()=>{
+      document.body.style.overflow="";
+      document.body.style.position="";
+      document.body.style.top="";
+      document.body.style.left="";
+      document.body.style.right="";
+      window.scrollTo(0,scrollY);
+    };
   },[isEditing]);
   const swipeRef=useRef({startX:0,startY:0,dir:null,active:false});
   const lastTap=useRef(0);
@@ -609,10 +616,10 @@ const GastoItem=memo(({item,pid,editId,setEditId,tarjetas,loans,potsList,periodD
   const isCardPayment=localDestino==="credit_card"&&!localCat;
   if(editId===item.id)return(
     <>{ReactDOM.createPortal(
-      <div style={{position:"fixed",inset:0,zIndex:600,background:"rgba(0,0,0,0.72)",backdropFilter:"blur(8px)",WebkitBackdropFilter:"blur(8px)",display:"flex",alignItems:"flex-end",justifyContent:"center",animation:"fadeIn 0.2s ease both"}}
+      <div style={{position:"fixed",inset:0,zIndex:600,background:"rgba(0,0,0,0.72)",backdropFilter:"blur(8px)",WebkitBackdropFilter:"blur(8px)",display:"flex",alignItems:"flex-end",justifyContent:"center"}}
         onMouseDown={e=>{if(e.target===e.currentTarget)setEditId(null);}}
         onTouchEnd={e=>{if(e.target===e.currentTarget)setEditId(null);}}>
-        <div style={{width:"100%",maxWidth:500,background:T.surface,borderRadius:"20px 20px 0 0",border:`1px solid ${T.accent}55`,padding:"20px",paddingBottom:"max(32px,env(safe-area-inset-bottom,32px))",maxHeight:"90vh",overflowY:"auto",animation:"slideInUp 0.28s cubic-bezier(0.4,0,0.2,1) both"}}
+        <div style={{width:"100%",maxWidth:500,background:T.surface,borderRadius:"20px 20px 0 0",border:`1px solid ${T.accent}55`,padding:"20px",paddingBottom:"max(32px,env(safe-area-inset-bottom,32px))",maxHeight:"90vh",overflowY:"auto",animation:"slideInUp 0.28s cubic-bezier(0.4,0,0.2,1) both",willChange:"transform",WebkitBackfaceVisibility:"hidden"}}
           onMouseDown={e=>e.stopPropagation()} onTouchEnd={e=>e.stopPropagation()}>
           <div style={{width:36,height:4,borderRadius:2,background:T.border,margin:"0 auto 16px"}}/>
           <div id={`edit-form-${item.id}`} style={{}}>
