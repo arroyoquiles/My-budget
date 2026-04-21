@@ -670,44 +670,37 @@ const GastoItem=memo(({item,pid,editId,setEditId,tarjetas,loans,potsList,periodD
         </select>
       </div>
 
-      {/* Due date — always available, sets recurring automatically */}
-      <div style={{marginBottom:10}}>
-        <div style={{fontSize:10,color:T.muted,marginBottom:5}}>📅 DUE DAY <span style={{opacity:0.5,fontWeight:400}}>(day of month, optional)</span></div>
-        <input style={{...INP,fontFamily:"monospace",fontWeight:700}} type="number" inputMode="numeric" placeholder="Leave blank if no due date" min="1" max={new Date(new Date().getFullYear(),new Date().getMonth()+1,0).getDate()} value={item.diaPago||""} 
-          onChange={e=>{const v=parseInt(e.target.value);const max=new Date(new Date().getFullYear(),new Date().getMonth()+1,0).getDate();const val=e.target.value?Math.min(max,Math.max(1,v)):null;onUpdate(item.id,"diaPago",val);}} 
-          onBlur={e=>{if(item.diaPago){const max=new Date(new Date().getFullYear(),new Date().getMonth()+1,0).getDate();onUpdate(item.id,"diaPago",Math.min(max,Math.max(1,parseInt(item.diaPago)||1)));}}}/>
-      </div>
-      {/* Recurring toggle — hidden for debt payments */}
-      {!item.debtRef&&<button style={{...BTN,width:"100%",marginBottom:item._recurring?6:10,padding:"10px 14px",borderRadius:11,display:"flex",alignItems:"center",justifyContent:"space-between",background:item._recurring?`${T.accent}10`:"transparent",border:`1px solid ${item._recurring?T.accent+"55":T.border}`,transition:"all 0.2s"}}
-        onClick={()=>onUpdate(item.id,"_recurring",!item._recurring)}>
-        <div style={{display:"flex",alignItems:"center",gap:8}}>
-          <span style={{fontSize:15}}>🔁</span>
-          <div style={{textAlign:"left"}}>
-            <div style={{fontSize:12,fontWeight:600,color:item._recurring?T.accent:T.text}}>Repeat every cycle</div>
-            <div style={{fontSize:10,color:T.muted}}>{item._recurring?"Copies to next paycheck automatically":"One-time expense"}</div>
+      {/* Due date + Repeat in one row */}
+      {!item.debtRef&&<div style={{display:"flex",gap:8,alignItems:"center",marginBottom:10}}>
+        <div style={{flex:1}}>
+          <div style={{fontSize:9,color:T.muted,marginBottom:4,letterSpacing:1}}>📅 DUE DAY</div>
+          <input style={{...INP,fontFamily:"monospace",fontWeight:700,textAlign:"center"}} type="number" inputMode="numeric" placeholder="—" min="1" max={new Date(new Date().getFullYear(),new Date().getMonth()+1,0).getDate()} value={item.diaPago||""}
+            onChange={e=>{const v=parseInt(e.target.value);const max=new Date(new Date().getFullYear(),new Date().getMonth()+1,0).getDate();const val=e.target.value?Math.min(max,Math.max(1,v)):null;onUpdate(item.id,"diaPago",val);}}
+            onBlur={e=>{if(item.diaPago){const max=new Date(new Date().getFullYear(),new Date().getMonth()+1,0).getDate();onUpdate(item.id,"diaPago",Math.min(max,Math.max(1,parseInt(item.diaPago)||1)));}}}/>
+        </div>
+        <button style={{...BTN,flex:2,padding:"10px 12px",borderRadius:11,display:"flex",alignItems:"center",justifyContent:"space-between",
+          background:item._recurring?`${T.accent}10`:"transparent",
+          border:`1px solid ${item._recurring?T.accent+"55":T.border}`,transition:"all 0.2s"}}
+          onClick={()=>onUpdate(item.id,"_recurring",!item._recurring)}>
+          <div style={{display:"flex",alignItems:"center",gap:6}}>
+            <span style={{fontSize:14}}>🔁</span>
+            <div style={{textAlign:"left"}}>
+              <div style={{fontSize:11,fontWeight:600,color:item._recurring?T.accent:T.text}}>Repeat</div>
+              <div style={{fontSize:9,color:T.muted}}>{item._recurring?"Every cycle":"One-time"}</div>
+            </div>
           </div>
-        </div>
-        <div style={{width:36,height:20,borderRadius:10,position:"relative",flexShrink:0,background:item._recurring?T.accent:"rgba(255,255,255,0.1)",border:`1px solid ${item._recurring?T.accent:T.border}`,transition:"background 0.2s"}}>
-          <div style={{position:"absolute",top:2,left:item._recurring?18:2,width:14,height:14,borderRadius:"50%",background:"#fff",transition:"left 0.2s cubic-bezier(0.34,1.56,0.64,1)",boxShadow:"0 1px 3px rgba(0,0,0,0.3)"}}/>
-        </div>
-      </button>}
+          <div style={{width:32,height:18,borderRadius:9,position:"relative",flexShrink:0,background:item._recurring?T.accent:"rgba(255,255,255,0.1)",border:`1px solid ${item._recurring?T.accent:T.border}`,transition:"background 0.2s"}}>
+            <div style={{position:"absolute",top:2,left:item._recurring?16:2,width:12,height:12,borderRadius:"50%",background:"#fff",transition:"left 0.2s cubic-bezier(0.34,1.56,0.64,1)",boxShadow:"0 1px 3px rgba(0,0,0,0.3)"}}/>
+          </div>
+        </button>
+      </div>}
       {!item.debtRef&&item._recurring&&(
         <div style={{display:"flex",gap:6,marginBottom:10,padding:"8px 12px",background:T.surface2,borderRadius:9,border:`1px solid ${T.border}`}}>
           <div style={{fontSize:11,color:T.muted,marginRight:4,alignSelf:"center"}}>Repeat in:</div>
-          <button style={{...BTN,flex:1,padding:"5px 8px",fontSize:11,borderRadius:8,
-            background:!item._recurringCheckOnly?"rgba(88,166,255,0.15)":"transparent",
-            color:!item._recurringCheckOnly?"#58a6ff":T.muted,
-            border:`1px solid ${!item._recurringCheckOnly?"rgba(88,166,255,0.4)":T.border}`}}
-            onMouseDown={e=>{e.preventDefault();onUpdate(item.id,"_recurringCheckOnly",false);}}>
-            All checks
-          </button>
-          <button style={{...BTN,flex:1,padding:"5px 8px",fontSize:11,borderRadius:8,
-            background:item._recurringCheckOnly?"rgba(88,166,255,0.15)":"transparent",
-            color:item._recurringCheckOnly?"#58a6ff":T.muted,
-            border:`1px solid ${item._recurringCheckOnly?"rgba(88,166,255,0.4)":T.border}`}}
-            onMouseDown={e=>{e.preventDefault();onUpdate(item.id,"_recurringCheckOnly",true);}}>
-            Check {(checkIdx||0)+1} only
-          </button>
+          <button style={{...BTN,flex:1,padding:"5px 8px",fontSize:11,borderRadius:8,background:!item._recurringCheckOnly?"rgba(88,166,255,0.15)":"transparent",color:!item._recurringCheckOnly?"#58a6ff":T.muted,border:`1px solid ${!item._recurringCheckOnly?"rgba(88,166,255,0.4)":T.border}`}}
+            onMouseDown={e=>{e.preventDefault();onUpdate(item.id,"_recurringCheckOnly",false);}}>All checks</button>
+          <button style={{...BTN,flex:1,padding:"5px 8px",fontSize:11,borderRadius:8,background:item._recurringCheckOnly?"rgba(88,166,255,0.15)":"transparent",color:item._recurringCheckOnly?"#58a6ff":T.muted,border:`1px solid ${item._recurringCheckOnly?"rgba(88,166,255,0.4)":T.border}`}}
+            onMouseDown={e=>{e.preventDefault();onUpdate(item.id,"_recurringCheckOnly",true);}}>Check {(checkIdx||0)+1} only</button>
         </div>
       )}
       {item.debtRef&&<div style={{fontSize:10,color:T.accent,marginBottom:10,padding:"6px 10px",background:`${T.accent}0d`,borderRadius:8}}>🔗 Linked to Debts · auto-repeats in this check · payment tracked on paid</div>}
@@ -771,7 +764,8 @@ const GastoItem=memo(({item,pid,editId,setEditId,tarjetas,loans,potsList,periodD
         <div onClick={handleCircleTap} style={{flex:1,minWidth:0,cursor:"pointer"}}>
           <div style={{display:"flex",alignItems:"center",gap:5,flexWrap:"wrap"}}>
             <span style={{fontSize:13,fontWeight:600,color:item.state==="paid"?T.muted:item.state==="reserved"?"#d29922":T.text,textDecoration:"none",opacity:item.state==="paid"?0.45:1}}>{item.nombre||"Untitled"}</span>
-            {item._recurring&&<span style={{fontSize:9,color:T.accent,opacity:0.6}}>🔁</span>}
+            {item._recurring&&!item.debtRef&&<span style={{fontSize:9,color:T.accent,opacity:0.6}}>🔁</span>}
+            {item.debtRef&&<span style={{fontSize:9,color:T.accent,opacity:0.6}}>🔗</span>}
             {/* no badge - grouping header shows destination */}
           </div>
           <div style={{fontSize:10,color:item.state==="paid"?"#3fb950":item.state==="reserved"?"#d29922":T.muted,marginTop:1}}>
@@ -1581,23 +1575,11 @@ function App(){
     const item=gastos.find(x=>x.id===id);
     const markingPaid=item&&item.state!=="paid";
     updPeriodGastos(pid,g=>g.map(x=>x.id!==id?x:{...x,state:x.state==="paid"?"pending":"paid",pagado:x.state!=="paid"}));
-    // Auto-register debt payment if linked
+    // Show confirmation before registering debt payment
     if(item&&item.debtRef&&markingPaid){
-      const[tipo,idStr]=item.debtRef.split(":");
-      const debtId=parseInt(idStr);
-      const m=n(item.monto);
-      const entry={fecha:new Date().toLocaleDateString("en-US",{month:"short",day:"numeric"}),tipo:"pago",monto:m};
-      if(tipo==="card"){
-        setData(p=>({...p,tarjetas:p.tarjetas.map(t=>t.id!==debtId?t:{...t,balance:Math.max(0,n(t.balance)-m),historial:[entry,...(t.historial||[])].slice(0,10)})}));
-        const card=data.tarjetas.find(t=>t.id===debtId);
-        setTimeout(()=>toast_(`💳 ${fmt(m)} payment registered to ${card?.nombre||"card"}`),300);
-      } else {
-        setData(p=>({...p,loans:(p.loans||[]).map(l=>l.id!==debtId?l:{...l,balance:Math.max(0,n(l.balance)-m),historial:[entry,...(l.historial||[])].slice(0,10)})}));
-        const loan=(data.loans||[]).find(l=>l.id===debtId);
-        setTimeout(()=>toast_(`🏦 ${fmt(m)} payment registered to ${loan?.nombre||"loan"}`),300);
-      }
+      setTimeout(()=>setDebtPayConfirm({item,pid}),200);
     }
-  },[data.periods,data.tarjetas,data.loans]);
+  },[data.periods]);
   const setReserved=useCallback((pid,id)=>updPeriodGastos(pid,g=>g.map(x=>x.id!==id?x:{...x,state:x.state==="reserved"?"pending":"reserved",pagado:false})),[]);
   const updateGasto=useCallback((pid,id,f,v)=>updPeriodGastos(pid,g=>g.map(x=>x.id===id?{...x,[f]:v}:x)),[]);
   const batchUpdateGasto=useCallback((pid,id,fields)=>updPeriodGastos(pid,g=>g.map(x=>x.id===id?{...x,...fields}:x)),[]);
@@ -2290,6 +2272,39 @@ function App(){
           </div>
         </div>
       )}
+      {debtPayConfirm&&(()=>{
+        const{item}=debtPayConfirm;
+        const[tipo,idStr]=item.debtRef.split(":");
+        const debtId=parseInt(idStr);
+        const debt=tipo==="card"?data.tarjetas.find(t=>t.id===debtId):(data.loans||[]).find(l=>l.id===debtId);
+        if(!debt)return null;
+        const registerPayment=()=>{
+          const m=n(item.monto);
+          const entry={fecha:new Date().toLocaleDateString("en-US",{month:"short",day:"numeric"}),tipo:"pago",monto:m};
+          if(tipo==="card"){
+            setData(p=>({...p,tarjetas:p.tarjetas.map(t=>t.id!==debtId?t:{...t,balance:Math.max(0,n(t.balance)-m),historial:[entry,...(t.historial||[])].slice(0,10)})}));
+          } else {
+            setData(p=>({...p,loans:(p.loans||[]).map(l=>l.id!==debtId?l:{...l,balance:Math.max(0,n(l.balance)-m),historial:[entry,...(l.historial||[])].slice(0,10)})}));
+          }
+          toast_(`✅ ${fmt(item.monto)} payment registered to ${debt.nombre}`);
+          setDebtPayConfirm(null);
+        };
+        return(
+          <div style={{position:"fixed",inset:0,zIndex:450,background:"rgba(0,0,0,0.6)",display:"flex",alignItems:"flex-end",justifyContent:"center"}}
+            onClick={e=>{if(e.target===e.currentTarget)setDebtPayConfirm(null);}}>
+            <div style={{width:"100%",maxWidth:500,background:T.surface,borderRadius:"20px 20px 0 0",border:`1px solid ${T.border}`,padding:"20px",paddingBottom:"max(28px,env(safe-area-inset-bottom,28px))",animation:"slideInUp 0.28s cubic-bezier(0.4,0,0.2,1) both"}}>
+              <div style={{fontSize:15,fontWeight:700,color:T.text,marginBottom:6,textAlign:"center"}}>Register payment?</div>
+              <div style={{fontSize:13,color:T.muted,textAlign:"center",marginBottom:20}}>
+                Record <span style={{color:T.accent,fontWeight:700}}>{fmt(item.monto)}</span> payment to <span style={{color:T.accent,fontWeight:700}}>{debt.nombre}</span> in Debts?
+              </div>
+              <div style={{display:"flex",gap:10}}>
+                <button style={{...BTN,flex:1,padding:"13px",background:"#238636",color:"#fff",fontSize:14,fontWeight:700,borderRadius:11}} onClick={registerPayment}>✓ Yes, register</button>
+                <button style={{...BTN,flex:1,padding:"13px",background:T.surface2,color:T.muted,fontSize:14,borderRadius:11,border:`1px solid ${T.border}`}} onClick={()=>setDebtPayConfirm(null)}>Skip</button>
+              </div>
+            </div>
+          </div>
+        );
+      })()}
       {backupPrompt&&(
         <div style={{position:"fixed",inset:0,zIndex:500,background:"rgba(0,0,0,0.7)",display:"flex",alignItems:"center",justifyContent:"center",padding:24}}>
           <div style={{...CARD,padding:24,maxWidth:320,width:"100%",textAlign:"center"}}>
@@ -2340,6 +2355,9 @@ function App(){
                 <div style={{fontSize:9,color:T.muted,letterSpacing:1.2,fontWeight:700,marginBottom:6}}>PAID WITH</div>
                 <select style={{...INP,fontSize:15,fontWeight:600,color:T.text,WebkitAppearance:"auto",appearance:"auto",cursor:"pointer"}}
                   value={quickCardId}
+                  onFocus={()=>{if(document.activeElement?.blur)document.activeElement.blur();}}
+                  onMouseDown={()=>{if(document.activeElement&&document.activeElement.tagName==="INPUT")document.activeElement.blur();}}
+                  onTouchStart={()=>{if(document.activeElement&&document.activeElement.tagName==="INPUT")document.activeElement.blur();}}
                   onChange={e=>setQuickCardId(e.target.value)}>
                   <option value="">💵 Debit / Cash</option>
                   {data.tarjetas.map(t=>{
