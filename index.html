@@ -720,9 +720,15 @@ const GastoItem=memo(({item,pid,editId,setEditId,tarjetas,loans,potsList,periodD
             const isPot=(potsList||[]).find(p=>p.id===localDestino);
             const isCustom=(customLabels||[]).find(l=>l.id===localDestino);
             const isPaidWithCard=localDestino==="credit_card"&&localTarjetaRef;
-            const dest=isPot?localDestino:isCustom?localDestino:localDestino==="__cash__"?cat:localDestino;
+            // destino = the category, not the payment method
+            let dest;
+            if(isPot)dest=localDestino;
+            else if(isCustom)dest=localDestino;
+            else if(isPaidWithCard)dest=cat==="credit_card"?"credit_card":(cat||"other"); // card payment TO card stays credit_card, else use category
+            else if(localDestino==="__cash__")dest=cat||"other";
+            else dest=localDestino;
             const tRef=isPaidWithCard?localTarjetaRef:"";
-            const updates={destino:dest==="__cash__"?cat:dest,cat,tarjetaRef:tRef};
+            const updates={destino:dest,cat,tarjetaRef:tRef};
             onBatchUpdate(item.id,updates);
             const saved={...item,...updates};
             if(saved._recurring&&!saved._recurringCheckOnly&&onPropagate){
