@@ -717,17 +717,13 @@ const GastoItem=memo(({item,pid,editId,setEditId,tarjetas,loans,potsList,periodD
         <button style={{...BTN,flex:1,padding:"12px",background:"#238636",color:"#fff",fontSize:13,fontWeight:700,borderRadius:11,letterSpacing:0.8}}
           onClick={()=>{
             const cat=localCat||localDestino;
-            const isCardCat=localCat==="credit_card";
-            const paidWithCash=localDestino==="__cash__"||localDestino!=="credit_card";
-            const dest=isCardCat&&!paidWithCash?"credit_card":
-              isCardCat&&paidWithCash?"credit_card":
-              (potsList||[]).find(p=>p.id===localDestino)?localDestino:
-              (customLabels||[]).find(l=>l.id===localDestino)?localDestino:
-              localDestino==="__cash__"?cat:cat;
-            const tRef=isCardCat?localTarjetaRef:localDestino==="credit_card"?localTarjetaRef:"";
-            const updates={destino:dest,cat,tarjetaRef:tRef};
+            const isPot=(potsList||[]).find(p=>p.id===localDestino);
+            const isCustom=(customLabels||[]).find(l=>l.id===localDestino);
+            const isPaidWithCard=localDestino==="credit_card"&&localTarjetaRef;
+            const dest=isPot?localDestino:isCustom?localDestino:localDestino==="__cash__"?cat:localDestino;
+            const tRef=isPaidWithCard?localTarjetaRef:"";
+            const updates={destino:dest==="__cash__"?cat:dest,cat,tarjetaRef:tRef};
             onBatchUpdate(item.id,updates);
-            // If recurring all checks, propagate to other checks
             const saved={...item,...updates};
             if(saved._recurring&&!saved._recurringCheckOnly&&onPropagate){
               setTimeout(()=>onPropagate(saved),50);
@@ -2364,10 +2360,10 @@ function App(){
                 <div style={{fontSize:9,color:T.muted,letterSpacing:1.2,fontWeight:700,marginBottom:6}}>PAID WITH</div>
                 <select style={{...INP,fontSize:15,fontWeight:600,color:T.text,WebkitAppearance:"auto",appearance:"auto",cursor:"pointer"}}
                   value={quickCardId||"cash"}
-                  onFocus={()=>{if(document.activeElement?.blur)document.activeElement.blur();}}
-                  onMouseDown={()=>{if(document.activeElement&&document.activeElement.tagName==="INPUT")document.activeElement.blur();}}
-                  onTouchStart={()=>{if(document.activeElement&&document.activeElement.tagName==="INPUT")document.activeElement.blur();}}
-                  onChange={e=>setQuickCardId(e.target.value==="cash"?"":e.target.value)}>
+                  onChange={e=>{
+                    if(document.activeElement&&document.activeElement.tagName==="INPUT")document.activeElement.blur();
+                    setQuickCardId(e.target.value==="cash"?"":e.target.value);
+                  }}>
                   <option value="cash">💵 Debit / Cash</option>
                   {data.tarjetas.map(t=>{
                     const tc=CC[t.nombre]||null;
@@ -3541,7 +3537,7 @@ function App(){
                   nombre:g.nombre||"Untitled",
                   amt:n(g.monto),
                   paid:g.state==="paid",
-                  sub:g.tarjetaRef||null
+                  sub:key==="__cards__"&&g.tarjetaRef?g.tarjetaRef:null
                 });
               };
               monthGastos.forEach(g=>{
@@ -3554,10 +3550,8 @@ function App(){
                   const pot=potsList.find(p=>p.id===g.destino);
                   add("pot_"+pot.id,pot.name,pot.icon||"🪣",pot.color||"#58a6ff",g);
                 } else if(cat==="credit_card"&&(!g.cat||g.cat==="credit_card")&&g.destino==="credit_card"){
-                  // Only pure card payments (no real category) → by card name
-                  const cardName=g.tarjetaRef||"Credit Card";
-                  const cc=gds("credit_card",g.tarjetaRef,null,potsList,cls);
-                  add("cc_"+cardName,cardName,cc.icon,cc.color,g);
+                  // All card payments → one Credit Cards group, card name in sub
+                  add("__cards__","Credit Cards","💳","#ec4899",g);
                 } else if(cat&&DEST[cat]){
                   const d=DEST[cat];add("cat_"+cat,d.label,d.icon,d.color,g);
                 } else if(g.destino==="other"||g.destino==="temp"||cat==="other"||cat==="temp"){
@@ -3612,6 +3606,7 @@ function App(){
                           <div key={ii} style={{display:"flex",justifyContent:"space-between",alignItems:"center",opacity:it.paid?0.45:1}}>
                             <span style={{fontSize:12,color:it.paid?T.muted:T.text}}>
                               {it.paid?"✓ ":""}{it.nombre}
+                              {it.sub&&<span style={{fontSize:10,color:T.muted,marginLeft:4}}>· {it.sub}</span>}
                             </span>
                             <span style={{fontFamily:"monospace",fontWeight:600,fontSize:12,color:it.paid?T.muted:v.color,marginLeft:8,flexShrink:0}}>{fmt(it.amt)}</span>
                           </div>
