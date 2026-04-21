@@ -548,16 +548,8 @@ const GastoItem=memo(({item,pid,editId,setEditId,tarjetas,loans,potsList,periodD
   },[isEditing]);
   React.useEffect(()=>{
     if(!isEditing)return;
-    const scrollY=window.scrollY;
-    document.body.style.cssText+=";overflow:hidden;position:fixed;top:-"+scrollY+"px;left:0;right:0;";
-    return()=>{
-      document.body.style.overflow="";
-      document.body.style.position="";
-      document.body.style.top="";
-      document.body.style.left="";
-      document.body.style.right="";
-      window.scrollTo(0,scrollY);
-    };
+    scrollLock.lock();
+    return()=>scrollLock.unlock();
   },[isEditing]);
   const swipeRef=useRef({startX:0,startY:0,dir:null,active:false});
   const lastTap=useRef(0);
@@ -1187,6 +1179,32 @@ const getSnapshotReminder=(today,snapshots)=>{
   if(d<=3){if(!hasPrevMonth)return{type:"warn",msg:`Last month snapshot missing`};else return{type:"info",msg:"Export monthly backup recommended"};}
   return null;
 };
+// Global scroll lock manager — single source of truth
+const scrollLock={
+  _count:0,
+  _scrollY:0,
+  lock(){
+    this._count++;
+    if(this._count===1){
+      this._scrollY=window.scrollY;
+      document.body.style.overflow="hidden";
+      document.body.style.position="fixed";
+      document.body.style.top=-this._scrollY+"px";
+      document.body.style.width="100%";
+    }
+  },
+  unlock(){
+    this._count=Math.max(0,this._count-1);
+    if(this._count===0){
+      const y=this._scrollY;
+      document.body.style.overflow="";
+      document.body.style.position="";
+      document.body.style.top="";
+      document.body.style.width="";
+      window.scrollTo(0,y);
+    }
+  }
+};
 function App(){
   const [data,setData]=useState(loadData);
   const [tab,setTab]=useState("overview");
@@ -1270,9 +1288,8 @@ function App(){
   const [editId,setEditId]=useState(null);
   useEffect(()=>{
     if(editId!==null){
-      const prev=document.body.style.overflow;
-      document.body.style.overflow="hidden";
-      return()=>{document.body.style.overflow=prev;};
+      scrollLock.lock();
+      return()=>scrollLock.unlock();
     }
   },[editId]);
   const [accion,setAccion]=useState(null);
@@ -1327,32 +1344,8 @@ function App(){
   },[moveOpen,quickOpen]);
   useEffect(()=>{
     if(!moveOpen)return;
-    const scrollX=window.scrollX||0;
-    const scrollY=window.scrollY||document.documentElement.scrollTop||0;
-    const prev={bo:document.body.style.overflow,bp:document.body.style.position,bt:document.body.style.top,bl:document.body.style.left,bw:document.body.style.width,bsy:document.body.style.overflowY,ho:document.documentElement.style.overflow,hh:document.documentElement.style.height};
-    document.documentElement.style.overflow="hidden";
-    document.documentElement.style.height="100%";
-    document.body.style.overflow="hidden";
-    document.body.style.overflowY="hidden";
-    document.body.style.position="fixed";
-    document.body.style.top=`-${scrollY}px`;
-    document.body.style.left=`-${scrollX}px`;
-    document.body.style.width="100%";
-    const blockTouch=(e)=>{let el=e.target;while(el&&el!==document.body){const st=window.getComputedStyle(el);if(st.overflowY==="auto"||st.overflowY==="scroll")return;el=el.parentElement;}e.preventDefault();};
-    document.addEventListener("touchmove",blockTouch,{passive:false});
-    return()=>{
-      document.removeEventListener("touchmove",blockTouch);
-      document.documentElement.style.overflow=prev.ho;
-      document.documentElement.style.height=prev.hh;
-      document.body.style.overflow=prev.bo;
-      document.body.style.overflowY=prev.bsy;
-      document.body.style.position=prev.bp;
-      document.body.style.top=prev.bt;
-      document.body.style.left=prev.bl;
-      document.body.style.width=prev.bw;
-      window.scrollTo(scrollX,scrollY);
-      setKbHeight(0);
-    };
+    scrollLock.lock();
+    return()=>{scrollLock.unlock();setKbHeight(0);};
   },[moveOpen]);
   const [snapDetail,setSnapDetail]=useState(null);
   const [expenseSearch,setExpenseSearch]=useState("");
@@ -1542,45 +1535,8 @@ function App(){
   },[]);
   useEffect(()=>{
     if(!quickOpen)return;
-    // Save current scroll position
-    const scrollX=window.scrollX||window.pageXOffset||0;
-    const scrollY=window.scrollY||window.pageYOffset||0;
-    const prevBodyOverflow=document.body.style.overflow;
-    const prevBodyPosition=document.body.style.position;
-    const prevBodyTop=document.body.style.top;
-    const prevBodyLeft=document.body.style.left;
-    const prevBodyWidth=document.body.style.width;
-    const prevHtmlOverflow=document.documentElement.style.overflow;
-    const prevHtmlHeight=document.documentElement.style.height;
-    document.documentElement.style.overflow="hidden";
-    document.documentElement.style.height="100%";
-    document.body.style.overflow="hidden";
-    document.body.style.position="fixed";
-    document.body.style.top=`-${scrollY}px`;
-    document.body.style.left=`-${scrollX}px`;
-    document.body.style.width="100%";
-    // Block touchmove on document to prevent iOS rubber-band scroll behind modal
-    const blockTouch=(e)=>{
-      // Allow scroll inside elements that have their own overflow scroll
-      let el=e.target;
-      while(el&&el!==document.body){
-        const st=window.getComputedStyle(el);
-        if(st.overflowY==="auto"||st.overflowY==="scroll"){return;}
-        el=el.parentElement;
-      }
-      e.preventDefault();
-    };
-    document.addEventListener("touchmove",blockTouch,{passive:false});
-    return()=>{
-      document.removeEventListener("touchmove",blockTouch);
-      document.documentElement.style.overflow=prevHtmlOverflow;
-      document.documentElement.style.height=prevHtmlHeight;
-      document.body.style.overflow=prevBodyOverflow;
-      document.body.style.position=prevBodyPosition;
-      document.body.style.top=prevBodyTop;
-      document.body.style.left=prevBodyLeft;
-      document.body.style.width=prevBodyWidth;
-    };
+    scrollLock.lock();
+    return()=>scrollLock.unlock();
   },[quickOpen]);
   useEffect(()=>{if(!quickPid&&currentPid)setQuickPid(currentPid);},[currentPid]);
   useEffect(()=>{if(currentPid&&!activeCheckPid)setActiveCheckPid(currentPid);},[currentPid]);
