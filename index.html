@@ -158,7 +158,7 @@ const POTS = {
 // Helper: get pot info (works for both legacy keys and dynamic pots)
 const getPotInfo=(potsList,keyOrId)=>{
   if(!potsList)return POTS[keyOrId]||{label:keyOrId,icon:"🪣",color:"#58a6ff",bg:"rgba(88,166,255,0.1)"};
-  const found=potsList.find(p=>p.id===keyOrId||p.id===keyOrId);
+  const found=potsList.find(p=>p.id===keyOrId);
   if(found)return{label:found.name,icon:found.icon||"🪣",color:found.color||"#58a6ff",bg:(found.color||"#58a6ff")+"1a"};
   return POTS[keyOrId]||{label:keyOrId,icon:"🪣",color:"#58a6ff",bg:"rgba(88,166,255,0.1)"};
 };
@@ -1225,12 +1225,9 @@ function App(){
   const [pinError,setPinError]=useState("");
 
   useEffect(()=>{
-    const saved=localStorage.getItem("mybudget_v17");
-    const parsed=saved?JSON.parse(saved):null;
-    if(parsed&&parsed.biometricEnabled===false){setAuthenticated(true);setAuthChecked(true);return;}
     const pin=localStorage.getItem(PIN_KEY);
     setAuthChecked(true);
-    if(!pin){setAuthenticated(true);} // No PIN set yet — let them in, they can set it in Settings
+    if(!pin){setAuthenticated(true);}
     // PIN exists — show lock screen (authenticated stays false)
   },[]);
 
@@ -1288,12 +1285,6 @@ function App(){
   const [backupPrompt,setBackupPrompt]=useState(false);
   const [locked,setLocked]=useState(true);
   const [editId,setEditId]=useState(null);
-  useEffect(()=>{
-    if(editId!==null){
-      scrollLock.lock();
-      return()=>scrollLock.unlock();
-    }
-  },[editId]);
   const [accion,setAccion]=useState(null);
   const [montoAccion,setMontoAccion]=useState("");
   const [alertDim,setAlertDim]=useState(()=>{
@@ -1448,7 +1439,7 @@ function App(){
         if(g.diaPago&&g.state!=="paid")fire(`exp_${g.id}`,g.nombre,String(g.diaPago),"📅");
       });
     });
-  },[data.notifEnabled]);
+  },[data.notifEnabled,data.tarjetas,data.loans,data.periods]);
   const hapticAC=useRef(null);
   const haptic=(type=30)=>{
     // iOS Safari: use AudioContext trick for real haptic feel
@@ -1475,7 +1466,7 @@ function App(){
   const freq=data.payFreq||"biweekly";
   const anchor=data.proximoCobro||"";
   const globalCheckAmount=n(data.checkAmount||0);
-  const today=useMemo(()=>{const d=new Date();d.setHours(0,0,0,0);return d;},[]);
+  const today=useMemo(()=>{const d=new Date();d.setHours(0,0,0,0);return d;});
   const monthPeriods=useMemo(()=>buildMonthPeriods(anchor,freq),[anchor,freq,today]);
   const currentPeriod=monthPeriods.find(p=>p.isCurrent)||monthPeriods[0];
   const currentPid=currentPeriod?.id||"";
@@ -1605,7 +1596,7 @@ function App(){
         const gastos=(newPeriods[mp.id]?.gastos)||[];
         // Remove any existing copy of this item (same nombre+destino+monto)
         const filtered=gastos.filter(g=>!(g.nombre===item.nombre&&g.destino===item.destino&&g._recurring&&!g._recurringCheckOnly));
-        const newItem={...item,id:Date.now()+Math.random()*1000|0,state:"pending",pagado:false,_potAdded:false};
+        const newItem={...item,id:Date.now()*1000+Math.floor(Math.random()*999),state:"pending",pagado:false,_potAdded:false};
         newPeriods[mp.id]={...(newPeriods[mp.id]||{}),gastos:[...filtered,newItem]};
       });
       return{...p,periods:newPeriods};
@@ -1713,7 +1704,7 @@ function App(){
       return true;
     });
     if(!recurring.length)return;
-    const copies=recurring.map(x=>({...x,id:Date.now()+Math.random()*1000|0,state:"pending",pagado:false,_potAdded:false}));
+    const copies=recurring.map((x,i)=>({...x,id:Date.now()*1000+i*100+Math.floor(Math.random()*99),state:"pending",pagado:false,_potAdded:false}));
     setData(p=>({...p,periods:{...p.periods,[activeCheckPid]:{...(p.periods[activeCheckPid]||{}),gastos:[...(p.periods[activeCheckPid]?.gastos||[]),...copies]}}}));
     setTimeout(()=>toast_(`🔁 ${copies.length} recurring copied`),100);
   },[activeCheckPid]);
@@ -3908,11 +3899,23 @@ function App(){
                 <div style={{fontSize:10,color:T.muted}}>{localStorage.getItem(PIN_KEY)?"PIN set — required on open":"No PIN set"}</div>
               </div>
               <button style={{...BTN,width:52,height:28,borderRadius:14,padding:0,position:"relative",
-                background:data.biometricEnabled!==false?T.accent:"rgba(255,255,255,0.1)",
-                border:`1px solid ${data.biometricEnabled!==false?T.accent:T.border}`,
+                background:!!localStorage.getItem(PIN_KEY)?T.accent:"rgba(255,255,255,0.1)",
+                border:`1px solid ${!!localStorage.getItem(PIN_KEY)?T.accent:T.border}`,
                 transition:"background 0.25s, border-color 0.25s"}}
-                onClick={()=>setData(p=>({...p,biometricEnabled:p.biometricEnabled===false?true:false}))}>
-                <div style={{position:"absolute",top:3,left:data.biometricEnabled!==false?26:3,width:20,height:20,borderRadius:"50%",
+                onClick={()=>{
+                  const hasPin=!!localStorage.getItem(PIN_KEY);
+                  if(hasPin){
+                    if(window.confirm("Remove PIN lock?")){
+                      localStorage.removeItem(PIN_KEY);
+                      setData(p=>({...p,biometricEnabled:false}));
+                      toast_("🔓 PIN removed");
+                    }
+                  } else {
+                    setData(p=>({...p,biometricEnabled:true}));
+                    setPinSetup(true);setPinStep(1);setPinInput("");setPinConfirm("");setPinError("");setAuthenticated(false);
+                  }
+                }}>
+                <div style={{position:"absolute",top:3,left:!!localStorage.getItem(PIN_KEY)?26:3,width:20,height:20,borderRadius:"50%",
                   background:"#fff",transition:"left 0.25s cubic-bezier(0.34,1.56,0.64,1)",
                   boxShadow:"0 1px 4px rgba(0,0,0,0.3)"}}/>
               </button>
