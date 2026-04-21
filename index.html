@@ -1228,7 +1228,6 @@ function App(){
     const pin=localStorage.getItem(PIN_KEY);
     setAuthChecked(true);
     if(!pin){setAuthenticated(true);}
-    // PIN exists — show lock screen (authenticated stays false)
   },[]);
 
   const handlePinDigit=(d)=>{
@@ -1665,13 +1664,12 @@ function App(){
   useEffect(()=>{
     if(!activeCheckPid)return;
     const curGastos=(data.periods[activeCheckPid]?.gastos)||[];
-    if(curGastos.some(x=>x._recurring))return;
     const checkIdx=monthPeriods.findIndex(p=>p.id===activeCheckPid);
     if(checkIdx<0)return;
-    // First look at same check index from other months
-    const currentPids=new Set(monthPeriods.map(p=>p.id));
+    // Search all other pids (same month AND previous months)
+    const allOtherPids=Object.keys(data.periods).filter(pid=>pid!==activeCheckPid);
     const byMonth={};
-    Object.keys(data.periods).filter(pid=>!currentPids.has(pid)).forEach(pid=>{
+    allOtherPids.forEach(pid=>{
       const m=pid.replace("period_","").slice(0,7);
       if(!byMonth[m])byMonth[m]=[];
       byMonth[m].push(pid);
@@ -1680,32 +1678,30 @@ function App(){
     let sourcePid=null;
     for(const mo of months){
       const pids=byMonth[mo].sort();
-      if(pids[checkIdx]){sourcePid=pids[checkIdx];break;}
-      if(!sourcePid&&pids.length>0)sourcePid=pids[0];
+      const candidate=pids[checkIdx]||pids[0];
+      if(candidate&&(data.periods[candidate]?.gastos||[]).some(x=>x._recurring)){sourcePid=candidate;break;}
     }
-    // If no previous month, look at other checks in same month
     if(!sourcePid){
       const otherChecks=monthPeriods.filter(p=>p.id!==activeCheckPid);
       for(const p of otherChecks){
-        const g=(data.periods[p.id]?.gastos)||[];
-        if(g.some(x=>x._recurring)){sourcePid=p.id;break;}
+        if((data.periods[p.id]?.gastos||[]).some(x=>x._recurring)){sourcePid=p.id;break;}
       }
     }
     if(!sourcePid)return;
+    // Skip items already present in this check (by nombre+destino)
+    const curKeys=new Set(curGastos.filter(x=>x._recurring).map(x=>x.nombre+"||"+x.destino));
     const recurring=((data.periods[sourcePid]?.gastos)||[]).filter(x=>{
       if(!x._recurring)return false;
+      if(curKeys.has(x.nombre+"||"+x.destino))return false;
       if(x._recurringCheckOnly){
-        // Only copy if source check index matches current check index
-        const srcIdx=Object.keys(data.periods).filter(p=>!currentPids.has(p))
-          .filter(p=>p.replace("period_","").slice(0,7)===sourcePid.replace("period_","").slice(0,7))
-          .sort().indexOf(sourcePid);
+        const srcIdx=byMonth[sourcePid.replace("period_","").slice(0,7)]?.sort().indexOf(sourcePid)??-1;
         return srcIdx===checkIdx;
       }
       return true;
     });
     if(!recurring.length)return;
     const copies=recurring.map((x,i)=>({...x,id:Date.now()*1000+i*100+Math.floor(Math.random()*99),state:"pending",pagado:false,_potAdded:false}));
-    setData(p=>({...p,periods:{...p.periods,[activeCheckPid]:{...(p.periods[activeCheckPid]||{}),gastos:[...(p.periods[activeCheckPid]?.gastos||[]),...copies]}}}));
+    setData(p=>({...p,periods:{...p.periods,[activeCheckPid]:{...(p.periods[activeCheckPid]||{}),gastos:[...(p.periods[activeCheckPid]?.gastos||[]),...copies]}}}}));
     setTimeout(()=>toast_(`🔁 ${copies.length} recurring copied`),100);
   },[activeCheckPid]);
   const resetCheck=useCallback((pid,label)=>{
