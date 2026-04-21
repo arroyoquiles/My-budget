@@ -538,12 +538,14 @@ const GastoItem=memo(({item,pid,editId,setEditId,tarjetas,loans,potsList,periodD
   const [newLabelInput,setNewLabelInput]=useState(false);
   const [newLabelName,setNewLabelName]=useState("");
   const [newLabelParent,setNewLabelParent]=useState("");
+  const didFocusRef=useRef(false);
   const isEditing=editId===item.id;
   React.useEffect(()=>{
     if(isEditing){
       setLocalDestino(item.destino||"");
       setLocalTarjetaRef(item.tarjetaRef||"");
       setLocalCat(initCat(item.destino,item.cat));
+      didFocusRef.current=false;
     }
   },[isEditing]);
   React.useEffect(()=>{
@@ -616,7 +618,7 @@ const GastoItem=memo(({item,pid,editId,setEditId,tarjetas,loans,potsList,periodD
           <div style={{width:36,height:4,borderRadius:2,background:T.border,margin:"0 auto 16px"}}/>
           <div id={`edit-form-${item.id}`} style={{}}>
       {/* NAME */}
-      <div style={{marginBottom:10}}><div style={{fontSize:10,color:T.muted,marginBottom:5}}>NAME</div><input ref={el=>{if(el)setTimeout(()=>el.focus(),320);}} style={INP} value={item.nombre} onChange={e=>onUpdate(item.id,"nombre",e.target.value)} placeholder="Expense name"/></div>
+      <div style={{marginBottom:10}}><div style={{fontSize:10,color:T.muted,marginBottom:5}}>NAME</div><input ref={el=>{if(el&&!didFocusRef.current){didFocusRef.current=true;setTimeout(()=>el.focus(),320);}}} style={INP} value={item.nombre} onChange={e=>onUpdate(item.id,"nombre",e.target.value)} placeholder="Expense name"/></div>
       {/* AMOUNT */}
       <div style={{marginBottom:10}}><div style={{fontSize:10,color:T.muted,marginBottom:5}}>AMOUNT ($)</div><div className="amt-wrap"><span className="amt-prefix" style={{fontSize:14,color:item.monto?T.accent+"99":T.muted+"55"}}>$</span><input style={{...INP,paddingLeft:20}} type="number" inputMode="decimal" value={item.monto||""} onChange={e=>onUpdate(item.id,"monto",e.target.value)} placeholder="0"/></div></div>
 
