@@ -533,7 +533,8 @@ const GastoItem=memo(({item,pid,editId,setEditId,tarjetas,loans,potsList,periodD
   // Local edit state - buffers changes, commits on save
   const [localDestino,setLocalDestino]=useState(item.destino||"");
   const [localTarjetaRef,setLocalTarjetaRef]=useState(item.tarjetaRef||"");
-  const [localCat,setLocalCat]=useState((item.cat&&item.cat!==item.destino)?item.cat:(item.destino||""));
+  const initCat=(destino,cat)=>destino==="temp"?"temp":destino==="__new__"?"":((cat&&cat!==destino)?cat:(destino||""));
+  const [localCat,setLocalCat]=useState(initCat(item.destino,item.cat));
   const [newLabelInput,setNewLabelInput]=useState(false);
   const [newLabelName,setNewLabelName]=useState("");
   const [newLabelParent,setNewLabelParent]=useState("");
@@ -542,7 +543,7 @@ const GastoItem=memo(({item,pid,editId,setEditId,tarjetas,loans,potsList,periodD
     if(isEditing){
       setLocalDestino(item.destino||"");
       setLocalTarjetaRef(item.tarjetaRef||"");
-      setLocalCat((item.cat&&item.cat!==item.destino)?item.cat:(item.destino||""));
+      setLocalCat(initCat(item.destino,item.cat));
     }
   },[isEditing]);
   const swipeRef=useRef({startX:0,startY:0,dir:null,active:false});
@@ -726,6 +727,8 @@ const GastoItem=memo(({item,pid,editId,setEditId,tarjetas,loans,potsList,periodD
             else if(isCustom)dest=localDestino;
             else if(localDestino==="__cash__")dest=cat||"other";
             else dest=cat||localDestino;
+            // Cleanup __new__ sentinel
+            if(dest==="__new__"||dest==="")dest="other";
             // If paying a card directly (category = credit_card), destino = credit_card
             if(cat==="credit_card"&&isPaidWithCard)dest="credit_card";
             if(cat==="credit_card"&&!isPaidWithCard)dest="credit_card";
@@ -1627,8 +1630,8 @@ function App(){
   const addGastoRegular=useCallback(pid=>{
     const nid=Date.now();
     const scrollY=window.scrollY;
-    updPeriodGastos(pid,g=>[...g,{id:nid,nombre:"",monto:0,cat:"",state:"pending",pagado:false,destino:"",tarjetaRef:"",diaPago:null,_quick:false}]);
-    editGroupKeyRef.current="other";
+    updPeriodGastos(pid,g=>[...g,{id:nid,nombre:"",monto:0,cat:"",state:"pending",pagado:false,destino:"__new__",tarjetaRef:"",diaPago:null,_quick:false}]);
+    editGroupKeyRef.current="__new__";
     setTimeout(()=>{
       window.scrollTo({top:scrollY,behavior:"instant"});
       setEditId(nid);
@@ -1637,13 +1640,14 @@ function App(){
   const addGastoDebt=useCallback((pid,debtRef,debt,tipo)=>{
     const nid=Date.now();
     const isCard=tipo==="card";
+    const realCat=isCard?"credit_card":"auto";
     updPeriodGastos(pid,g=>[...g,{
       id:nid,
       nombre:isCard?`${debt.nombre} Payment`:debt.nombre,
       monto:n(debt.minimo)||0,
-      cat:isCard?"credit_card":"auto",
+      cat:realCat,
       state:"pending",pagado:false,
-      destino:isCard?"credit_card":"auto",
+      destino:"__new__",
       tarjetaRef:isCard?debt.nombre:"",
       diaPago:debt.fechaPago?parseInt(debt.fechaPago)||null:null,
       _quick:false,
@@ -1651,7 +1655,7 @@ function App(){
       _recurringCheckOnly:true,
       debtRef
     }]);
-    editGroupKeyRef.current=isCard?"credit_card":"auto";
+    editGroupKeyRef.current="__new__";
     const scrollY=window.scrollY;
     setTimeout(()=>{
       window.scrollTo({top:scrollY,behavior:"instant"});
@@ -1784,7 +1788,7 @@ function App(){
   const addQuickExpenseToCheck=()=>{
     const m=parseFloat(quickAmt);if(!m||m<=0||!quickNote.trim())return toast_("Add name and amount","err");
     const pid=quickPid||currentPid;const nid=Date.now();
-    updPeriodGastos(pid,g=>[...g,{id:nid,nombre:quickNote.trim(),monto:m,cat:"other",state:"paid",pagado:true,destino:"temp",tarjetaRef:"",diaPago:null,_quick:true}]);
+    updPeriodGastos(pid,g=>[...g,{id:nid,nombre:quickNote.trim(),monto:m,cat:"temp",state:"paid",pagado:true,destino:"temp",tarjetaRef:"",diaPago:null,_quick:true}]);
     setQuickNote("");setQuickAmt("");setQuickOpen(false);toast_(`✅ "${quickNote.trim()}" ${fmt(m)} added & paid`);
   };
 
@@ -1919,9 +1923,13 @@ function App(){
         else{groups[k].d=k;groups[k].r="";}
       }
     }
-    return Object.keys(groups).sort((a,b)=>((groups[a].d==="other"||groups[a].d==="temp"||a==="__temp__"||a==="__other__")?999:DORDER.indexOf(groups[a].d)+1||50)-((groups[b].d==="other"||groups[b].d==="temp"||b==="__temp__"||b==="__other__")?999:DORDER.indexOf(groups[b].d)+1||50)).map(k=>{
+    return Object.keys(groups).sort((a,b)=>{
+      const aBot=groups[a].d==="other"||groups[a].d==="temp"||groups[a].d==="__new__"||a==="__new__"||a==="__temp__"||a==="__other__";
+      const bBot=groups[b].d==="other"||groups[b].d==="temp"||groups[b].d==="__new__"||b==="__new__"||b==="__temp__"||b==="__other__";
+      return (aBot?999:DORDER.indexOf(groups[a].d)+1||50)-(bBot?999:DORDER.indexOf(groups[b].d)+1||50);
+    }).map(k=>{
       const{d,r,items}=groups[k];
-      const dst=k==="__cards__"?DEST.credit_card:gds(d,r,null,potsList||[],data.customLabels||[]);
+      const dst=k==="__cards__"?DEST.credit_card:k==="__new__"?{icon:"📝",label:"New Expense",bg:"rgba(99,110,123,0.1)",border:"rgba(99,110,123,0.2)",color:"#8b949e"}:gds(d,r,null,potsList||[],data.customLabels||[]);
       const sub=items.reduce((s,g)=>s+n(g.monto),0);
       return(<div key={k} style={{marginBottom:14}}>
         <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"6px 10px",marginBottom:5,background:dst.bg,borderRadius:9,border:`1px solid ${dst.border}`}}>
