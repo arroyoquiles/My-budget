@@ -1586,9 +1586,14 @@ function App(){
     const item=gastos.find(x=>x.id===id);
     const markingPaid=item&&item.state!=="paid";
     updPeriodGastos(pid,g=>g.map(x=>x.id!==id?x:{...x,state:x.state==="paid"?"pending":"paid",pagado:x.state!=="paid"}));
-    // Show confirmation before registering debt payment
-    if(item&&item.debtRef&&markingPaid){
-      setTimeout(()=>setDebtPayConfirm({item,pid}),200);
+    if(item&&markingPaid){
+      if(item.debtRef){
+        // Debt payment — confirm register in Debts
+        setTimeout(()=>setDebtPayConfirm({item,pid}),200);
+      } else if(item.tarjetaRef&&item.destino==="credit_card"){
+        // Regular expense paid with card — confirm charge
+        setTimeout(()=>setDebtPayConfirm({item,pid,isCharge:true}),200);
+      }
     }
   },[data.periods]);
   const setReserved=useCallback((pid,id)=>updPeriodGastos(pid,g=>g.map(x=>x.id!==id?x:{...x,state:x.state==="reserved"?"pending":"reserved",pagado:false})),[]);
@@ -2284,20 +2289,49 @@ function App(){
         </div>
       )}
       {debtPayConfirm&&(()=>{
-        const{item}=debtPayConfirm;
+        const{item,isCharge}=debtPayConfirm;
+        const m=n(item.monto);
+
+        if(isCharge){
+          // Regular expense paid with card — charge to card
+          const card=data.tarjetas.find(t=>t.nombre===item.tarjetaRef);
+          if(!card)return null;
+          const doCharge=()=>{
+            const entry={fecha:new Date().toLocaleDateString("en-US",{month:"short",day:"numeric"}),tipo:"gasto",monto:m};
+            setData(p=>({...p,tarjetas:p.tarjetas.map(t=>t.nombre!==item.tarjetaRef?t:{...t,balance:n(t.balance)+m,historial:[entry,...(t.historial||[])].slice(0,10)})}));
+            toast_(`💳 ${fmt(m)} charged to ${card.nombre}`);
+            setDebtPayConfirm(null);
+          };
+          return(
+            <div style={{position:"fixed",inset:0,zIndex:450,background:"rgba(0,0,0,0.6)",display:"flex",alignItems:"flex-end",justifyContent:"center"}}
+              onClick={e=>{if(e.target===e.currentTarget)setDebtPayConfirm(null);}}>
+              <div style={{width:"100%",maxWidth:500,background:T.surface,borderRadius:"20px 20px 0 0",border:`1px solid ${T.border}`,padding:"20px",paddingBottom:"max(28px,env(safe-area-inset-bottom,28px))",animation:"slideInUp 0.28s cubic-bezier(0.4,0,0.2,1) both"}}>
+                <div style={{fontSize:15,fontWeight:700,color:T.text,marginBottom:6,textAlign:"center"}}>Charge to card?</div>
+                <div style={{fontSize:13,color:T.muted,textAlign:"center",marginBottom:20}}>
+                  Add <span style={{color:"#ec4899",fontWeight:700}}>{fmt(m)}</span> charge to <span style={{color:"#ec4899",fontWeight:700}}>{card.nombre}</span>?
+                </div>
+                <div style={{display:"flex",gap:10}}>
+                  <button style={{...BTN,flex:1,padding:"13px",background:"#ec4899",color:"#fff",fontSize:14,fontWeight:700,borderRadius:11}} onClick={doCharge}>💳 Yes, charge</button>
+                  <button style={{...BTN,flex:1,padding:"13px",background:T.surface2,color:T.muted,fontSize:14,borderRadius:11,border:`1px solid ${T.border}`}} onClick={()=>setDebtPayConfirm(null)}>Skip</button>
+                </div>
+              </div>
+            </div>
+          );
+        }
+
+        // Debt payment — register payment in Debts
         const[tipo,idStr]=item.debtRef.split(":");
         const debtId=parseInt(idStr);
         const debt=tipo==="card"?data.tarjetas.find(t=>t.id===debtId):(data.loans||[]).find(l=>l.id===debtId);
         if(!debt)return null;
         const registerPayment=()=>{
-          const m=n(item.monto);
           const entry={fecha:new Date().toLocaleDateString("en-US",{month:"short",day:"numeric"}),tipo:"pago",monto:m};
           if(tipo==="card"){
             setData(p=>({...p,tarjetas:p.tarjetas.map(t=>t.id!==debtId?t:{...t,balance:Math.max(0,n(t.balance)-m),historial:[entry,...(t.historial||[])].slice(0,10)})}));
           } else {
             setData(p=>({...p,loans:(p.loans||[]).map(l=>l.id!==debtId?l:{...l,balance:Math.max(0,n(l.balance)-m),historial:[entry,...(l.historial||[])].slice(0,10)})}));
           }
-          toast_(`✅ ${fmt(item.monto)} payment registered to ${debt.nombre}`);
+          toast_(`✅ ${fmt(m)} payment registered to ${debt.nombre}`);
           setDebtPayConfirm(null);
         };
         return(
@@ -2306,7 +2340,7 @@ function App(){
             <div style={{width:"100%",maxWidth:500,background:T.surface,borderRadius:"20px 20px 0 0",border:`1px solid ${T.border}`,padding:"20px",paddingBottom:"max(28px,env(safe-area-inset-bottom,28px))",animation:"slideInUp 0.28s cubic-bezier(0.4,0,0.2,1) both"}}>
               <div style={{fontSize:15,fontWeight:700,color:T.text,marginBottom:6,textAlign:"center"}}>Register payment?</div>
               <div style={{fontSize:13,color:T.muted,textAlign:"center",marginBottom:20}}>
-                Record <span style={{color:T.accent,fontWeight:700}}>{fmt(item.monto)}</span> payment to <span style={{color:T.accent,fontWeight:700}}>{debt.nombre}</span> in Debts?
+                Record <span style={{color:T.accent,fontWeight:700}}>{fmt(m)}</span> payment to <span style={{color:T.accent,fontWeight:700}}>{debt.nombre}</span> in Debts?
               </div>
               <div style={{display:"flex",gap:10}}>
                 <button style={{...BTN,flex:1,padding:"13px",background:"#238636",color:"#fff",fontSize:14,fontWeight:700,borderRadius:11}} onClick={registerPayment}>✓ Yes, register</button>
