@@ -10,11 +10,12 @@
   <title>My Budget</title>
   <script>
   (function(){
+    var APP_SK='mybudget_v17'; // keep in sync with SK constant in app script
     const svg='<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><rect width="512" height="512" rx="100" fill="#0b1220"/><rect x="76" y="158" width="324" height="224" rx="30" fill="none" stroke="white" stroke-width="22"/><rect x="318" y="188" width="102" height="72" rx="18" fill="none" stroke="white" stroke-width="18"/><circle cx="371" cy="224" r="13" fill="white"/><line x1="156" y1="118" x2="206" y2="158" stroke="white" stroke-width="21" stroke-linecap="round"/><line x1="238" y1="106" x2="268" y2="158" stroke="white" stroke-width="21" stroke-linecap="round"/><text x="100" y="330" font-family="-apple-system,BlinkMacSystemFont,Helvetica,sans-serif" font-size="96" font-weight="700" fill="white">MB</text></svg>';
     // Update splash icon color based on saved theme - run after DOM ready
     document.addEventListener('DOMContentLoaded',()=>{
       try{
-        const saved=JSON.parse(localStorage.getItem('mybudget_v17')||'{}');
+        const saved=JSON.parse(localStorage.getItem(APP_SK)||'{}');
         const th=saved.theme||'dark';
         const accents={dark:'#58a6ff',violet:'#a78bfa',green:'#3fb950',pink:'#ec4899',orange:'#f97316',black:'#ffffff',copper:'#c2823a',teal:'#06b6d4',gold:'#d29922',light:'#0969da'};
         const bgs={dark:'#080c14',violet:'#0a0814',green:'#08140c',pink:'#140810',orange:'#140e08',black:'#000000',copper:'#130f08',teal:'#08141a',gold:'#14110a',light:'#f0f4f8'};
@@ -33,7 +34,9 @@
     const enc=encodeURIComponent(svg);
     const m={name:"My Budget",short_name:"My Budget",start_url:"/",display:"standalone",background_color:"#0b1220",theme_color:"#0b1220",icons:[{src:"data:image/svg+xml,"+enc,sizes:"512x512",type:"image/svg+xml"},{src:"data:image/svg+xml,"+enc,sizes:"192x192",type:"image/svg+xml"}]};
     const b=new Blob([JSON.stringify(m)],{type:"application/json"});
-    const l=document.createElement("link");l.rel="manifest";l.href=URL.createObjectURL(b);document.head.appendChild(l);
+    const bUrl=URL.createObjectURL(b);
+    const l=document.createElement("link");l.rel="manifest";l.href=bUrl;document.head.appendChild(l);
+    setTimeout(()=>URL.revokeObjectURL(bUrl),5000);
     const al=document.createElement("link");al.rel="apple-touch-icon";al.href="data:image/svg+xml,"+enc;document.head.appendChild(al);
   })();
   </script>
@@ -91,11 +94,9 @@
       flex:1;
       overflow-y:auto;
       -webkit-overflow-scrolling:touch;
-      padding:18px 18px 32px;
-      padding-bottom:max(32px, env(safe-area-inset-bottom, 32px));
+      padding:18px 18px max(120px, env(safe-area-inset-bottom, 32px));
       min-height:0;
       overscroll-behavior:contain;
-      padding-bottom:max(120px, env(safe-area-inset-bottom, 32px));
     }
   </style>
 <script>document.addEventListener("focusin",function(e){if(e.target.tagName==="INPUT"&&(e.target.type==="number"||e.target.inputMode==="decimal"||e.target.inputMode==="numeric")){var v=e.target.value;if(v){setTimeout(function(){try{e.target.type="text";e.target.setSelectionRange(v.length,v.length);e.target.type="number";}catch(x){e.target.setSelectionRange(v.length,v.length);}},0);}}});</script></head>
@@ -117,6 +118,9 @@
 <script type="text/babel">
 const { useState, useEffect, useRef, useCallback, memo, useMemo } = React;
 const SK = "mybudget_v17";
+// uid() generates a collision-free numeric ID even when called multiple times per millisecond
+let _uidSeq=0;
+const uid=()=>Date.now()*10000+(++_uidSeq%10000);
 const THEMES = {
   dark:    { bg:"#080c14", surface:"#0f1724", surface2:"#1a2236", border:"#243048", text:"#e6edf3", muted:"#8b949e", accent:"#58a6ff", inp:{background:"#0a1020",color:"#e6edf3",border:"1.5px solid #243048"} },
   light:   { bg:"#f0f4f8", surface:"#ffffff", surface2:"#e8edf5", border:"#d0d7de", text:"#1c2128", muted:"#656d76", accent:"#0969da", inp:{background:"#ffffff",color:"#1c2128",border:"1.5px solid #d0d7de"} },
@@ -394,6 +398,24 @@ const buildMonthPeriods=(anchor,freq)=>{
     statusLabel:"period_"+dateStr(pd)===curKey?"Current":(curIdx>=0&&i<curIdx?"Cleared":(curIdx>=0&&i>curIdx?"Upcoming":i===0?"Upcoming":null)),
   }));
 };
+// DD must be defined before migrate so migrate can safely reference DD.loans
+const DD={
+  proximoCobro:"",payFreq:undefined,theme:"dark",
+  checkAmount:0,useFixedAmount:undefined,periods:{},
+  tarjetas:[],
+  loans:[],
+  pots:{savings_acct:0,emergency:0,investment:0},
+  potTargets:{},
+  potMovements:[],
+  potsList:[
+    {id:"savings_acct", name:"Savings",    icon:"🏦", color:"#3fb950", balance:0},
+    {id:"emergency",    name:"Emergency",  icon:"🆘", color:"#06b6d4", balance:0},
+    {id:"investment",   name:"Investment", icon:"📈", color:"#10b981", balance:0},
+  ],
+  potsHidden:true,snapshots:[],ahorro:null,_sa:"",
+  notifEnabled:true,
+  customLabels:[],
+};
 const migrate=raw=>{
   if(!raw)return null;
   const dm={savings:"savings_acct",directo:"rent",temporal:"temp",ninguno:"other",tarjeta:"credit_card",savings_acct:"savings_acct",credit_card:"credit_card",rent:"rent",utilities:"utilities",auto:"auto",insurance:"insurance",groceries:"groceries",subscription:"subscription",gas:"gas",emergency:"emergency",investment:"investment",temp:"temp",dining:"dining",entertainment:"entertainment",medical:"medical",other:"other"};
@@ -460,23 +482,6 @@ const migrate=raw=>{
     notifEnabled:raw.notifEnabled!==false,
     customLabels:raw.customLabels||[],
   };
-};
-const DD={
-  proximoCobro:"",payFreq:undefined,theme:"dark",
-  checkAmount:0,useFixedAmount:undefined,periods:{},
-  tarjetas:[],
-  loans:[],
-  pots:{savings_acct:0,emergency:0,investment:0},
-  potTargets:{},
-  potMovements:[],
-  potsList:[
-    {id:"savings_acct", name:"Savings",    icon:"🏦", color:"#3fb950", balance:0},
-    {id:"emergency",    name:"Emergency",  icon:"🆘", color:"#06b6d4", balance:0},
-    {id:"investment",   name:"Investment", icon:"📈", color:"#10b981", balance:0},
-  ],
-  potsHidden:true,snapshots:[],ahorro:null,_sa:"",
-  notifEnabled:true,
-  customLabels:[],
 };
 const loadData=()=>{
   try{
@@ -661,7 +666,7 @@ const GastoItem=memo(({item,pid,editId,setEditId,tarjetas,loans,potsList,periodD
                 </select>
                 <div style={{display:"flex",gap:4}}>
                   <button style={{...{cursor:"pointer",border:"none",borderRadius:8,fontFamily:"inherit",fontWeight:700},flex:1,background:"#238636",color:"#fff",padding:"7px",fontSize:11,WebkitTapHighlightColor:"transparent"}}
-                    onMouseDown={e=>{e.preventDefault();if(newLabelName.trim()){const id="label_"+Date.now();onAddCustomLabel&&onAddCustomLabel(newLabelName.trim(),id,newLabelParent||null);setLocalDestino(id);setLocalCat("");setNewLabelName("");setNewLabelParent("");setNewLabelInput(false);}}}>✓ Add</button>
+                    onMouseDown={e=>{e.preventDefault();if(newLabelName.trim()){const id="label_"+uid();onAddCustomLabel&&onAddCustomLabel(newLabelName.trim(),id,newLabelParent||null);setLocalDestino(id);setLocalCat("");setNewLabelName("");setNewLabelParent("");setNewLabelInput(false);}}}>✓ Add</button>
                   <button style={{...{cursor:"pointer",border:"none",borderRadius:8,fontFamily:"inherit",fontWeight:700},background:T.surface2,color:T.muted,padding:"7px 12px",fontSize:11,WebkitTapHighlightColor:"transparent"}}
                     onMouseDown={e=>{e.preventDefault();setNewLabelInput(false);setNewLabelName("");setNewLabelParent("");}}>✕</button>
                 </div>
@@ -862,7 +867,7 @@ const GastoItem=memo(({item,pid,editId,setEditId,tarjetas,loans,potsList,periodD
   // Reset all internal open UI whenever resetToken changes (card collapsed by external action)
   useEffect(()=>{
     if(resetToken===undefined)return;
-    setEditing(false);setSavedSnapshot(null);setDebtSwipe(0);setShowColorPicker(false);setShowColorPicker(false);
+    setEditing(false);setSavedSnapshot(null);setDebtSwipe(0);setShowColorPicker(false);
   },[resetToken]);
   const INP=mkINP(T),BTN=mkBTN(),CARD=mkCARD(T);
   const dp=getDU(debt.fechaPago),fpd=gdf(debt.fechaPago),fcd=debt.fechaCorte?gdf(debt.fechaCorte):null;
@@ -932,9 +937,9 @@ const GastoItem=memo(({item,pid,editId,setEditId,tarjetas,loans,potsList,periodD
     if(savedSnapshot){
       Object.keys(savedSnapshot).forEach(k=>onUpdate(debt.id,k,savedSnapshot[k]));
     }
-    setEditing(false);setSavedSnapshot(null);setDebtSwipe(0);setShowColorPicker(false);setShowColorPicker(false);
+    setEditing(false);setSavedSnapshot(null);setDebtSwipe(0);setShowColorPicker(false);
   };
-  const saveEditing=()=>{setEditing(false);setSavedSnapshot(null);setDebtSwipe(0);setShowColorPicker(false);setShowColorPicker(false);};
+  const saveEditing=()=>{setEditing(false);setSavedSnapshot(null);setDebtSwipe(0);setShowColorPicker(false);};
   return(
     <div style={{position:"relative",marginBottom:9,borderRadius:14,overflow:"hidden",...(clipH!=null?{height:clipH,maxHeight:clipH,minHeight:clipH}:{})}}>
       {/* Swipe actions behind — only when expanded and not collapsed in stack */}
@@ -1225,7 +1230,7 @@ function App(){
   const [pinError,setPinError]=useState("");
 
   useEffect(()=>{
-    const saved=localStorage.getItem("mybudget_v17");
+    const saved=localStorage.getItem(SK);
     const parsed=saved?JSON.parse(saved):null;
     if(parsed&&parsed.biometricEnabled===false){setAuthenticated(true);setAuthChecked(true);return;}
     const pin=localStorage.getItem(PIN_KEY);
@@ -1385,19 +1390,16 @@ function App(){
     if(now.getDate()===1){
       const prevMonthEnd=new Date(now.getFullYear(),now.getMonth(),0); // last day of prev month
       const prevMonthStr=mo[prevMonthEnd.getMonth()]+` ${prevMonthEnd.getFullYear()}`;
-      const hasSnap=(data.snapshots||[]).some(s=>s.fecha&&s.fecha.includes(mo[prevMonthEnd.getMonth()])&&s.fecha.includes(String(prevMonthEnd.getFullYear())));
-      if(!hasSnap){
-        const totalCards=data.tarjetas.reduce((s,t)=>n(t.balance)+s,0);
-        const totalLoans=(data.loans||[]).reduce((s,l)=>n(l.balance)+s,0);
-        const snap={id:Date.now(),fecha:prevMonthEnd.toLocaleDateString("en-US",{month:"short",day:"numeric",year:"numeric"}),sobrante:0,deuda:totalCards+totalLoans,totalCards,totalLoans,_auto:true};
-        setData(p=>{
-          const already=(p.snapshots||[]).some(s=>s.fecha&&s.fecha.includes(mo[prevMonthEnd.getMonth()])&&s.fecha.includes(String(prevMonthEnd.getFullYear())));
-          if(already)return p;
-          return{...p,snapshots:[snap,...(p.snapshots||[])].slice(0,24)};
-        });
+      setData(p=>{
+        const hasSnap=(p.snapshots||[]).some(s=>s.fecha&&s.fecha.includes(mo[prevMonthEnd.getMonth()])&&s.fecha.includes(String(prevMonthEnd.getFullYear())));
+        if(hasSnap)return p;
+        const totalCards=p.tarjetas.reduce((s,t)=>n(t.balance)+s,0);
+        const totalLoans=(p.loans||[]).reduce((s,l)=>n(l.balance)+s,0);
+        const snap={id:uid(),fecha:prevMonthEnd.toLocaleDateString("en-US",{month:"short",day:"numeric",year:"numeric"}),sobrante:0,deuda:totalCards+totalLoans,totalCards,totalLoans,_auto:true};
         setTimeout(()=>toast_(`📸 ${mo[prevMonthEnd.getMonth()]} snapshot saved`),2000);
         setTimeout(()=>setBackupPrompt(true),3500);
-      }
+        return{...p,snapshots:[snap,...(p.snapshots||[])].slice(0,24)};
+      });
     }
     // Block nav bar during iOS home indicator swipe
     const BLOCK=500;
@@ -1442,7 +1444,7 @@ function App(){
         if(g.diaPago&&g.state!=="paid")fire(`exp_${g.id}`,g.nombre,String(g.diaPago),"📅");
       });
     });
-  },[data.notifEnabled]);
+  },[data.notifEnabled,data.tarjetas,data.loans,data.periods]);
   const hapticAC=useRef(null);
   const haptic=(type=30)=>{
     // iOS Safari: use AudioContext trick for real haptic feel
@@ -1599,7 +1601,7 @@ function App(){
         const gastos=(newPeriods[mp.id]?.gastos)||[];
         // Remove any existing copy of this item (same nombre+destino+monto)
         const filtered=gastos.filter(g=>!(g.nombre===item.nombre&&g.destino===item.destino&&g._recurring&&!g._recurringCheckOnly));
-        const newItem={...item,id:Date.now()*1000+Math.floor(Math.random()*999),state:"pending",pagado:false,_potAdded:false};
+        const newItem={...item,id:uid(),state:"pending",pagado:false,_potAdded:false};
         newPeriods[mp.id]={...(newPeriods[mp.id]||{}),gastos:[...filtered,newItem]};
       });
       return{...p,periods:newPeriods};
@@ -1611,7 +1613,7 @@ function App(){
     setGastoTypePicker({pid});
   },[]);
   const addGastoRegular=useCallback(pid=>{
-    const nid=Date.now();
+    const nid=uid();
     const scrollY=window.scrollY;
     updPeriodGastos(pid,g=>[...g,{id:nid,nombre:"",monto:0,cat:"",state:"pending",pagado:false,destino:"__new__",tarjetaRef:"",diaPago:null,_quick:false}]);
     editGroupKeyRef.current="__new__";
@@ -1622,7 +1624,7 @@ function App(){
     },30);
   },[]);
   const addGastoDebt=useCallback((pid,debtRef,debt,tipo)=>{
-    const nid=Date.now();
+    const nid=uid();
     const isCard=tipo==="card";
     const realCat=isCard?"credit_card":"auto";
     editGroupKeyRef.current=isCard?"__cards__":realCat;
@@ -1707,7 +1709,7 @@ function App(){
       return true;
     });
     if(!recurring.length)return;
-    const copies=recurring.map((x,i)=>({...x,id:Date.now()*1000+i*100+Math.floor(Math.random()*99),state:"pending",pagado:false,_potAdded:false}));
+    const copies=recurring.map((x,i)=>({...x,id:uid(),state:"pending",pagado:false,_potAdded:false}));
     setData(p=>({...p,periods:{...p.periods,[activeCheckPid]:{...(p.periods[activeCheckPid]||{}),gastos:[...(p.periods[activeCheckPid]?.gastos||[]),...copies]}}}));
     setTimeout(()=>toast_(`🔁 ${copies.length} recurring copied`),100);
   },[activeCheckPid]);
@@ -1752,8 +1754,7 @@ function App(){
       setTimeout(()=>{if(newCardRef.current)newCardRef.current.scrollIntoView({behavior:"smooth",block:"start"});},80);
       return;
     }
-    const id=Date.now();
-    const usedCount=data.tarjetas.filter(t=>!CC[t.nombre]).length;
+    const id=uid();
     const vc=CARD_PALETTE[usedCount%CARD_PALETTE.length];
     setData(p=>({...p,tarjetas:[...p.tarjetas,{id,nombre:"New Card",balance:0,limite:0,minimo:0,interes:0,fechaCorte:"",fechaPago:"",historial:[],tipo:"card",priority:false,_vc:vc}]}));
     setExpandedCardId(prev=>{if(prev&&prev!==id)bumpReset(prev);return id;});
@@ -1763,7 +1764,7 @@ function App(){
     // Scroll to the new card after it renders
     setTimeout(()=>{if(newCardRef.current)newCardRef.current.scrollIntoView({behavior:"smooth",block:"start"});},120);
   },[data.tarjetas,newCardDraftId]);
-  const addLoan=useCallback(()=>{const id=Date.now();setData(p=>({...p,loans:[...(p.loans||[]),{id,nombre:"New Loan",balance:0,original:0,minimo:0,interes:0,fechaPago:"",historial:[],tipo:"loan",priority:false}]}));setExpandedLoanId(prev=>{if(prev&&prev!==id)bumpReset(prev);return id;});setAccion(null);setMontoAccion("");setAddingDebt({id,tipo:"loan"});setTimeout(()=>{const el=document.getElementById(`debt-${id}`);if(el){el.scrollIntoView({behavior:"smooth",block:"center"});}else{window.scrollTo({top:document.body.scrollHeight,behavior:"smooth"});}},350);},[]);
+  const addLoan=useCallback(()=>{const id=uid();setData(p=>({...p,loans:[...(p.loans||[]),{id,nombre:"New Loan",balance:0,original:0,minimo:0,interes:0,fechaPago:"",historial:[],tipo:"loan",priority:false}]}));setExpandedLoanId(prev=>{if(prev&&prev!==id)bumpReset(prev);return id;});setAccion(null);setMontoAccion("");setAddingDebt({id,tipo:"loan"});setTimeout(()=>{const el=document.getElementById(`debt-${id}`);if(el){el.scrollIntoView({behavior:"smooth",block:"center"});}else{window.scrollTo({top:document.body.scrollHeight,behavior:"smooth"});}},350);},[]);
   const togglePriorityCard=useCallback(id=>setData(p=>({...p,tarjetas:p.tarjetas.map(t=>t.id===id?{...t,priority:!t.priority}:t)})),[]);
   const togglePriorityLoan=useCallback(id=>setData(p=>({...p,loans:(p.loans||[]).map(l=>l.id===id?{...l,priority:!l.priority}:l)})),[]);
   useEffect(()=>{if(sortMenuOpen)setSortMenuOpen(false);},[expandedCardId]);
@@ -1772,7 +1773,7 @@ function App(){
 
   const addQuickExpenseToCheck=()=>{
     const m=parseFloat(quickAmt);if(!m||m<=0||!quickNote.trim())return toast_("Add name and amount","err");
-    const pid=quickPid||currentPid;const nid=Date.now();
+    const pid=quickPid||currentPid;const nid=uid();
     updPeriodGastos(pid,g=>[...g,{id:nid,nombre:quickNote.trim(),monto:m,cat:"temp",state:"paid",pagado:true,destino:"temp",tarjetaRef:"",diaPago:null,_quick:true}]);
     setQuickNote("");setQuickAmt("");setQuickOpen(false);toast_(`✅ "${quickNote.trim()}" ${fmt(m)} added & paid`);
   };
@@ -1791,7 +1792,7 @@ function App(){
     const m=parseFloat(quickAmt);
     if(!m||m<=0||!quickNote.trim())return toast_("Add name and amount","err");
     const pid=quickPid||currentPid;
-    const nid=Date.now();
+    const nid=uid();
     const cardIdNum=quickCardId?parseInt(quickCardId):null;
     const card=cardIdNum?data.tarjetas.find(t=>t.id===cardIdNum):null;
     const isCardOnly=card&&quickCardMode==="cardonly";
@@ -1852,17 +1853,17 @@ function App(){
       const toPot=potsList.find(p=>p.id===moveTransferTo);
       if(!fromPot||!toPot)return toast_("Invalid pot","err");
       if(m>n(fromPot.balance))return toast_("Not enough in "+fromPot.name,"err");
-      const mvId=Date.now();
+      const mvId=uid();
       setData(p=>({...p,
         potsList:(p.potsList||[]).map(pt=>pt.id===moveTo?{...pt,balance:Math.max(0,n(pt.balance)-m)}:pt.id===moveTransferTo?{...pt,balance:n(pt.balance)+m}:pt),
-        potMovements:[...(p.potMovements||[]),{id:mvId,potKey:moveTo,amount:-m,date:new Date().toLocaleDateString("en-US",{month:"short",day:"numeric"}),note:"Transfer to "+toPot.name},{id:mvId+1,potKey:moveTransferTo,amount:m,date:new Date().toLocaleDateString("en-US",{month:"short",day:"numeric"}),note:"Transfer from "+fromPot.name}]}));
+        potMovements:[...(p.potMovements||[]),{id:mvId,potKey:moveTo,amount:-m,date:new Date().toLocaleDateString("en-US",{month:"short",day:"numeric"}),note:"Transfer to "+toPot.name},{id:uid(),potKey:moveTransferTo,amount:m,date:new Date().toLocaleDateString("en-US",{month:"short",day:"numeric"}),note:"Transfer from "+fromPot.name}]}));
       setMoveAmt("");toast_("↔️ "+fmt(m)+" transferred");return;
     }
     const pot=potsList.find(p=>p.id===moveTo);
     const isUse=moveMode==="use";
     const curBal=n(pot?.balance)||0;
     if(isUse&&m>curBal)return toast_("Not enough in "+(pot?.name||moveTo),"err");
-    const mvId=Date.now();
+    const mvId=uid();
     setData(p=>({...p,
       potsList:(p.potsList||[]).map(pt=>{
         if(pt.id!==moveTo)return pt;
@@ -1922,7 +1923,7 @@ function App(){
           <span style={{fontFamily:"monospace",fontSize:13,fontWeight:800,color:dst.color}}>{fmt(sub)}</span>
         </div>
         <DragList items={items}
-          renderItem={(item)=>(<GastoItem key={item.id} item={item} pid={pid} editId={editId} setEditId={(id)=>openEditId(id,gastos)} tarjetas={data.tarjetas} loans={data.loans||[]} potsList={potsList} globalEditingAmt={globalEditingAmt} checkIdx={monthPeriods.findIndex(p=>p.id===pid)} periodDate={periodDate} customLabels={data.customLabels||[]} onAddCustomLabel={(name,id,parent)=>{const lid=id||"label_"+Date.now();setData(p=>({...p,customLabels:[...(p.customLabels||[]),{id:lid,name,icon:"🏷️",parent:parent||null}]}));}}
+          renderItem={(item)=>(<GastoItem key={item.id} item={item} pid={pid} editId={editId} setEditId={(id)=>openEditId(id,gastos)} tarjetas={data.tarjetas} loans={data.loans||[]} potsList={potsList} globalEditingAmt={globalEditingAmt} checkIdx={monthPeriods.findIndex(p=>p.id===pid)} periodDate={periodDate} customLabels={data.customLabels||[]} onAddCustomLabel={(name,id,parent)=>{const lid=id||"label_"+uid();setData(p=>({...p,customLabels:[...(p.customLabels||[]),{id:lid,name,icon:"🏷️",parent:parent||null}]}));}}
             onCycle={id=>cycleState(pid,id)} onLongPress={id=>setReserved(pid,id)}
             onUpdate={(id,f,v)=>updateGasto(pid,id,f,v)}
             onBatchUpdate={(id,fields)=>batchUpdateGasto(pid,id,fields)} onPropagate={(item)=>propagateToAllChecks(pid,item)}
@@ -1972,7 +1973,7 @@ function App(){
           <span style={{fontFamily:"monospace",fontSize:13,fontWeight:800,color:dst.color}}>{fmt(sub)}</span>
         </div>
         <DragList items={sortedItems}
-          renderItem={(item,_,touch)=>(<GastoItem key={item.id} item={item} pid={pid} editId={editId} setEditId={(id)=>openEditId(id,gastos)} tarjetas={data.tarjetas} loans={data.loans||[]} potsList={potsList} globalEditingAmt={globalEditingAmt} checkIdx={monthPeriods.findIndex(p=>p.id===pid)} periodDate={periodDate} customLabels={data.customLabels||[]} onAddCustomLabel={(name,id,parent)=>{const lid=id||"label_"+Date.now();setData(p=>({...p,customLabels:[...(p.customLabels||[]),{id:lid,name,icon:"🏷️",parent:parent||null}]}));}}
+          renderItem={(item,_,touch)=>(<GastoItem key={item.id} item={item} pid={pid} editId={editId} setEditId={(id)=>openEditId(id,gastos)} tarjetas={data.tarjetas} loans={data.loans||[]} potsList={potsList} globalEditingAmt={globalEditingAmt} checkIdx={monthPeriods.findIndex(p=>p.id===pid)} periodDate={periodDate} customLabels={data.customLabels||[]} onAddCustomLabel={(name,id,parent)=>{const lid=id||"label_"+uid();setData(p=>({...p,customLabels:[...(p.customLabels||[]),{id:lid,name,icon:"🏷️",parent:parent||null}]}));}}
             onCycle={id=>cycleState(pid,id)} onLongPress={id=>setReserved(pid,id)}
             onUpdate={(id,f,v)=>updateGasto(pid,id,f,v)}
             onBatchUpdate={(id,fields)=>batchUpdateGasto(pid,id,fields)} onPropagate={(item)=>propagateToAllChecks(pid,item)}
@@ -2659,7 +2660,7 @@ function App(){
               {/* Add new pot */}
               <button style={{...BTN,width:"100%",padding:"10px",marginBottom:14,background:`${T.accent}0d`,color:T.accent,fontSize:13,fontWeight:600,border:`1px dashed ${T.accent}33`,borderRadius:12,display:"flex",alignItems:"center",justifyContent:"center",gap:6}}
                 onClick={()=>{
-                  const newId="pot_"+Date.now();
+                  const newId="pot_"+uid();
                   const icons=["🪣","✈️","🚗","🏖️","🎯","💊"];
                   const colors=["#58a6ff","#a78bfa","#f97316","#ec4899","#10b981","#d29922"];
                   const idx=(data.potsList||[]).length%6;
@@ -3078,7 +3079,7 @@ function App(){
           <button style={{...BTN,width:"100%",padding:"12px",background:"#238636",color:"#fff",fontSize:13,border:"1px solid #2ea043"}} onClick={()=>{
             const totalCards=data.tarjetas.reduce((s,t)=>s+n(t.balance),0);
             const totalLoans=(data.loans||[]).reduce((s,l)=>s+n(l.balance),0);
-            const s={id:Date.now(),fecha:new Date().toLocaleDateString("en-US",{month:"short",day:"numeric",year:"numeric"}),sobrante:totalMonthlyIncome-totalMonthlyExp,deuda:totalDebt,totalCards,totalLoans};
+            const s={id:uid(),fecha:new Date().toLocaleDateString("en-US",{month:"short",day:"numeric",year:"numeric"}),sobrante:totalMonthlyIncome-totalMonthlyExp,deuda:totalDebt,totalCards,totalLoans};
             setData(p=>({...p,snapshots:[s,...p.snapshots].slice(0,24)}));toast_("✅ Snapshot saved");
           }}>💾 Save Monthly Snapshot</button>
         </div>)}
@@ -3580,7 +3581,7 @@ function App(){
               const [selMonth,setSelMonth]=React.useState(months[0]||now.toISOString().slice(0,7));
               const [expanded,setExpanded]=React.useState(new Set());
               const toggle=k=>setExpanded(prev=>{const n=new Set(prev);n.has(k)?n.delete(k):n.add(k);return n;});
-              const validPids=new Set(buildMonthPeriods(data.proximoCobro,data.payFreq).map(p=>p.id));
+              const validPids=new Set(buildMonthPeriods(data.proximoCobro,data.payFreq||"biweekly").map(p=>p.id));
               const monthGastos=Object.entries(data.periods||{})
                 .filter(([pid])=>pid.slice(0,7)===selMonth&&(validPids.has(pid)||months.length>1))
                 .flatMap(([,p])=>p.gastos||[]);
