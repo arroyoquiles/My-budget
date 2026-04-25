@@ -3702,7 +3702,7 @@ function App(){
             if(!monthEvents[d])monthEvents[d]=[];
             if(!monthEvents[d].some(e=>e.label===label))monthEvents[d].push({label,dotColor});
           };
-          monthPeriods.forEach(p=>{if(p.payday.getMonth()===mth&&p.payday.getFullYear()===yr)addEv(p.payday.getDate(),"Payday","#3fb950");});
+          getPaydaysInMonth(anchor,freq,yr,mth).forEach(pd=>addEv(pd.getDate(),"Payday","#3fb950"));
           data.tarjetas.forEach(t=>{
             const sn=t.nombre.replace(/\s*(card|Card)\s*/i,"").trim().slice(0,8);
             if(t.fechaPago)addEv(t.fechaPago,`${sn} due`,"#ec4899");
