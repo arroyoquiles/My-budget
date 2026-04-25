@@ -1212,6 +1212,12 @@ const scrollLock={
     }
   }
 };
+const PIN_KEY="mybudget_pin";
+const PIN_HASHED_FLAG="mybudget_pin_hashed";
+const hashPin=async(pin)=>{
+  const buf=await crypto.subtle.digest("SHA-256",new TextEncoder().encode(pin));
+  return Array.from(new Uint8Array(buf)).map(b=>b.toString(16).padStart(2,"0")).join("");
+};
 function App(){
   const [data,setData]=useState(loadData);
   const [tab,setTab]=useState("overview");
@@ -1222,11 +1228,11 @@ function App(){
   const lastDoneRef=useRef({});
   const cardOrderRef=useRef([]);
   const loanOrderRef=useRef([]);
-  const PIN_KEY="mybudget_pin";
+  const [pinNeedsMigration,setPinNeedsMigration]=useState(false);
   const [pinInput,setPinInput]=useState("");
   const [pinSetup,setPinSetup]=useState(false);
   const [pinConfirm,setPinConfirm]=useState("");
-  const [pinStep,setPinStep]=useState(1); // 1=enter, 2=confirm
+  const [pinStep,setPinStep]=useState(1);
   const [pinError,setPinError]=useState("");
 
   useEffect(()=>{
@@ -1235,7 +1241,10 @@ function App(){
     if(parsed&&parsed.biometricEnabled===false){setAuthenticated(true);setAuthChecked(true);return;}
     const pin=localStorage.getItem(PIN_KEY);
     setAuthChecked(true);
-    if(!pin){setAuthenticated(true);} // No PIN set yet — let them in, they can set it in Settings
+    if(!pin){setAuthenticated(true);return;}
+    // Detect plain-text PIN (not yet hashed — exactly 4 digits)
+    const isHashed=localStorage.getItem(PIN_HASHED_FLAG)==="1";
+    if(!isHashed){setPinNeedsMigration(true);}
     // PIN exists — show lock screen (authenticated stays false)
   },[]);
 
@@ -1249,8 +1258,32 @@ function App(){
         const next=pinInput+d;
         setPinInput(next);
         if(next.length===4){
-          if(next===pinConfirm){localStorage.setItem(PIN_KEY,next);setAuthenticated(true);}
-          else{setPinError("PINs don't match. Try again.");setPinInput("");setPinStep(1);setPinConfirm("");}
+          if(next===pinConfirm){
+            hashPin(next).then(h=>{
+              localStorage.setItem(PIN_KEY,h);
+              localStorage.setItem(PIN_HASHED_FLAG,"1");
+              setAuthenticated(true);
+            });
+          } else {
+            setPinError("PINs don't match. Try again.");setPinInput("");setPinStep(1);setPinConfirm("");
+          }
+        }
+      }
+    } else if(pinNeedsMigration){
+      // Migration: user re-enters plain-text PIN, we hash it on success
+      const next=pinInput+d;
+      setPinInput(next);
+      if(next.length===4){
+        const saved=localStorage.getItem(PIN_KEY);
+        if(next===saved){
+          hashPin(next).then(h=>{
+            localStorage.setItem(PIN_KEY,h);
+            localStorage.setItem(PIN_HASHED_FLAG,"1");
+            setPinNeedsMigration(false);
+            setAuthenticated(true);
+          });
+        } else {
+          setPinError("Wrong PIN");setTimeout(()=>{setPinInput("");setPinError("");},600);
         }
       }
     } else {
@@ -1258,32 +1291,37 @@ function App(){
       setPinInput(next);
       if(next.length===4){
         const saved=localStorage.getItem(PIN_KEY);
-        if(next===saved){setAuthenticated(true);}
-        else{setPinError("Wrong PIN");setTimeout(()=>{setPinInput("");setPinError("");},600);}
+        hashPin(next).then(h=>{
+          if(h===saved){setAuthenticated(true);}
+          else{setPinError("Wrong PIN");setTimeout(()=>{setPinInput("");setPinError("");},600);}
+        });
       }
     }
   };
 
   const handlePinBack=()=>setPinInput(p=>p.slice(0,-1));
-  const launchConfetti=()=>{
-    const colors=["#58a6ff","#3fb950","#f97316","#ec4899","#a78bfa","#d29922","#06b6d4"];
-    const container=document.getElementById("confetti-container");
-    if(!container)return;
-    container.innerHTML="";
-    for(let i=0;i<60;i++){
-      const el=document.createElement("div");
-      el.className="confetti-piece";
-      el.style.left=Math.random()*100+"vw";
-      el.style.background=colors[Math.floor(Math.random()*colors.length)];
-      el.style.width=(6+Math.random()*8)+"px";
-      el.style.height=(6+Math.random()*8)+"px";
-      el.style.borderRadius=Math.random()>0.5?"50%":"2px";
-      el.style.animationDuration=(1.5+Math.random()*2)+"s";
-      el.style.animationDelay=(Math.random()*0.8)+"s";
-      container.appendChild(el);
-    }
-    setTimeout(()=>{if(container)container.innerHTML="";},4000);
-  };
+  const launchConfetti=(()=>{
+    const COLORS=["#58a6ff","#3fb950","#f97316","#ec4899","#a78bfa","#d29922","#06b6d4"];
+    const POOL=40;
+    let pool=null,hideTimer=null;
+    return()=>{
+      const container=document.getElementById("confetti-container");
+      if(!container)return;
+      if(!pool){
+        pool=[];
+        const s=document.createElement("style");
+        s.textContent=`@keyframes cf{0%{transform:translateY(-20px) rotate(0deg);opacity:1}100%{transform:translateY(105vh) rotate(800deg);opacity:0}}`;
+        document.head.appendChild(s);
+        for(let i=0;i<POOL;i++){const el=document.createElement("div");el.style.cssText="position:absolute;display:none;will-change:transform;";container.appendChild(el);pool.push(el);}
+      }
+      clearTimeout(hideTimer);
+      pool.forEach(el=>{
+        const c=COLORS[Math.floor(Math.random()*COLORS.length)],sz=6+Math.random()*8;
+        el.style.cssText=`position:absolute;top:-12px;left:${Math.random()*100}%;width:${sz}px;height:${sz}px;background:${c};border-radius:${Math.random()>.5?"50%":"2px"};animation:cf ${1.5+Math.random()*2}s ${Math.random()*.8}s linear forwards;will-change:transform;`;
+      });
+      hideTimer=setTimeout(()=>{if(pool)pool.forEach(el=>{el.style.display="none";el.style.animation="none";});},4500);
+    };
+  })();
   const [activeCheckPid,setActiveCheckPid]=useState("");
   const globalEditingAmt=useRef(false);
   const [debtPayConfirm,setDebtPayConfirm]=useState(null);
@@ -1291,6 +1329,7 @@ function App(){
   const [amtInputVal,setAmtInputVal]=useState({});
   const [toast,setToast]=useState(null);
   const [backupPrompt,setBackupPrompt]=useState(false);
+  const [importPreview,setImportPreview]=useState(null); // {restored, summary}
   const [locked,setLocked]=useState(true);
   const [editId,setEditId]=useState(null);
   const [accion,setAccion]=useState(null);
@@ -1377,7 +1416,23 @@ function App(){
   const theme=data.theme||"dark";
   const T=THEMES[theme];
   useEffect(()=>{document.body.className=theme;},[theme]);
-  useEffect(()=>{localStorage.setItem(SK,JSON.stringify(data));},[data]);
+  const saveTimerRef=useRef(null);
+  const latestDataRef=useRef(data);
+  latestDataRef.current=data;
+  useEffect(()=>{
+    clearTimeout(saveTimerRef.current);
+    saveTimerRef.current=setTimeout(()=>{
+      try{localStorage.setItem(SK,JSON.stringify(latestDataRef.current));}
+      catch(e){if(e.name==="QuotaExceededError")toast_("⚠️ Storage full — export a backup now!","err");}
+    },500);
+  },[data]);
+  useEffect(()=>{
+    const flush=()=>{
+      try{localStorage.setItem(SK,JSON.stringify(latestDataRef.current));}catch(e){}
+    };
+    window.addEventListener("beforeunload",flush);
+    return()=>window.removeEventListener("beforeunload",flush);
+  },[]);
   useEffect(()=>{
     const s=document.getElementById("splash");
     if(s){setTimeout(()=>{s.classList.add("hide");setTimeout(()=>s.remove(),500);},1600);}
@@ -1667,6 +1722,49 @@ function App(){
       return{...p,periods:newPeriods};
     });
   },[activeCheckPid]);
+  // Compress periods older than 2 months that already have a snapshot — replace gastos[] with category summary
+  useEffect(()=>{
+    if(!data.snapshots||!data.periods)return;
+    const now=new Date();
+    const cutoffYM=`${now.getFullYear()}-${String(now.getMonth()-1).padStart(2,"0")}`; // 2 months ago YYYY-MM
+    const snapshotMonths=new Set((data.snapshots||[]).map(s=>{
+      if(!s.fecha)return null;
+      try{const d=new Date(s.fecha);return`${d.getFullYear()}-${String(d.getMonth()).padStart(2,"0")}`;}catch{return null;}
+    }).filter(Boolean));
+    const toCompress=Object.keys(data.periods).filter(pid=>{
+      const m=pid.replace("period_","").slice(0,7);
+      if(m>=cutoffYM)return false; // too recent
+      const per=data.periods[pid];
+      if(per._compressed)return false; // already done
+      if(!per._archived)return false; // only compress archived
+      // check snapshot exists for that month
+      const [yr,mo]=m.split("-");
+      const snapKey=`${yr}-${String(parseInt(mo)-1).padStart(2,"0")}`;
+      return snapshotMonths.has(snapKey)||snapshotMonths.has(m);
+    });
+    if(!toCompress.length)return;
+    setData(p=>{
+      const newPeriods={...p.periods};
+      toCompress.forEach(pid=>{
+        const gastos=newPeriods[pid]?.gastos||[];
+        // Build category summary
+        const catTotals={};
+        gastos.forEach(g=>{
+          const cat=g.destino||g.cat||"other";
+          catTotals[cat]=(catTotals[cat]||0)+n(g.monto);
+        });
+        const totalSpent=gastos.reduce((s,g)=>s+n(g.monto),0);
+        const recurringNames=[...new Set(gastos.filter(g=>g._recurring).map(g=>g.nombre))];
+        newPeriods[pid]={
+          ...newPeriods[pid],
+          gastos:[], // drop full expense list
+          _compressed:true,
+          _summary:{catTotals,totalSpent,recurringNames,count:gastos.length},
+        };
+      });
+      return{...p,periods:newPeriods};
+    });
+  },[data.snapshots,activeCheckPid]);
   useEffect(()=>{
     if(!activeCheckPid)return;
     const curGastos=(data.periods[activeCheckPid]?.gastos)||[];
@@ -1856,7 +1954,7 @@ function App(){
       const mvId=uid();
       setData(p=>({...p,
         potsList:(p.potsList||[]).map(pt=>pt.id===moveTo?{...pt,balance:Math.max(0,n(pt.balance)-m)}:pt.id===moveTransferTo?{...pt,balance:n(pt.balance)+m}:pt),
-        potMovements:[...(p.potMovements||[]),{id:mvId,potKey:moveTo,amount:-m,date:new Date().toLocaleDateString("en-US",{month:"short",day:"numeric"}),note:"Transfer to "+toPot.name},{id:uid(),potKey:moveTransferTo,amount:m,date:new Date().toLocaleDateString("en-US",{month:"short",day:"numeric"}),note:"Transfer from "+fromPot.name}]}));
+        potMovements:[...(p.potMovements||[]),{id:mvId,potKey:moveTo,amount:-m,date:new Date().toLocaleDateString("en-US",{month:"short",day:"numeric"}),note:"Transfer to "+toPot.name},{id:uid(),potKey:moveTransferTo,amount:m,date:new Date().toLocaleDateString("en-US",{month:"short",day:"numeric"}),note:"Transfer from "+fromPot.name}].slice(-200)}));
       setMoveAmt("");toast_("↔️ "+fmt(m)+" transferred");return;
     }
     const pot=potsList.find(p=>p.id===moveTo);
@@ -1874,7 +1972,7 @@ function App(){
         }
         return{...pt,balance:newBal};
       }),
-      potMovements:[...(p.potMovements||[]),{id:mvId,potKey:moveTo,amount:isUse?-m:m,date:new Date().toLocaleDateString("en-US",{month:"short",day:"numeric"}),note:(isUse?"Used from ":"Added to ")+(pot?.name||moveTo)}]}));
+      potMovements:[...(p.potMovements||[]),{id:mvId,potKey:moveTo,amount:isUse?-m:m,date:new Date().toLocaleDateString("en-US",{month:"short",day:"numeric"}),note:(isUse?"Used from ":"Added to ")+(pot?.name||moveTo)}].slice(-200)}));
     setMoveAmt("");
     toast_(isUse?"💳 "+fmt(m)+" used from "+(pot?.name||moveTo):"💸 "+fmt(m)+" added to "+(pot?.name||moveTo));
   };
@@ -1885,7 +1983,21 @@ function App(){
   const importData=useCallback(e=>{
     const f=e.target.files[0];if(!f)return;
     const r=new FileReader();
-    r.onload=ev=>{try{const parsed=JSON.parse(ev.target.result);const restored=migrate(parsed);setData(restored);localStorage.setItem(SK,JSON.stringify(restored));toast_("✅ Backup restored");}catch{toast_("❌ Invalid backup file","err");}};
+    r.onload=ev=>{
+      try{
+        const parsed=JSON.parse(ev.target.result);
+        const restored=migrate(parsed);
+        if(!restored)throw new Error("Invalid");
+        const summary={
+          cards:(restored.tarjetas||[]).length,
+          loans:(restored.loans||[]).length,
+          periods:Object.keys(restored.periods||{}).length,
+          snapshots:(restored.snapshots||[]).length,
+          pots:(restored.potsList||[]).length,
+        };
+        setImportPreview({restored,summary});
+      }catch{toast_("❌ Invalid backup file","err");}
+    };
     r.readAsText(f);e.target.value="";
   },[]);
 
@@ -2112,7 +2224,7 @@ function App(){
         <div style={{fontSize:48,marginBottom:4}}>🔒</div>
         <div style={{fontSize:20,fontWeight:700,color:T.text}}>My Budget</div>
         <div style={{fontSize:13,color:T.muted,textAlign:"center"}}>
-          {pinSetup?(pinStep===1?"Create a PIN":"Confirm your PIN"):"Enter your PIN"}
+          {pinNeedsMigration?"🔐 Security upgrade — re-enter your PIN":pinSetup?(pinStep===1?"Create a PIN":"Confirm your PIN"):"Enter your PIN"}
         </div>
         {/* PIN dots */}
         <div style={{display:"flex",gap:16,marginBottom:8}}>
@@ -3972,6 +4084,40 @@ function App(){
         </div>)}
       </div>
     </div>
+    {importPreview&&(
+      <div style={{position:"fixed",inset:0,zIndex:9997,background:"rgba(0,0,0,0.7)",display:"flex",alignItems:"center",justifyContent:"center",padding:24}}>
+        <div style={{background:T.surface,border:`1px solid ${T.border}`,borderRadius:16,padding:22,width:"100%",maxWidth:340}}>
+          <div style={{fontSize:15,fontWeight:700,color:T.text,marginBottom:4}}>📤 Restore Backup?</div>
+          <div style={{fontSize:12,color:T.muted,marginBottom:14}}>This will replace ALL current data:</div>
+          <div style={{background:T.surface2,borderRadius:10,padding:"10px 14px",marginBottom:16,display:"flex",flexDirection:"column",gap:5}}>
+            {[
+              ["💳","Cards",importPreview.summary.cards],
+              ["🏦","Loans",importPreview.summary.loans],
+              ["📅","Pay periods",importPreview.summary.periods],
+              ["📸","Snapshots",importPreview.summary.snapshots],
+              ["🪣","Pots",importPreview.summary.pots],
+            ].map(([icon,label,val])=>(
+              <div key={label} style={{display:"flex",justifyContent:"space-between",fontSize:12}}>
+                <span style={{color:T.muted}}>{icon} {label}</span>
+                <span style={{color:T.text,fontWeight:700}}>{val}</span>
+              </div>
+            ))}
+          </div>
+          <div style={{display:"flex",gap:8}}>
+            <button style={{...BTN,flex:1,padding:"10px",background:"rgba(248,81,73,0.1)",color:"#f85149",fontSize:13,border:"1px solid rgba(248,81,73,0.3)",borderRadius:10}}
+              onClick={()=>setImportPreview(null)}>Cancel</button>
+            <button style={{...BTN,flex:1,padding:"10px",background:T.accent,color:"#fff",fontSize:13,fontWeight:700,borderRadius:10}}
+              onClick={()=>{
+                const{restored}=importPreview;
+                setData(restored);
+                try{localStorage.setItem(SK,JSON.stringify(restored));}catch(e){}
+                setImportPreview(null);
+                toast_("✅ Backup restored");
+              }}>Restore</button>
+          </div>
+        </div>
+      </div>
+    )}
     </>
   );
 }
