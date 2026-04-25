@@ -150,6 +150,9 @@ const DEST = {
   entertainment:{label:"Entertainment", icon:"🎬",color:"#a78bfa",bg:"rgba(167,139,250,0.1)", border:"rgba(167,139,250,0.3)"},
   medical:      {label:"Medical/Health",icon:"🏥",color:"#34d399",bg:"rgba(52,211,153,0.1)",  border:"rgba(52,211,153,0.3)"},
   lifestyle:    {label:"Lifestyle",      icon:"✨",color:"#a78bfa",bg:"rgba(167,139,250,0.1)", border:"rgba(167,139,250,0.3)"},
+  travel:       {label:"Travel",         icon:"✈️",color:"#06b6d4",bg:"rgba(6,182,212,0.1)",   border:"rgba(6,182,212,0.3)"},
+  education:    {label:"Education",      icon:"📚",color:"#8b5cf6",bg:"rgba(139,92,246,0.1)",  border:"rgba(139,92,246,0.3)"},
+  personal:     {label:"Personal Care",  icon:"💆",color:"#f472b6",bg:"rgba(244,114,182,0.1)", border:"rgba(244,114,182,0.3)"},
   other:        {label:"Other",         icon:"📌",color:"#8b949e",bg:"transparent",            border:"#21262d"},
 };
 const DEST_ORDER = ["credit_card","rent","auto","utilities","gas","subscription","other","temp"];
@@ -446,14 +449,14 @@ const DD={
     {id:"emergency",    name:"Emergency",  icon:"🆘", color:"#06b6d4", balance:0},
     {id:"investment",   name:"Investment", icon:"📈", color:"#10b981", balance:0},
   ],
-  potsHidden:true,snapshots:[],ahorro:null,_sa:"",
+  potsHidden:true,snapshots:[],
   notifEnabled:true,
   customLabels:[],
 };
 const migrate=raw=>{
   if(!raw)return null;
   const dm={savings:"savings_acct",directo:"rent",temporal:"temp",ninguno:"other",tarjeta:"credit_card",savings_acct:"savings_acct",credit_card:"credit_card",rent:"rent",utilities:"utilities",auto:"auto",insurance:"insurance",groceries:"groceries",subscription:"subscription",gas:"gas",emergency:"emergency",investment:"investment",temp:"temp",dining:"dining",entertainment:"entertainment",medical:"medical",other:"other"};
-  const cm={carro:"auto",vivienda:"rent",servicios:"subscription",gas:"gas",tarjeta:"credit_card",comida:"groceries",otro:"other",auto:"auto",rent:"rent",subscription:"subscription",credit_card:"credit_card",groceries:"groceries",other:"other",insurance:"insurance",utilities:"utilities",dining:"dining",entertainment:"entertainment",medical:"medical",lifestyle:"lifestyle"};
+  const cm={carro:"auto",vivienda:"rent",servicios:"subscription",gas:"gas",tarjeta:"credit_card",comida:"groceries",otro:"other",auto:"auto",rent:"rent",subscription:"subscription",credit_card:"credit_card",groceries:"groceries",other:"other",insurance:"insurance",utilities:"utilities",dining:"dining",entertainment:"entertainment",medical:"medical",lifestyle:"lifestyle",travel:"travel",education:"education",personal:"personal"};
   const mg=g=>({...g,cat:cm[g.cat]||cm[g.categoria]||"other",destino:dm[g.destino]||(g.destino&&(g.destino.startsWith("label_")||g.destino.startsWith("pot_"))?g.destino:"other"),diaPago:g.diaPago||null,tarjetaRef:g.tarjetaRef||"",state:g.state||(g.pagado?"paid":"pending"),_quick:g._quick||false});
   const anchor=raw.proximoCobro||"";
   const freq=raw.payFreq||"biweekly"; // used internally for period calculation only
@@ -512,8 +515,6 @@ const migrate=raw=>{
     potsHidden:raw.potsHidden!==undefined?raw.potsHidden:true,
     biometricEnabled:raw.biometricEnabled!==false,
     snapshots:raw.snapshots||[],
-    ahorro:raw.ahorro||null,
-    _sa:raw._sa||"",
     notifEnabled:raw.notifEnabled!==false,
     customLabels:raw.customLabels||[],
   };
@@ -831,7 +832,9 @@ const GastoItem=memo(({item,pid,editId,setEditId,tarjetas,loans,potsList,periodD
           background:stBg,border:`1px solid ${stBorder}`,
           transform:`translateX(${swipeX}px)`,
           transition:"transform 0.3s cubic-bezier(0.34,1.2,0.64,1)",
-          position:"relative",zIndex:1,touchAction:"pan-y"}}>
+          position:"relative",zIndex:1,touchAction:"pan-y",
+          ...(item.diaPago&&item.state!=="paid"&&(()=>{const d=gdfPeriod(item.diaPago,periodDate);if(!d)return{};const dl=Math.ceil((d-new Date().setHours(0,0,0,0))/86400000);return dl<0?{borderColor:"rgba(248,81,73,0.4)",boxShadow:"inset 3px 0 0 #f85149"}:{};})()):{}
+        }}>
 
         <div onClick={handleCircleTap}
           style={{width:24,height:24,borderRadius:"50%",flexShrink:0,background:item.state==="paid"?"transparent":item.state==="reserved"?"rgba(210,153,34,0.25)":"transparent",border:`2px solid ${item.state==="paid"?"#3fb95055":item.state==="reserved"?"#d29922":T.border}`,display:"flex",alignItems:"center",justifyContent:"center",fontSize:11,cursor:"pointer",color:item.state==="paid"?"#3fb950":item.state==="reserved"?"#d29922":T.muted,fontWeight:700}}>
@@ -2285,7 +2288,7 @@ function App(){
     {id:"debts",     icon:"💳",label:"Debts",urgent:urgentDebts.length>0},
     {id:"calendar",  icon:"📅",label:"Calendar"},
     {id:"history",   icon:"📆",label:"History"},
-    {id:"settings",  icon:"⚙️",label:"Settings",urgent:!data.proximoCobro||(data.useFixedAmount===true&&!data.checkAmount)||data.useFixedAmount===undefined||!data._freqSet},
+    {id:"settings",  icon:"⚙️",label:"Settings",urgent:!data.proximoCobro||(data.useFixedAmount===true&&!data.checkAmount)||!data._freqSet},
   ];
   const snapReminder=useMemo(()=>getSnapshotReminder(today,data.snapshots),[today,data.snapshots]);
 
@@ -3261,11 +3264,20 @@ function App(){
           <button style={{...BTN,width:"100%",padding:"12px",background:"#238636",color:"#fff",fontSize:13,border:"1px solid #2ea043"}} onClick={()=>{
             const totalCards=data.tarjetas.reduce((s,t)=>s+n(t.balance),0);
             const totalLoans=(data.loans||[]).reduce((s,l)=>s+n(l.balance),0);
-            const s={id:uid(),fecha:new Date().toLocaleDateString("en-US",{month:"short",day:"numeric",year:"numeric"}),sobrante:totalMonthlyIncome-totalMonthlyExp,deuda:totalDebt,totalCards,totalLoans};
+            const mo=["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
+            const now=new Date();
+            const thisMonth=mo[now.getMonth()];
+            const thisYear=String(now.getFullYear());
+            const existing=(data.snapshots||[]).find(s=>s.fecha&&s.fecha.includes(thisMonth)&&s.fecha.includes(thisYear));
+            if(existing){
+              toast_("Snapshot for this month already exists","err");
+              return;
+            }
+            const s={id:uid(),fecha:now.toLocaleDateString("en-US",{month:"short",day:"numeric",year:"numeric"}),sobrante:totalMonthlyIncome-totalMonthlyExp,deuda:totalDebt,totalCards,totalLoans};
             setData(p=>({...p,snapshots:[s,...p.snapshots].slice(0,24)}));toast_("✅ Snapshot saved");
           }}>💾 Save Monthly Snapshot</button>
         </div>)}
-        {tab==="paychecks"&&(<div className="anim">
+        {tab==="paychecks"&&(<div className="anim" onTouchStart={e=>{const t=e.touches[0];swipeStart.current={x:t.clientX,y:t.clientY};}} onTouchEnd={e=>{if(!swipeStart.current)return;const dx=e.changedTouches[0].clientX-swipeStart.current.x,dy=e.changedTouches[0].clientY-swipeStart.current.y;swipeStart.current=null;if(Math.abs(dx)<60||Math.abs(dx)<Math.abs(dy)*1.5||monthPeriods.length<2)return;const curIdx=monthPeriods.findIndex(p=>p.id===(activeCheckPid||(monthPeriods.find(p=>p.isCurrent)||monthPeriods[0])?.id));if(dx<0&&curIdx<monthPeriods.length-1){haptic(15);setActiveCheckPid(monthPeriods[curIdx+1].id);}else if(dx>0&&curIdx>0){haptic(15);setActiveCheckPid(monthPeriods[curIdx-1].id);}}}>
           {!data.proximoCobro&&(<div style={{textAlign:"center",padding:"40px 20px"}}>
             <div style={{fontSize:36,marginBottom:12}}>💰</div>
             <div style={{fontSize:15,fontWeight:700,color:T.text,marginBottom:6}}>Set up your paycheck first</div>
@@ -3934,7 +3946,7 @@ function App(){
                 <div style={{display:"flex",alignItems:"center",gap:4}}><div style={{width:10,height:2,background:"#f85149",borderRadius:2}}/><span style={{fontSize:9,color:T.muted}}>Debt</span></div>
                 <div style={{display:"flex",alignItems:"center",gap:4}}><div style={{width:10,height:2,background:T.accent,borderRadius:2}}/><span style={{fontSize:9,color:T.muted}}>Surplus</span></div>
                 <div style={{flex:1}}/>
-                <span style={{fontSize:9,color:T.muted}}>{snaps.length} months</span>
+                <span style={{fontSize:9,color:T.muted}}>{data.snapshots.length>12?`Last 12 of ${data.snapshots.length} months`:`${snaps.length} months`}</span>
               </div>
             </div>);
           })()}
