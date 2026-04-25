@@ -812,6 +812,7 @@ const GastoItem=memo(({item,pid,editId,setEditId,tarjetas,loans,potsList,periodD
   const catColor=dest.color||CATCOLORS[item.cat]||CATCOLORS[item.destino]||"#94a3b8";
   const isSwipedLeft=swipeX<=-88;
   return(
+    <>
     <div className="expense-row" style={{marginBottom:7,position:"relative",borderRadius:11,overflow:"hidden"}}>
       {/* Action buttons — only visible when swiped */}
       {swipeX!==0&&<div style={{position:"absolute",inset:0,display:"flex",borderRadius:11}}>
@@ -905,6 +906,7 @@ const GastoItem=memo(({item,pid,editId,setEditId,tarjetas,loans,potsList,periodD
           onClick={()=>setRecurringAmtPrompt(null)}>✕</button>
       </div>
     )}
+    </>
   );
 });const DebtCard=memo(({debt,idx,isFirst,tipo,accion,setAccion,montoAccion,setMontoAccion,onApply,onUpdate,onRemove,isAdding,setAddingDebt,onTogglePriority,onCollapse,resetToken,clipH,T})=>{
   const [editing,setEditing]=useState(false);
@@ -1442,6 +1444,7 @@ function App(){
     return()=>{scrollLock.unlock();setKbHeight(0);};
   },[moveOpen]);
   const [snapDetail,setSnapDetail]=useState(null);
+  const [calOffset,setCalOffset]=useState(0);
   const [expenseSearch,setExpenseSearch]=useState("");
   const [potsRevealed,setPotsRevealed]=useState(false);
   const [resetConfirm,setResetConfirm]=useState(null);
@@ -1664,6 +1667,7 @@ function App(){
   useEffect(()=>{
     if(tab==="paychecks"&&!activeCheckPid&&monthPeriods.length>0){const cur=monthPeriods.find(p=>p.isCurrent)||monthPeriods[0];setActiveCheckPid(cur.id);}
     if(tab!=="overview")setPotsRevealed(false);
+    if(tab!=="calendar")setCalOffset(0);
   },[tab]);
   useEffect(()=>{localStorage.setItem("quickApplyTo",quickApplyTo);},[quickApplyTo]);
   useEffect(()=>{localStorage.setItem("quickCardId",quickCardId);},[quickCardId]);
@@ -3231,8 +3235,6 @@ function App(){
                         style={{...BTN,fontFamily:"monospace",fontWeight:800,fontSize:13,color:bal>0?color:T.muted,background:"transparent",border:"none",padding:"2px 6px",transition:"opacity 0.12s",opacity:hidden?0.4:1,letterSpacing:hidden?1.5:0,cursor:data.potsHidden?"pointer":"default"}}>
                         {hidden?"••••":fmt(bal)}
                       </button>
-                      <button style={{...BTN,width:26,height:26,borderRadius:8,background:"rgba(63,185,80,0.12)",color:"#3fb950",border:"1px solid rgba(63,185,80,0.3)",fontSize:15,display:"flex",alignItems:"center",justifyContent:"center"}}
-                        onClick={()=>{setMoveTo(pot.id);setMoveMode("add");setEditingPotId(null);setMoveOpen(true);}}>+</button>
                     </div>
                   </div>
                   {pot.goal>0&&(()=>{
@@ -3544,8 +3546,9 @@ function App(){
                               onApply={isExpanded?applyAccion:()=>{}}
                               onUpdate={updateTarjeta}
                               onRemove={(id)=>{
+                                const isNew=id===newCardDraftId;
                                 const el=document.getElementById(`debt-${id}`);
-                                if(el){el.classList.add("debt-exit");setTimeout(()=>{removeTarjeta(id);setExpandedCardId(null);if(id===newCardDraftId){setNewCardDraftId(null);setAddingDebt(null);}},280);}
+                                if(el&&!isNew){el.classList.add("debt-exit");setTimeout(()=>{removeTarjeta(id);setExpandedCardId(null);if(id===newCardDraftId){setNewCardDraftId(null);setAddingDebt(null);}},280);}
                                 else{removeTarjeta(id);setExpandedCardId(null);if(id===newCardDraftId){setNewCardDraftId(null);setAddingDebt(null);}}
                               }}
                               isAdding={isAdding_}
@@ -3651,7 +3654,7 @@ function App(){
                               setMontoAccion={isExpanded?setMontoAccion:()=>{}}
                               onApply={isExpanded?applyAccion:()=>{}}
                               onUpdate={updateLoan}
-                              onRemove={(id)=>{const el=document.getElementById(`debt-${id}`);if(el){el.classList.add("debt-exit");setTimeout(()=>{removeLoan(id);setExpandedLoanId(null);},280);}else{removeLoan(id);setExpandedLoanId(null);}}}
+                              onRemove={(id)=>{const isNew=addingDebt?.id===id;const el=document.getElementById(`debt-${id}`);if(el&&!isNew){el.classList.add("debt-exit");setTimeout(()=>{removeLoan(id);setExpandedLoanId(null);},280);}else{removeLoan(id);setExpandedLoanId(null);setAddingDebt(null);}}}
                               isAdding={addingDebt?.id===d.id}
                               setAddingDebt={setAddingDebt}
                               onTogglePriority={togglePriorityLoan}
@@ -3687,7 +3690,6 @@ function App(){
         {tab==="calendar"&&(()=>{
           const hoy=new Date();hoy.setHours(0,0,0,0);
           const mo=["January","February","March","April","May","June","July","August","September","October","November","December"];
-          const [calOffset,setCalOffset]=React.useState(0); // 0=current month, -1=prev, +1=next
           const base=new Date(hoy.getFullYear(),hoy.getMonth()+calOffset,1);
           const yr=base.getFullYear(),mth=base.getMonth();
           const isCurrentMonth=calOffset===0;
