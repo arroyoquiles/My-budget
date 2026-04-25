@@ -3169,6 +3169,8 @@ function App(){
             const totalCards=data.tarjetas.reduce((s,t)=>s+n(t.balance),0);
             const totalLoans=(data.loans||[]).reduce((s,l)=>s+n(l.balance),0);
             return(<div className="card-anim" style={{...CARD,padding:"13px 16px",marginBottom:12,animationDelay:"0.1s"}}>
+              <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:10}}>
+                <div style={{fontSize:10,color:T.muted,letterSpacing:1.5,fontWeight:700}}>💳 DEBT OVERVIEW</div>
                 <button style={{...BTN,padding:"3px 9px",background:T.surface2,color:T.muted,fontSize:10,border:`1px solid ${T.border}`}} onClick={()=>setTab("debts")}>View all →</button>
               </div>
               <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"6px 0",borderBottom:`1px solid ${T.border}`}}>
@@ -3192,6 +3194,8 @@ function App(){
             const hidden=data.potsHidden&&!potsRevealed;
             const totalPots=potsList.reduce((s,p)=>s+n(p.balance),0);
             return(<div className="card-anim" style={{...CARD,padding:"13px 16px",marginBottom:12,animationDelay:"0.15s"}}>
+              <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:10}}>
+                <div style={{fontSize:10,color:T.muted,letterSpacing:1.5,fontWeight:700}}>🪣 POTS</div>
                 <button style={{...BTN,padding:"3px 10px",fontSize:10,background:`${T.accent}14`,color:T.accent,border:`1px solid ${T.accent}33`,borderRadius:7}} onClick={()=>{setMoveTo(potsList[0]?.id||"");setEditingPotId(null);setMoveTransferTo("");setMoveMode("add");setMoveOpen(true);}}>Manage</button>
               </div>
               {potsList.length===0&&<div style={{fontSize:11,color:T.muted,textAlign:"center",padding:"8px 0"}}>No pots yet — tap Manage to add one</div>}
