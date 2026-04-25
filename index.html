@@ -570,6 +570,7 @@ const GastoItem=memo(({item,pid,editId,setEditId,tarjetas,loans,potsList,periodD
   const [swipeX,setSwipeX]=useState(0);
   const [editingAmt,setEditingAmt]=useState(false);
   const [localAmt,setLocalAmt]=useState("");
+  const [recurringAmtPrompt,setRecurringAmtPrompt]=useState(null); // pending new amount
   const amtInputRef=useRef(null);
   // Local edit state - buffers changes, commits on save
   const [localDestino,setLocalDestino]=useState(item.destino||"");
@@ -863,8 +864,8 @@ const GastoItem=memo(({item,pid,editId,setEditId,tarjetas,loans,potsList,periodD
                 outline:"none",width:70,textAlign:"right",padding:"0 2px",flexShrink:0}}
               value={localAmt}
               onChange={e=>setLocalAmt(e.target.value)}
-              onBlur={()=>{setTimeout(()=>{const v=parseFloat(localAmt);if(v>0)onUpdate(item.id,"monto",v);setEditingAmt(false);if(globalEditingAmt)globalEditingAmt.current=false;},100);}}
-              onKeyDown={e=>{if(e.key==="Enter"){const v=parseFloat(localAmt);if(v>0)onUpdate(item.id,"monto",v);setEditingAmt(false);if(globalEditingAmt)globalEditingAmt.current=false;}if(e.key==="Escape"){setEditingAmt(false);if(globalEditingAmt)globalEditingAmt.current=false;}}}
+              onBlur={()=>{setTimeout(()=>{const v=parseFloat(localAmt);if(v>0){if(item._recurring&&!item._recurringCheckOnly&&v!==item.monto){setRecurringAmtPrompt(v);setEditingAmt(false);if(globalEditingAmt)globalEditingAmt.current=false;return;}onUpdate(item.id,"monto",v);}setEditingAmt(false);if(globalEditingAmt)globalEditingAmt.current=false;},100);}}
+              onKeyDown={e=>{if(e.key==="Enter"){const v=parseFloat(localAmt);if(v>0){if(item._recurring&&!item._recurringCheckOnly&&v!==item.monto){setRecurringAmtPrompt(v);setEditingAmt(false);if(globalEditingAmt)globalEditingAmt.current=false;return;}onUpdate(item.id,"monto",v);}setEditingAmt(false);if(globalEditingAmt)globalEditingAmt.current=false;}if(e.key==="Escape"){setEditingAmt(false);if(globalEditingAmt)globalEditingAmt.current=false;}}}
               autoFocus/>
           : <div onClick={e=>{e.stopPropagation();setLocalAmt(String(item.monto||""));setEditingAmt(true);if(globalEditingAmt)globalEditingAmt.current=true;setTimeout(()=>amtInputRef.current?.select(),30);}}
               style={{fontFamily:"monospace",fontWeight:700,fontSize:13,color:item.state==="paid"?T.muted:item.state==="reserved"?"#d29922":dest.color||"#f85149",flexShrink:0,opacity:item.state==="paid"?0.4:1,cursor:"text",borderBottom:"1px dashed transparent",transition:"border-color 0.15s",WebkitTapHighlightColor:"transparent",userSelect:"none",WebkitUserSelect:"none"}}
@@ -893,6 +894,17 @@ const GastoItem=memo(({item,pid,editId,setEditId,tarjetas,loans,potsList,periodD
         )}
       </div>
     </div>
+    {recurringAmtPrompt&&(
+      <div style={{display:"flex",gap:6,padding:"6px 10px",background:`${T.accent}10`,borderTop:`1px solid ${T.accent}25`,alignItems:"center",flexWrap:"wrap"}}>
+        <span style={{fontSize:11,color:T.muted,flex:1}}>Update all recurring copies?</span>
+        <button style={{...BTN,padding:"4px 10px",fontSize:11,background:`${T.accent}20`,color:T.accent,border:`1px solid ${T.accent}44`,borderRadius:7}}
+          onClick={()=>{onUpdate(item.id,"monto",recurringAmtPrompt);if(onPropagate)onPropagate({...item,monto:recurringAmtPrompt});setRecurringAmtPrompt(null);}}>All</button>
+        <button style={{...BTN,padding:"4px 10px",fontSize:11,background:T.surface2,color:T.muted,border:`1px solid ${T.border}`,borderRadius:7}}
+          onClick={()=>{onUpdate(item.id,"monto",recurringAmtPrompt);setRecurringAmtPrompt(null);}}>Just this</button>
+        <button style={{...BTN,padding:"4px 6px",fontSize:11,background:"transparent",color:T.muted,border:"none"}}
+          onClick={()=>setRecurringAmtPrompt(null)}>✕</button>
+      </div>
+    )}
   );
 });const DebtCard=memo(({debt,idx,isFirst,tipo,accion,setAccion,montoAccion,setMontoAccion,onApply,onUpdate,onRemove,isAdding,setAddingDebt,onTogglePriority,onCollapse,resetToken,clipH,T})=>{
   const [editing,setEditing]=useState(false);
@@ -1102,7 +1114,7 @@ const GastoItem=memo(({item,pid,editId,setEditId,tarjetas,loans,potsList,periodD
         {clipH==null&&(<>
 
         {/* Card: utilization bar */}
-        {tipo==="card"&&(<div style={{marginBottom:7}}>
+        {tipo==="card"&&n(debt.limite)>0&&(<div style={{marginBottom:7}}>
           <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:3}}>
             <span style={{fontSize:10,color:T.muted}}>{fmt(debt.balance)} / {fmt(debt.limite)}</span>
             <span style={{fontSize:10,color:utilColor,fontWeight:700}}>{cardUtilPct}% {utilLabel}</span>
@@ -1391,9 +1403,9 @@ function App(){
   const [quickNote,setQuickNote]=useState("");
   const [quickAmt,setQuickAmt]=useState("");
   const [quickPid,setQuickPid]=useState("");
-  const [quickApplyTo,setQuickApplyTo]=useState("check");
-  const [quickCardId,setQuickCardId]=useState("");
-  const [quickCardMode,setQuickCardMode]=useState("budget"); // "budget" or "cardonly"
+  const [quickApplyTo,setQuickApplyTo]=useState(()=>localStorage.getItem("quickApplyTo")||"check");
+  const [quickCardId,setQuickCardId]=useState(()=>localStorage.getItem("quickCardId")||"");
+  const [quickCardMode,setQuickCardMode]=useState(()=>localStorage.getItem("quickCardMode")||"budget");
   const [moveOpen,setMoveOpen]=useState(false);
   const [moveTo,setMoveTo]=useState("");
   const [moveTransferTo,setMoveTransferTo]=useState("");
@@ -1653,7 +1665,9 @@ function App(){
     if(tab==="paychecks"&&!activeCheckPid&&monthPeriods.length>0){const cur=monthPeriods.find(p=>p.isCurrent)||monthPeriods[0];setActiveCheckPid(cur.id);}
     if(tab!=="overview")setPotsRevealed(false);
   },[tab]);
-  useEffect(()=>{if(quickOpen){setQuickCardId("");setQuickCardMode("budget");}},[quickOpen]);
+  useEffect(()=>{localStorage.setItem("quickApplyTo",quickApplyTo);},[quickApplyTo]);
+  useEffect(()=>{localStorage.setItem("quickCardId",quickCardId);},[quickCardId]);
+  useEffect(()=>{localStorage.setItem("quickCardMode",quickCardMode);},[quickCardMode]);
   const TABS_ORDER=useMemo(()=>["overview","paychecks","debts","calendar","history","settings"],[]);
   const handleSwipeTouchStart=useCallback(e=>{
     const t=e.touches[0];
@@ -3673,7 +3687,10 @@ function App(){
         {tab==="calendar"&&(()=>{
           const hoy=new Date();hoy.setHours(0,0,0,0);
           const mo=["January","February","March","April","May","June","July","August","September","October","November","December"];
-          const yr=hoy.getFullYear(),mth=hoy.getMonth();
+          const [calOffset,setCalOffset]=React.useState(0); // 0=current month, -1=prev, +1=next
+          const base=new Date(hoy.getFullYear(),hoy.getMonth()+calOffset,1);
+          const yr=base.getFullYear(),mth=base.getMonth();
+          const isCurrentMonth=calOffset===0;
           const fd=new Date(yr,mth,1).getDay();
           const dim=new Date(yr,mth+1,0).getDate();
           const monthEvents={};
@@ -3701,7 +3718,14 @@ function App(){
           });});
           return(<div className="anim">
             <div style={{...CARD,padding:"14px 14px 16px"}}>
-              <div style={{textAlign:"center",fontWeight:700,fontSize:15,marginBottom:2,color:T.text}}>{mo[mth]} {yr}</div>
+              <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:2}}>
+                <button style={{...BTN,background:"transparent",color:T.muted,fontSize:18,padding:"2px 10px",border:`1px solid ${T.border}`,borderRadius:8}} onClick={()=>setCalOffset(o=>o-1)}>‹</button>
+                <div style={{textAlign:"center"}}>
+                  <div style={{fontWeight:700,fontSize:15,color:T.text}}>{mo[mth]} {yr}</div>
+                  {!isCurrentMonth&&<button style={{...BTN,background:"transparent",color:T.accent,fontSize:10,padding:"1px 8px",border:`1px solid ${T.accent}33`,borderRadius:6,marginTop:2}} onClick={()=>setCalOffset(0)}>Today</button>}
+                </div>
+                <button style={{...BTN,background:"transparent",color:T.muted,fontSize:18,padding:"2px 10px",border:`1px solid ${T.border}`,borderRadius:8}} onClick={()=>setCalOffset(o=>o+1)}>›</button>
+              </div>
               <div style={{textAlign:"center",fontSize:9,color:T.muted,marginBottom:14,letterSpacing:0.5}}>READ ONLY · FINANCIAL OVERVIEW</div>
               <div style={{display:"grid",gridTemplateColumns:"repeat(7,1fr)",gap:1,marginBottom:3}}>
                 {["S","M","T","W","T","F","S"].map((d,i)=>(<div key={i} style={{textAlign:"center",fontSize:9,color:T.muted,fontWeight:600,padding:"2px 0"}}>{d}</div>))}
@@ -3709,7 +3733,7 @@ function App(){
               <div style={{display:"grid",gridTemplateColumns:"repeat(7,1fr)",gap:1}}>
                 {[...Array(fd).fill(null),...Array.from({length:dim},(_,i)=>i+1)].map((d,i)=>{
                   if(!d)return<div key={i} style={{aspectRatio:"1"}}/>;
-                  const isToday=d===hoy.getDate();const evts=monthEvents[d]||[];
+                  const isToday=isCurrentMonth&&d===hoy.getDate();const evts=monthEvents[d]||[];
                   const dotColors=[...new Set(evts.map(e=>e.dotColor))].slice(0,3);
                   return(<div key={i} style={{aspectRatio:"1",display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"flex-start",borderRadius:7,padding:"3px 1px 2px",background:isToday?`${T.accent}2e`:evts.length?"rgba(255,255,255,0.02)":"transparent",border:isToday?`1px solid ${T.accent}72`:"1px solid transparent"}}>
                     <span style={{fontSize:10,fontWeight:isToday?800:evts.length?600:400,color:isToday?T.accent:evts.length?T.text:T.muted,lineHeight:1.3}}>{d}</span>
@@ -3741,7 +3765,12 @@ function App(){
             const SpendingBreakdown=(()=>{
               const now=new Date();
               const mo=["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
-              const months=[...new Set(Object.keys(data.periods||{}).map(pid=>pid.slice(0,7)))].filter(Boolean).sort().reverse().slice(0,6);
+              const months=[...new Set(Object.keys(data.periods||{}).map(pid=>pid.slice(0,7)))]
+                .filter(m=>{
+                  // Only show months that have at least one gasto
+                  return Object.entries(data.periods||{}).some(([pid,p])=>pid.slice(0,7)===m&&(p.gastos||[]).length>0);
+                })
+                .filter(Boolean).sort().reverse().slice(0,6);
               const [selMonth,setSelMonth]=React.useState(months[0]||now.toISOString().slice(0,7));
               const [expanded,setExpanded]=React.useState(new Set());
               const toggle=k=>setExpanded(prev=>{const n=new Set(prev);n.has(k)?n.delete(k):n.add(k);return n;});
@@ -3856,8 +3885,8 @@ function App(){
           {data.snapshots&&data.snapshots.length>=2&&(()=>{
             const snaps=[...data.snapshots].sort((a,b)=>new Date(a.fecha)-new Date(b.fecha)).slice(-12);
             const W=340,H=120,PAD=8,PB=24;
-            const debtVals=snaps.map(s=>n(s.totalDebt)||0);
-            const surpVals=snaps.map(s=>n(s.surplus)||0);
+            const debtVals=snaps.map(s=>n(s.deuda)||n(s.totalDebt)||0);
+            const surpVals=snaps.map(s=>n(s.sobrante)||n(s.surplus)||0);
             const maxDebt=Math.max(...debtVals,1);
             const maxSurp=Math.max(...surpVals,1);
             const minSurp=Math.min(...surpVals,0);
