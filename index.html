@@ -10,12 +10,11 @@
   <title>My Budget</title>
   <script>
   (function(){
-    var APP_SK='mybudget_v17'; // keep in sync with SK constant in app script
     const svg='<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><rect width="512" height="512" rx="100" fill="#0b1220"/><rect x="76" y="158" width="324" height="224" rx="30" fill="none" stroke="white" stroke-width="22"/><rect x="318" y="188" width="102" height="72" rx="18" fill="none" stroke="white" stroke-width="18"/><circle cx="371" cy="224" r="13" fill="white"/><line x1="156" y1="118" x2="206" y2="158" stroke="white" stroke-width="21" stroke-linecap="round"/><line x1="238" y1="106" x2="268" y2="158" stroke="white" stroke-width="21" stroke-linecap="round"/><text x="100" y="330" font-family="-apple-system,BlinkMacSystemFont,Helvetica,sans-serif" font-size="96" font-weight="700" fill="white">MB</text></svg>';
     // Update splash icon color based on saved theme - run after DOM ready
     document.addEventListener('DOMContentLoaded',()=>{
       try{
-        const saved=JSON.parse(localStorage.getItem(APP_SK)||'{}');
+        const saved=JSON.parse(localStorage.getItem('mybudget_v17')||'{}');
         const th=saved.theme||'dark';
         const accents={dark:'#58a6ff',violet:'#a78bfa',green:'#3fb950',pink:'#ec4899',orange:'#f97316',black:'#ffffff',copper:'#c2823a',teal:'#06b6d4',gold:'#d29922',light:'#0969da'};
         const bgs={dark:'#080c14',violet:'#0a0814',green:'#08140c',pink:'#140810',orange:'#140e08',black:'#000000',copper:'#130f08',teal:'#08141a',gold:'#14110a',light:'#f0f4f8'};
@@ -34,9 +33,7 @@
     const enc=encodeURIComponent(svg);
     const m={name:"My Budget",short_name:"My Budget",start_url:"/",display:"standalone",background_color:"#0b1220",theme_color:"#0b1220",icons:[{src:"data:image/svg+xml,"+enc,sizes:"512x512",type:"image/svg+xml"},{src:"data:image/svg+xml,"+enc,sizes:"192x192",type:"image/svg+xml"}]};
     const b=new Blob([JSON.stringify(m)],{type:"application/json"});
-    const bUrl=URL.createObjectURL(b);
-    const l=document.createElement("link");l.rel="manifest";l.href=bUrl;document.head.appendChild(l);
-    setTimeout(()=>URL.revokeObjectURL(bUrl),5000);
+    const l=document.createElement("link");l.rel="manifest";l.href=URL.createObjectURL(b);document.head.appendChild(l);
     const al=document.createElement("link");al.rel="apple-touch-icon";al.href="data:image/svg+xml,"+enc;document.head.appendChild(al);
   })();
   </script>
@@ -94,9 +91,11 @@
       flex:1;
       overflow-y:auto;
       -webkit-overflow-scrolling:touch;
-      padding:18px 18px max(120px, env(safe-area-inset-bottom, 32px));
+      padding:18px 18px 32px;
+      padding-bottom:max(32px, env(safe-area-inset-bottom, 32px));
       min-height:0;
       overscroll-behavior:contain;
+      padding-bottom:max(120px, env(safe-area-inset-bottom, 32px));
     }
   </style>
 <script>document.addEventListener("focusin",function(e){if(e.target.tagName==="INPUT"&&(e.target.type==="number"||e.target.inputMode==="decimal"||e.target.inputMode==="numeric")){var v=e.target.value;if(v){setTimeout(function(){try{e.target.type="text";e.target.setSelectionRange(v.length,v.length);e.target.type="number";}catch(x){e.target.setSelectionRange(v.length,v.length);}},0);}}});</script></head>
@@ -118,9 +117,6 @@
 <script type="text/babel">
 const { useState, useEffect, useRef, useCallback, memo, useMemo } = React;
 const SK = "mybudget_v17";
-// uid() generates a collision-free numeric ID even when called multiple times per millisecond
-let _uidSeq=0;
-const uid=()=>Date.now()*10000+(++_uidSeq%10000);
 const THEMES = {
   dark:    { bg:"#080c14", surface:"#0f1724", surface2:"#1a2236", border:"#243048", text:"#e6edf3", muted:"#8b949e", accent:"#58a6ff", inp:{background:"#0a1020",color:"#e6edf3",border:"1.5px solid #243048"} },
   light:   { bg:"#f0f4f8", surface:"#ffffff", surface2:"#e8edf5", border:"#d0d7de", text:"#1c2128", muted:"#656d76", accent:"#0969da", inp:{background:"#ffffff",color:"#1c2128",border:"1.5px solid #d0d7de"} },
@@ -150,7 +146,7 @@ const DEST = {
   entertainment:{label:"Entertainment", icon:"🎬",color:"#a78bfa",bg:"rgba(167,139,250,0.1)", border:"rgba(167,139,250,0.3)"},
   medical:      {label:"Medical/Health",icon:"🏥",color:"#34d399",bg:"rgba(52,211,153,0.1)",  border:"rgba(52,211,153,0.3)"},
   lifestyle:    {label:"Lifestyle",      icon:"✨",color:"#a78bfa",bg:"rgba(167,139,250,0.1)", border:"rgba(167,139,250,0.3)"},
-  travel:       {label:"Travel",         icon:"✈️",color:"#06b6d4",bg:"rgba(6,182,212,0.1)",   border:"rgba(6,182,212,0.3)"},
+  travel:       {label:"Travel",         icon:"🌍",color:"#06b6d4",bg:"rgba(6,182,212,0.1)",   border:"rgba(6,182,212,0.3)"},
   education:    {label:"Education",      icon:"📚",color:"#8b5cf6",bg:"rgba(139,92,246,0.1)",  border:"rgba(139,92,246,0.3)"},
   personal:     {label:"Personal Care",  icon:"💆",color:"#f472b6",bg:"rgba(244,114,182,0.1)", border:"rgba(244,114,182,0.3)"},
   other:        {label:"Other",         icon:"📌",color:"#8b949e",bg:"transparent",            border:"#21262d"},
@@ -243,27 +239,14 @@ const n=v=>parseFloat(v)||0;
 const fmd=d=>{const m=["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];return`${m[d.getMonth()]} ${d.getDate()}`;};
 const dateStr=d=>{const y=d.getFullYear(),mo=String(d.getMonth()+1).padStart(2,"0"),dy=String(d.getDate()).padStart(2,"0");return`${y}-${mo}-${dy}`;};
 const clampDay=(year,month,day)=>Math.min(day,new Date(year,month+1,0).getDate());
-// Safe date addition that never crosses DST boundary artifacts
-const addDays=(date,days)=>{
-  const r=new Date(date);
-  r.setDate(r.getDate()+days);
-  r.setHours(0,0,0,0);
-  return r;
-};
-// Integer day diff — immune to DST (uses local midnight, avoids ms drift)
-const dayDiff=(a,b)=>{
-  const utcA=Date.UTC(a.getFullYear(),a.getMonth(),a.getDate());
-  const utcB=Date.UTC(b.getFullYear(),b.getMonth(),b.getDate());
-  return Math.round((utcA-utcB)/86400000);
-};
 const getDU=dia=>{
   if(!dia)return null;
   const h=new Date();h.setHours(0,0,0,0);
   const d=parseInt(dia);
   let y=h.getFullYear(),m=h.getMonth();
   const c=new Date(y,m,clampDay(y,m,d));
-  if(c<h){m++;if(m>11){m=0;y++;}const c2=new Date(y,m,clampDay(y,m,d));return Math.ceil(dayDiff(c2,h));}
-  return Math.ceil(dayDiff(c,h));
+  if(c<h){m++;if(m>11){m=0;y++;}const c2=new Date(y,m,clampDay(y,m,d));return Math.ceil((c2-h)/86400000);}
+  return Math.ceil((c-h)/86400000);
 };
 const gdf=dia=>{
   if(!dia)return null;
@@ -287,7 +270,7 @@ const getDUPeriod=(dia,periodDate)=>{
   if(!dia||!periodDate)return getDU(dia);
   const today=new Date();today.setHours(0,0,0,0);
   const due=gdfPeriod(dia,periodDate);
-  return Math.ceil(dayDiff(due,today));
+  return Math.ceil((due-today)/86400000);
 };
 const calcLoan=(balance,apr,pmt)=>{
   const b=n(balance),r=n(apr)/100/12,p=n(pmt);
@@ -301,27 +284,22 @@ const parseAnchor=anchor=>{
   const[y,m,d]=anchor.split("-").map(Number);
   const dt=new Date(y,m-1,d);dt.setHours(0,0,0,0);return dt;
 };
-// anchorDay: the original anchor day-of-month, used to clamp short months consistently
-const getAnchorDay=anchor=>{
-  if(!anchor)return 1;
-  return parseInt(anchor.split("-")[2])||1;
-};
 const getPaydaysInMonth=(anchor,freq,yr,mth)=>{
   if(freq==="semimonthly")return[new Date(yr,mth,1),new Date(yr,mth,15)];
   if(freq==="monthly"){
-    const anchorDay=getAnchorDay(anchor);
-    return[new Date(yr,mth,clampDay(yr,mth,anchorDay))];
+    const base=parseAnchor(anchor);
+    const last=new Date(yr,mth+1,0).getDate();
+    return[new Date(yr,mth,Math.min(base.getDate(),last))];
   }
   const step=freq==="weekly"?7:14;
   const base=parseAnchor(anchor);
   const monthStart=new Date(yr,mth,1);
   const monthEnd=new Date(yr,mth+1,0);monthEnd.setHours(23,59,59,999);
-  // Use integer day math to avoid DST drift
-  const diffDays=dayDiff(monthStart,base);
+  const diffDays=Math.round((monthStart.getTime()-base.getTime())/86400000);
   const startN=Math.ceil(diffDays/step);
   const days=[];
   for(let i=startN;i<=startN+8;i++){
-    const pd=addDays(base,i*step);
+    const pd=new Date(base.getTime()+i*step*86400000);
     if(pd>monthEnd)break;
     if(pd>=monthStart)days.push(pd);
   }
@@ -335,22 +313,16 @@ const getCurrentPeriodStart=(anchor,freq)=>{
     return today>=d15?d15:d1;
   }
   if(freq==="monthly"){
-    const anchorDay=getAnchorDay(anchor);
-    const y=today.getFullYear(),m=today.getMonth();
-    // Payday this month (clamped)
-    let pday=new Date(y,m,clampDay(y,m,anchorDay));
-    if(pday>today){
-      // Not yet this month — payday was last month
-      const pm=m===0?11:m-1,py=m===0?y-1:y;
-      pday=new Date(py,pm,clampDay(py,pm,anchorDay));
-    }
+    const base=parseAnchor(anchor);
+    let pday=new Date(today.getFullYear(),today.getMonth(),base.getDate());
+    if(pday>today)pday=new Date(pday.getFullYear(),pday.getMonth()-1,base.getDate());
     return pday;
   }
   const step=freq==="weekly"?7:14;
   const base=parseAnchor(anchor);
-  const diff=dayDiff(today,base);
-  const periodsDone=today>=base?Math.floor(diff/step):0;
-  return addDays(base,periodsDone*step);
+  const diffDays=Math.round((today.getTime()-base.getTime())/86400000);
+  const periodsDone=today>=base?Math.floor(diffDays/step):0;
+  return new Date(base.getTime()+periodsDone*step*86400000);
 };
 const getNextPayday=(anchor,freq)=>{
   if(!anchor)return null;
@@ -362,23 +334,17 @@ const getNextPayday=(anchor,freq)=>{
     return today>=d15?nm1:d15;
   }
   if(freq==="monthly"){
-    const anchorDay=getAnchorDay(anchor);
-    const y=today.getFullYear(),m=today.getMonth();
-    let pday=new Date(y,m,clampDay(y,m,anchorDay));
-    if(pday>today){
-      // Payday is still this month
-      return pday;
-    }
-    // Already passed — next is next month
-    const nm=m===11?0:m+1,ny=m===11?y+1:y;
-    return new Date(ny,nm,clampDay(ny,nm,anchorDay));
+    const base=parseAnchor(anchor);
+    let pday=new Date(today.getFullYear(),today.getMonth(),base.getDate());
+    if(pday>today)pday=new Date(pday.getFullYear(),pday.getMonth()-1,base.getDate());
+    return new Date(pday.getFullYear(),pday.getMonth()+1,base.getDate());
   }
   const step=freq==="weekly"?7:14;
   const base=parseAnchor(anchor);
-  const diff=dayDiff(today,base);
-  const periodsDone=today>=base?Math.floor(diff/step):0;
-  const curStart=addDays(base,periodsDone*step);
-  return addDays(curStart,step);
+  const diffDays=Math.round((today.getTime()-base.getTime())/86400000);
+  const periodsDone=today>=base?Math.floor(diffDays/step):0;
+  const curStart=new Date(base.getTime()+periodsDone*step*86400000);
+  return new Date(curStart.getTime()+step*86400000);
 };
 const getUpcomingPaydays=(anchor,count=8,freq="biweekly")=>{
   if(!anchor)return[];
@@ -396,25 +362,19 @@ const getUpcomingPaydays=(anchor,count=8,freq="biweekly")=>{
     return days.slice(0,count);
   }
   if(freq==="monthly"){
-    const anchorDay=getAnchorDay(anchor);
-    let y=today.getFullYear(),m=today.getMonth();
-    // Start from this month's payday (clamped)
-    let d=new Date(y,m,clampDay(y,m,anchorDay));
-    if(d<today){m++;if(m>11){m=0;y++;}d=new Date(y,m,clampDay(y,m,anchorDay));}
-    while(days.length<count){
-      days.push(new Date(d));
-      m++;if(m>11){m=0;y++;}
-      d=new Date(y,m,clampDay(y,m,anchorDay));
-    }
+    const base=parseAnchor(anchor);
+    let d=new Date(today.getFullYear(),today.getMonth(),base.getDate());
+    if(d<today)d=new Date(d.getFullYear(),d.getMonth()+1,base.getDate());
+    while(days.length<count){days.push(new Date(d));d=new Date(d.getFullYear(),d.getMonth()+1,d.getDate());}
     return days;
   }
   const step=freq==="weekly"?7:14;
   const base=parseAnchor(anchor);
-  const diff=dayDiff(today,base);
-  const periodsDone=today>=base?Math.floor(diff/step):0;
-  const curStart=addDays(base,periodsDone*step);
-  let cur=addDays(curStart,step);
-  while(days.length<count){days.push(new Date(cur));cur=addDays(cur,step);}
+  const diffDays=Math.round((today.getTime()-base.getTime())/86400000);
+  const periodsDone=today>=base?Math.floor(diffDays/step):0;
+  const curStart=new Date(base.getTime()+periodsDone*step*86400000);
+  let cur=new Date(curStart.getTime()+step*86400000);
+  while(days.length<count){days.push(new Date(cur));cur=new Date(cur.getTime()+step*86400000);}
   return days.slice(0,count);
 };
 const buildMonthPeriods=(anchor,freq)=>{
@@ -437,22 +397,6 @@ const buildMonthPeriods=(anchor,freq)=>{
     statusLabel:"period_"+dateStr(pd)===curKey?"Current":(curIdx>=0&&i<curIdx?"Cleared":(curIdx>=0&&i>curIdx?"Upcoming":i===0?"Upcoming":null)),
   }));
 };
-// DD must be defined before migrate so migrate can safely reference DD.loans
-const DD={
-  proximoCobro:"",payFreq:undefined,theme:"dark",
-  checkAmount:0,useFixedAmount:undefined,periods:{},
-  tarjetas:[],
-  loans:[],
-  pots:{savings_acct:0,emergency:0,investment:0},
-  potsList:[
-    {id:"savings_acct", name:"Savings",    icon:"🏦", color:"#3fb950", balance:0},
-    {id:"emergency",    name:"Emergency",  icon:"🆘", color:"#06b6d4", balance:0},
-    {id:"investment",   name:"Investment", icon:"📈", color:"#10b981", balance:0},
-  ],
-  potsHidden:true,snapshots:[],
-  notifEnabled:true,
-  customLabels:[],
-};
 const migrate=raw=>{
   if(!raw)return null;
   const dm={savings:"savings_acct",directo:"rent",temporal:"temp",ninguno:"other",tarjeta:"credit_card",savings_acct:"savings_acct",credit_card:"credit_card",rent:"rent",utilities:"utilities",auto:"auto",insurance:"insurance",groceries:"groceries",subscription:"subscription",gas:"gas",emergency:"emergency",investment:"investment",temp:"temp",dining:"dining",entertainment:"entertainment",medical:"medical",other:"other"};
@@ -470,13 +414,10 @@ const migrate=raw=>{
       const d15=new Date(curStart.getFullYear(),curStart.getMonth(),15);
       prevStart=curStart.getDate()===15?d1:new Date(curStart.getFullYear(),curStart.getMonth()-1,15);
     } else if(freq==="monthly"){
-      const anchorDay=getAnchorDay(anchor);
-      const pm=curStart.getMonth()===0?11:curStart.getMonth()-1;
-      const py=curStart.getMonth()===0?curStart.getFullYear()-1:curStart.getFullYear();
-      prevStart=new Date(py,pm,clampDay(py,pm,anchorDay));
+      prevStart=new Date(curStart.getFullYear(),curStart.getMonth()-1,curStart.getDate());
     } else {
-      const step=freq==="weekly"?7:14;
-      prevStart=addDays(curStart,-step);
+      const step=(freq==="weekly"?7:14)*86400000;
+      prevStart=new Date(curStart.getTime()-step);
     }
     const prevKey="period_"+dateStr(prevStart);
     const legacyChecks=raw.checks||[{id:"c1",num:1},{id:"c2",num:2}];
@@ -507,6 +448,8 @@ const migrate=raw=>{
     tarjetas:(raw.tarjetas||[]).map(t=>({...t,fechaPago:t.fechaPago||"",fechaCorte:t.fechaCorte||"",historial:t.historial||[],tipo:"card"})),
     loans:(raw.loans||DD.loans).map(l=>({...l,tipo:"loan"})),
     pots:raw.pots||{savings_acct:0,emergency:0,investment:0},
+    potTargets:raw.potTargets||{},
+    potMovements:raw.potMovements||[],
     potsList:raw.potsList||[
       {id:"savings_acct", name:"Savings",    icon:"🏦", color:"#3fb950", balance:n(raw.pots?.savings_acct)||0},
       {id:"emergency",    name:"Emergency",  icon:"🆘", color:"#06b6d4", balance:n(raw.pots?.emergency)||0},
@@ -518,6 +461,23 @@ const migrate=raw=>{
     notifEnabled:raw.notifEnabled!==false,
     customLabels:raw.customLabels||[],
   };
+};
+const DD={
+  proximoCobro:"",payFreq:undefined,theme:"dark",
+  checkAmount:0,useFixedAmount:undefined,periods:{},
+  tarjetas:[],
+  loans:[],
+  pots:{savings_acct:0,emergency:0,investment:0},
+  potTargets:{},
+  potMovements:[],
+  potsList:[
+    {id:"savings_acct", name:"Savings",    icon:"🏦", color:"#3fb950", balance:0},
+    {id:"emergency",    name:"Emergency",  icon:"🆘", color:"#06b6d4", balance:0},
+    {id:"investment",   name:"Investment", icon:"📈", color:"#10b981", balance:0},
+  ],
+  potsHidden:true,snapshots:[],
+  notifEnabled:true,
+  customLabels:[],
 };
 const loadData=()=>{
   try{
@@ -560,10 +520,9 @@ const LimitBar=memo(({balance,limite,T})=>{
     </div>
   </div>);
 });
-// DragList: memo removed — renderItem is always an inline arrow, so memo never prevented re-renders
-const DragList=({items,renderItem})=>{
+const DragList=memo(({items,renderItem})=>{
   return(<div>{items.map((item,i)=>(<div key={item.id}>{renderItem(item,i,{})}</div>))}</div>);
-};
+});
 const getCatIcon=(cat)=>CICONS[cat]||"📌";
 const GastoItem=memo(({item,pid,editId,setEditId,tarjetas,loans,potsList,periodDate,customLabels,onAddCustomLabel,globalEditingAmt,checkIdx,onCycle,onLongPress,onUpdate,onBatchUpdate,onPropagate,onRemove,T})=>{
   const dest=gds(item.destino,item.tarjetaRef,null,potsList,customLabels);
@@ -571,7 +530,6 @@ const GastoItem=memo(({item,pid,editId,setEditId,tarjetas,loans,potsList,periodD
   const [swipeX,setSwipeX]=useState(0);
   const [editingAmt,setEditingAmt]=useState(false);
   const [localAmt,setLocalAmt]=useState("");
-  const [recurringAmtPrompt,setRecurringAmtPrompt]=useState(null); // pending new amount
   const amtInputRef=useRef(null);
   // Local edit state - buffers changes, commits on save
   const [localDestino,setLocalDestino]=useState(item.destino||"");
@@ -704,7 +662,7 @@ const GastoItem=memo(({item,pid,editId,setEditId,tarjetas,loans,potsList,periodD
                 </select>
                 <div style={{display:"flex",gap:4}}>
                   <button style={{...{cursor:"pointer",border:"none",borderRadius:8,fontFamily:"inherit",fontWeight:700},flex:1,background:"#238636",color:"#fff",padding:"7px",fontSize:11,WebkitTapHighlightColor:"transparent"}}
-                    onMouseDown={e=>{e.preventDefault();if(newLabelName.trim()){const id="label_"+uid();onAddCustomLabel&&onAddCustomLabel(newLabelName.trim(),id,newLabelParent||null);setLocalDestino(id);setLocalCat("");setNewLabelName("");setNewLabelParent("");setNewLabelInput(false);}}}>✓ Add</button>
+                    onMouseDown={e=>{e.preventDefault();if(newLabelName.trim()){const id="label_"+Date.now();onAddCustomLabel&&onAddCustomLabel(newLabelName.trim(),id,newLabelParent||null);setLocalDestino(id);setLocalCat("");setNewLabelName("");setNewLabelParent("");setNewLabelInput(false);}}}>✓ Add</button>
                   <button style={{...{cursor:"pointer",border:"none",borderRadius:8,fontFamily:"inherit",fontWeight:700},background:T.surface2,color:T.muted,padding:"7px 12px",fontSize:11,WebkitTapHighlightColor:"transparent"}}
                     onMouseDown={e=>{e.preventDefault();setNewLabelInput(false);setNewLabelName("");setNewLabelParent("");}}>✕</button>
                 </div>
@@ -809,11 +767,11 @@ const GastoItem=memo(({item,pid,editId,setEditId,tarjetas,loans,potsList,periodD
   );
   const stBg={pending:T.surface,reserved:T.surface,paid:T.surface}[item.state||"pending"];
   const stBorder={pending:T.border,reserved:"rgba(210,153,34,0.3)",paid:T.border}[item.state||"pending"];
+  const isOverdue=(()=>{if(!item.diaPago||item.state==="paid")return false;const d=gdfPeriod(item.diaPago,periodDate);if(!d)return false;const today=new Date();today.setHours(0,0,0,0);return d<today;})();
   const catIcon=dest.icon||getCatIcon(item.cat)||getCatIcon(item.destino)||"📌";
   const catColor=dest.color||CATCOLORS[item.cat]||CATCOLORS[item.destino]||"#94a3b8";
   const isSwipedLeft=swipeX<=-88;
   return(
-    <>
     <div className="expense-row" style={{marginBottom:7,position:"relative",borderRadius:11,overflow:"hidden"}}>
       {/* Action buttons — only visible when swiped */}
       {swipeX!==0&&<div style={{position:"absolute",inset:0,display:"flex",borderRadius:11}}>
@@ -829,12 +787,11 @@ const GastoItem=memo(({item,pid,editId,setEditId,tarjetas,loans,potsList,periodD
       {/* Main row — slides over action buttons */}
       <div onTouchStart={onRowTS} onTouchMove={onRowTM} onTouchEnd={onRowTE} onMouseDown={onRowMS}
         style={{display:"flex",alignItems:"center",gap:8,padding:"10px 11px",borderRadius:11,
-          background:stBg,border:`1px solid ${stBorder}`,
+          background:stBg,border:`1px solid ${isOverdue?"rgba(248,81,73,0.45)":stBorder}`,
+          borderLeft:isOverdue?"3px solid #f85149":undefined,
           transform:`translateX(${swipeX}px)`,
           transition:"transform 0.3s cubic-bezier(0.34,1.2,0.64,1)",
-          position:"relative",zIndex:1,touchAction:"pan-y",
-          ...(item.diaPago&&item.state!=="paid"&&(()=>{const d=gdfPeriod(item.diaPago,periodDate);if(!d)return{};const dl=Math.ceil((d-new Date().setHours(0,0,0,0))/86400000);return dl<0?{borderColor:"rgba(248,81,73,0.4)",boxShadow:"inset 3px 0 0 #f85149"}:{};})()):{}
-        }}>
+          position:"relative",zIndex:1,touchAction:"pan-y"}}>
 
         <div onClick={handleCircleTap}
           style={{width:24,height:24,borderRadius:"50%",flexShrink:0,background:item.state==="paid"?"transparent":item.state==="reserved"?"rgba(210,153,34,0.25)":"transparent",border:`2px solid ${item.state==="paid"?"#3fb95055":item.state==="reserved"?"#d29922":T.border}`,display:"flex",alignItems:"center",justifyContent:"center",fontSize:11,cursor:"pointer",color:item.state==="paid"?"#3fb950":item.state==="reserved"?"#d29922":T.muted,fontWeight:700}}>
@@ -868,8 +825,8 @@ const GastoItem=memo(({item,pid,editId,setEditId,tarjetas,loans,potsList,periodD
                 outline:"none",width:70,textAlign:"right",padding:"0 2px",flexShrink:0}}
               value={localAmt}
               onChange={e=>setLocalAmt(e.target.value)}
-              onBlur={()=>{setTimeout(()=>{const v=parseFloat(localAmt);if(v>0){if(item._recurring&&!item._recurringCheckOnly&&v!==item.monto){setRecurringAmtPrompt(v);setEditingAmt(false);if(globalEditingAmt)globalEditingAmt.current=false;return;}onUpdate(item.id,"monto",v);}setEditingAmt(false);if(globalEditingAmt)globalEditingAmt.current=false;},100);}}
-              onKeyDown={e=>{if(e.key==="Enter"){const v=parseFloat(localAmt);if(v>0){if(item._recurring&&!item._recurringCheckOnly&&v!==item.monto){setRecurringAmtPrompt(v);setEditingAmt(false);if(globalEditingAmt)globalEditingAmt.current=false;return;}onUpdate(item.id,"monto",v);}setEditingAmt(false);if(globalEditingAmt)globalEditingAmt.current=false;}if(e.key==="Escape"){setEditingAmt(false);if(globalEditingAmt)globalEditingAmt.current=false;}}}
+              onBlur={()=>{setTimeout(()=>{const v=parseFloat(localAmt);if(v>0)onUpdate(item.id,"monto",v);setEditingAmt(false);if(globalEditingAmt)globalEditingAmt.current=false;},100);}}
+              onKeyDown={e=>{if(e.key==="Enter"){const v=parseFloat(localAmt);if(v>0)onUpdate(item.id,"monto",v);setEditingAmt(false);if(globalEditingAmt)globalEditingAmt.current=false;}if(e.key==="Escape"){setEditingAmt(false);if(globalEditingAmt)globalEditingAmt.current=false;}}}
               autoFocus/>
           : <div onClick={e=>{e.stopPropagation();setLocalAmt(String(item.monto||""));setEditingAmt(true);if(globalEditingAmt)globalEditingAmt.current=true;setTimeout(()=>amtInputRef.current?.select(),30);}}
               style={{fontFamily:"monospace",fontWeight:700,fontSize:13,color:item.state==="paid"?T.muted:item.state==="reserved"?"#d29922":dest.color||"#f85149",flexShrink:0,opacity:item.state==="paid"?0.4:1,cursor:"text",borderBottom:"1px dashed transparent",transition:"border-color 0.15s",WebkitTapHighlightColor:"transparent",userSelect:"none",WebkitUserSelect:"none"}}
@@ -898,18 +855,6 @@ const GastoItem=memo(({item,pid,editId,setEditId,tarjetas,loans,potsList,periodD
         )}
       </div>
     </div>
-    {recurringAmtPrompt&&(
-      <div style={{display:"flex",gap:6,padding:"6px 10px",background:`${T.accent}10`,borderTop:`1px solid ${T.accent}25`,alignItems:"center",flexWrap:"wrap"}}>
-        <span style={{fontSize:11,color:T.muted,flex:1}}>Update all recurring copies?</span>
-        <button style={{...BTN,padding:"4px 10px",fontSize:11,background:`${T.accent}20`,color:T.accent,border:`1px solid ${T.accent}44`,borderRadius:7}}
-          onClick={()=>{onUpdate(item.id,"monto",recurringAmtPrompt);if(onPropagate)onPropagate({...item,monto:recurringAmtPrompt});setRecurringAmtPrompt(null);}}>All</button>
-        <button style={{...BTN,padding:"4px 10px",fontSize:11,background:T.surface2,color:T.muted,border:`1px solid ${T.border}`,borderRadius:7}}
-          onClick={()=>{onUpdate(item.id,"monto",recurringAmtPrompt);setRecurringAmtPrompt(null);}}>Just this</button>
-        <button style={{...BTN,padding:"4px 6px",fontSize:11,background:"transparent",color:T.muted,border:"none"}}
-          onClick={()=>setRecurringAmtPrompt(null)}>✕</button>
-      </div>
-    )}
-    </>
   );
 });const DebtCard=memo(({debt,idx,isFirst,tipo,accion,setAccion,montoAccion,setMontoAccion,onApply,onUpdate,onRemove,isAdding,setAddingDebt,onTogglePriority,onCollapse,resetToken,clipH,T})=>{
   const [editing,setEditing]=useState(false);
@@ -920,7 +865,7 @@ const GastoItem=memo(({item,pid,editId,setEditId,tarjetas,loans,potsList,periodD
   // Reset all internal open UI whenever resetToken changes (card collapsed by external action)
   useEffect(()=>{
     if(resetToken===undefined)return;
-    setEditing(false);setSavedSnapshot(null);setDebtSwipe(0);setShowColorPicker(false);
+    setEditing(false);setSavedSnapshot(null);setDebtSwipe(0);setShowColorPicker(false);setShowColorPicker(false);
   },[resetToken]);
   const INP=mkINP(T),BTN=mkBTN(),CARD=mkCARD(T);
   const dp=getDU(debt.fechaPago),fpd=gdf(debt.fechaPago),fcd=debt.fechaCorte?gdf(debt.fechaCorte):null;
@@ -990,9 +935,9 @@ const GastoItem=memo(({item,pid,editId,setEditId,tarjetas,loans,potsList,periodD
     if(savedSnapshot){
       Object.keys(savedSnapshot).forEach(k=>onUpdate(debt.id,k,savedSnapshot[k]));
     }
-    setEditing(false);setSavedSnapshot(null);setDebtSwipe(0);setShowColorPicker(false);
+    setEditing(false);setSavedSnapshot(null);setDebtSwipe(0);setShowColorPicker(false);setShowColorPicker(false);
   };
-  const saveEditing=()=>{setEditing(false);setSavedSnapshot(null);setDebtSwipe(0);setShowColorPicker(false);};
+  const saveEditing=()=>{setEditing(false);setSavedSnapshot(null);setDebtSwipe(0);setShowColorPicker(false);setShowColorPicker(false);};
   return(
     <div style={{position:"relative",marginBottom:9,borderRadius:14,overflow:"hidden",...(clipH!=null?{height:clipH,maxHeight:clipH,minHeight:clipH}:{})}}>
       {/* Swipe actions behind — only when expanded and not collapsed in stack */}
@@ -1119,7 +1064,7 @@ const GastoItem=memo(({item,pid,editId,setEditId,tarjetas,loans,potsList,periodD
         {clipH==null&&(<>
 
         {/* Card: utilization bar */}
-        {tipo==="card"&&n(debt.limite)>0&&(<div style={{marginBottom:7}}>
+        {tipo==="card"&&(<div style={{marginBottom:7}}>
           <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:3}}>
             <span style={{fontSize:10,color:T.muted}}>{fmt(debt.balance)} / {fmt(debt.limite)}</span>
             <span style={{fontSize:10,color:utilColor,fontWeight:700}}>{cardUtilPct}% {utilLabel}</span>
@@ -1265,18 +1210,6 @@ const scrollLock={
     }
   }
 };
-const PIN_KEY="mybudget_pin";
-const PIN_HASHED_FLAG="mybudget_pin_hashed";
-const hashPin=async(pin)=>{
-  try{
-    const buf=await crypto.subtle.digest("SHA-256",new TextEncoder().encode(pin));
-    return Array.from(new Uint8Array(buf)).map(b=>b.toString(16).padStart(2,"0")).join("");
-  }catch(e){
-    // crypto.subtle unavailable (HTTP/old WebView) — fallback to simple obfuscation
-    let h=0;for(let i=0;i<pin.length;i++)h=Math.imul(31,h)+pin.charCodeAt(i)|0;
-    return"fallback_"+Math.abs(h).toString(16).padStart(8,"0");
-  }
-};
 function App(){
   const [data,setData]=useState(loadData);
   const [tab,setTab]=useState("overview");
@@ -1287,23 +1220,20 @@ function App(){
   const lastDoneRef=useRef({});
   const cardOrderRef=useRef([]);
   const loanOrderRef=useRef([]);
-  const [pinNeedsMigration,setPinNeedsMigration]=useState(false);
+  const PIN_KEY="mybudget_pin";
   const [pinInput,setPinInput]=useState("");
   const [pinSetup,setPinSetup]=useState(false);
   const [pinConfirm,setPinConfirm]=useState("");
-  const [pinStep,setPinStep]=useState(1);
+  const [pinStep,setPinStep]=useState(1); // 1=enter, 2=confirm
   const [pinError,setPinError]=useState("");
 
   useEffect(()=>{
-    const saved=localStorage.getItem(SK);
+    const saved=localStorage.getItem("mybudget_v17");
     const parsed=saved?JSON.parse(saved):null;
     if(parsed&&parsed.biometricEnabled===false){setAuthenticated(true);setAuthChecked(true);return;}
     const pin=localStorage.getItem(PIN_KEY);
     setAuthChecked(true);
-    if(!pin){setAuthenticated(true);return;}
-    // Detect plain-text PIN (not yet hashed — exactly 4 digits)
-    const isHashed=localStorage.getItem(PIN_HASHED_FLAG)==="1";
-    if(!isHashed){setPinNeedsMigration(true);}
+    if(!pin){setAuthenticated(true);} // No PIN set yet — let them in, they can set it in Settings
     // PIN exists — show lock screen (authenticated stays false)
   },[]);
 
@@ -1317,32 +1247,8 @@ function App(){
         const next=pinInput+d;
         setPinInput(next);
         if(next.length===4){
-          if(next===pinConfirm){
-            hashPin(next).then(h=>{
-              localStorage.setItem(PIN_KEY,h);
-              localStorage.setItem(PIN_HASHED_FLAG,"1");
-              setAuthenticated(true);
-            });
-          } else {
-            setPinError("PINs don't match. Try again.");setPinInput("");setPinStep(1);setPinConfirm("");
-          }
-        }
-      }
-    } else if(pinNeedsMigration){
-      // Migration: user re-enters plain-text PIN, we hash it on success
-      const next=pinInput+d;
-      setPinInput(next);
-      if(next.length===4){
-        const saved=localStorage.getItem(PIN_KEY);
-        if(next===saved){
-          hashPin(next).then(h=>{
-            localStorage.setItem(PIN_KEY,h);
-            localStorage.setItem(PIN_HASHED_FLAG,"1");
-            setPinNeedsMigration(false);
-            setAuthenticated(true);
-          });
-        } else {
-          setPinError("Wrong PIN");setTimeout(()=>{setPinInput("");setPinError("");},600);
+          if(next===pinConfirm){localStorage.setItem(PIN_KEY,next);setAuthenticated(true);}
+          else{setPinError("PINs don't match. Try again.");setPinInput("");setPinStep(1);setPinConfirm("");}
         }
       }
     } else {
@@ -1350,37 +1256,32 @@ function App(){
       setPinInput(next);
       if(next.length===4){
         const saved=localStorage.getItem(PIN_KEY);
-        hashPin(next).then(h=>{
-          if(h===saved){setAuthenticated(true);}
-          else{setPinError("Wrong PIN");setTimeout(()=>{setPinInput("");setPinError("");},600);}
-        });
+        if(next===saved){setAuthenticated(true);}
+        else{setPinError("Wrong PIN");setTimeout(()=>{setPinInput("");setPinError("");},600);}
       }
     }
   };
 
   const handlePinBack=()=>setPinInput(p=>p.slice(0,-1));
-  const launchConfetti=(()=>{
-    const COLORS=["#58a6ff","#3fb950","#f97316","#ec4899","#a78bfa","#d29922","#06b6d4"];
-    const POOL=40;
-    let pool=null,hideTimer=null;
-    return()=>{
-      const container=document.getElementById("confetti-container");
-      if(!container)return;
-      if(!pool){
-        pool=[];
-        const s=document.createElement("style");
-        s.textContent=`@keyframes cf{0%{transform:translateY(-20px) rotate(0deg);opacity:1}100%{transform:translateY(105vh) rotate(800deg);opacity:0}}`;
-        document.head.appendChild(s);
-        for(let i=0;i<POOL;i++){const el=document.createElement("div");el.style.cssText="position:absolute;display:none;will-change:transform;";container.appendChild(el);pool.push(el);}
-      }
-      clearTimeout(hideTimer);
-      pool.forEach(el=>{
-        const c=COLORS[Math.floor(Math.random()*COLORS.length)],sz=6+Math.random()*8;
-        el.style.cssText=`position:absolute;top:-12px;left:${Math.random()*100}%;width:${sz}px;height:${sz}px;background:${c};border-radius:${Math.random()>.5?"50%":"2px"};animation:cf ${1.5+Math.random()*2}s ${Math.random()*.8}s linear forwards;will-change:transform;`;
-      });
-      hideTimer=setTimeout(()=>{if(pool)pool.forEach(el=>{el.style.display="none";el.style.animation="none";});},4500);
-    };
-  })();
+  const launchConfetti=()=>{
+    const colors=["#58a6ff","#3fb950","#f97316","#ec4899","#a78bfa","#d29922","#06b6d4"];
+    const container=document.getElementById("confetti-container");
+    if(!container)return;
+    container.innerHTML="";
+    for(let i=0;i<60;i++){
+      const el=document.createElement("div");
+      el.className="confetti-piece";
+      el.style.left=Math.random()*100+"vw";
+      el.style.background=colors[Math.floor(Math.random()*colors.length)];
+      el.style.width=(6+Math.random()*8)+"px";
+      el.style.height=(6+Math.random()*8)+"px";
+      el.style.borderRadius=Math.random()>0.5?"50%":"2px";
+      el.style.animationDuration=(1.5+Math.random()*2)+"s";
+      el.style.animationDelay=(Math.random()*0.8)+"s";
+      container.appendChild(el);
+    }
+    setTimeout(()=>{if(container)container.innerHTML="";},4000);
+  };
   const [activeCheckPid,setActiveCheckPid]=useState("");
   const globalEditingAmt=useRef(false);
   const [debtPayConfirm,setDebtPayConfirm]=useState(null);
@@ -1388,7 +1289,6 @@ function App(){
   const [amtInputVal,setAmtInputVal]=useState({});
   const [toast,setToast]=useState(null);
   const [backupPrompt,setBackupPrompt]=useState(false);
-  const [importPreview,setImportPreview]=useState(null); // {restored, summary}
   const [locked,setLocked]=useState(true);
   const [editId,setEditId]=useState(null);
   const [accion,setAccion]=useState(null);
@@ -1408,9 +1308,9 @@ function App(){
   const [quickNote,setQuickNote]=useState("");
   const [quickAmt,setQuickAmt]=useState("");
   const [quickPid,setQuickPid]=useState("");
-  const [quickApplyTo,setQuickApplyTo]=useState(()=>localStorage.getItem("quickApplyTo")||"check");
-  const [quickCardId,setQuickCardId]=useState(()=>localStorage.getItem("quickCardId")||"");
-  const [quickCardMode,setQuickCardMode]=useState(()=>localStorage.getItem("quickCardMode")||"budget");
+  const [quickApplyTo,setQuickApplyTo]=useState("check");
+  const [quickCardId,setQuickCardId]=useState("");
+  const [quickCardMode,setQuickCardMode]=useState("budget"); // "budget" or "cardonly"
   const [moveOpen,setMoveOpen]=useState(false);
   const [moveTo,setMoveTo]=useState("");
   const [moveTransferTo,setMoveTransferTo]=useState("");
@@ -1453,8 +1353,6 @@ function App(){
   const [resetConfirm,setResetConfirm]=useState(null);
   const [themePicker,setThemePicker]=useState(false);
   const [resetAllConfirm,setResetAllConfirm]=useState(false);
-  const [nativeConfirm,setNativeConfirm]=useState(null); // {msg, onOk}
-  const appConfirm=(msg,onOk)=>setNativeConfirm({msg,onOk});
   const [debtsFilter,setDebtsFilter]=useState("all");
   const [cardsCollapsed,setCardsCollapsed]=useState(false);
   const [loansCollapsed,setLoansCollapsed]=useState(false);
@@ -1478,34 +1376,7 @@ function App(){
   const theme=data.theme||"dark";
   const T=THEMES[theme];
   useEffect(()=>{document.body.className=theme;},[theme]);
-  const saveTimerRef=useRef(null);
-  const latestDataRef=useRef(data);
-  latestDataRef.current=data;
-  useEffect(()=>{
-    clearTimeout(saveTimerRef.current);
-    saveTimerRef.current=setTimeout(()=>{
-      try{localStorage.setItem(SK,JSON.stringify(latestDataRef.current));}
-      catch(e){if(e.name==="QuotaExceededError")toast_("⚠️ Storage full — export a backup now!","err");}
-    },500);
-  },[data]);
-  useEffect(()=>{
-    const flush=()=>{
-      try{localStorage.setItem(SK,JSON.stringify(latestDataRef.current));}catch(e){}
-    };
-    window.addEventListener("beforeunload",flush);
-    return()=>window.removeEventListener("beforeunload",flush);
-  },[]);
-  useEffect(()=>{
-    // Clean up stale notif_ keys older than 7 days
-    try{
-      const cutoff=new Date();cutoff.setDate(cutoff.getDate()-7);
-      const cutoffStr=cutoff.toISOString().slice(0,10);
-      Object.keys(localStorage).filter(k=>k.startsWith("notif_")).forEach(k=>{
-        const dateStr=k.slice(-10); // last 10 chars = YYYY-MM-DD
-        if(dateStr<cutoffStr)localStorage.removeItem(k);
-      });
-    }catch(e){}
-  },[]);
+  useEffect(()=>{localStorage.setItem(SK,JSON.stringify(data));},[data]);
   useEffect(()=>{
     const s=document.getElementById("splash");
     if(s){setTimeout(()=>{s.classList.add("hide");setTimeout(()=>s.remove(),500);},1600);}
@@ -1518,16 +1389,19 @@ function App(){
     if(now.getDate()===1){
       const prevMonthEnd=new Date(now.getFullYear(),now.getMonth(),0); // last day of prev month
       const prevMonthStr=mo[prevMonthEnd.getMonth()]+` ${prevMonthEnd.getFullYear()}`;
-      setData(p=>{
-        const hasSnap=(p.snapshots||[]).some(s=>s.fecha&&s.fecha.includes(mo[prevMonthEnd.getMonth()])&&s.fecha.includes(String(prevMonthEnd.getFullYear())));
-        if(hasSnap)return p;
-        const totalCards=p.tarjetas.reduce((s,t)=>n(t.balance)+s,0);
-        const totalLoans=(p.loans||[]).reduce((s,l)=>n(l.balance)+s,0);
-        const snap={id:uid(),fecha:prevMonthEnd.toLocaleDateString("en-US",{month:"short",day:"numeric",year:"numeric"}),sobrante:0,deuda:totalCards+totalLoans,totalCards,totalLoans,_auto:true};
+      const hasSnap=(data.snapshots||[]).some(s=>s.fecha&&s.fecha.includes(mo[prevMonthEnd.getMonth()])&&s.fecha.includes(String(prevMonthEnd.getFullYear())));
+      if(!hasSnap){
+        const totalCards=data.tarjetas.reduce((s,t)=>n(t.balance)+s,0);
+        const totalLoans=(data.loans||[]).reduce((s,l)=>n(l.balance)+s,0);
+        const snap={id:Date.now(),fecha:prevMonthEnd.toLocaleDateString("en-US",{month:"short",day:"numeric",year:"numeric"}),sobrante:0,deuda:totalCards+totalLoans,totalCards,totalLoans,_auto:true};
+        setData(p=>{
+          const already=(p.snapshots||[]).some(s=>s.fecha&&s.fecha.includes(mo[prevMonthEnd.getMonth()])&&s.fecha.includes(String(prevMonthEnd.getFullYear())));
+          if(already)return p;
+          return{...p,snapshots:[snap,...(p.snapshots||[])].slice(0,24)};
+        });
         setTimeout(()=>toast_(`📸 ${mo[prevMonthEnd.getMonth()]} snapshot saved`),2000);
         setTimeout(()=>setBackupPrompt(true),3500);
-        return{...p,snapshots:[snap,...(p.snapshots||[])].slice(0,24)};
-      });
+      }
     }
     // Block nav bar during iOS home indicator swipe
     const BLOCK=500;
@@ -1572,7 +1446,7 @@ function App(){
         if(g.diaPago&&g.state!=="paid")fire(`exp_${g.id}`,g.nombre,String(g.diaPago),"📅");
       });
     });
-  },[data.notifEnabled,data.tarjetas,data.loans,data.periods]);
+  },[data.notifEnabled]);
   const hapticAC=useRef(null);
   const haptic=(type=30)=>{
     // iOS Safari: use AudioContext trick for real haptic feel
@@ -1633,8 +1507,8 @@ function App(){
     const du=getDU(d.fechaPago);
     if(du===null||du>3)return false;
     // If a payment was recorded today, don't show alert
-    const todayStr=new Date().toLocaleDateString("en-US",{month:"short",day:"numeric",year:"numeric"});
-    const paidToday=(d.historial||[]).some(h=>h.tipo==="pago"&&(h.fecha===todayStr||h.fecha===new Date().toLocaleDateString("en-US",{month:"short",day:"numeric"})));
+    const todayStr=new Date().toLocaleDateString("en-US",{month:"short",day:"numeric"});
+    const paidToday=(d.historial||[]).some(h=>h.tipo==="pago"&&h.fecha===todayStr);
     if(paidToday)return false;
     return true;
   });
@@ -1666,15 +1540,12 @@ function App(){
   },[quickOpen]);
   useEffect(()=>{if(!quickPid&&currentPid)setQuickPid(currentPid);},[currentPid]);
   useEffect(()=>{if(currentPid&&!activeCheckPid)setActiveCheckPid(currentPid);},[currentPid]);
-  useEffect(()=>{setExpenseSearch("");},[activeCheckPid]);
   useEffect(()=>{
     if(tab==="paychecks"&&!activeCheckPid&&monthPeriods.length>0){const cur=monthPeriods.find(p=>p.isCurrent)||monthPeriods[0];setActiveCheckPid(cur.id);}
     if(tab!=="overview")setPotsRevealed(false);
     if(tab!=="calendar")setCalOffset(0);
   },[tab]);
-  useEffect(()=>{localStorage.setItem("quickApplyTo",quickApplyTo);},[quickApplyTo]);
-  useEffect(()=>{localStorage.setItem("quickCardId",quickCardId);},[quickCardId]);
-  useEffect(()=>{localStorage.setItem("quickCardMode",quickCardMode);},[quickCardMode]);
+  useEffect(()=>{if(quickOpen){setQuickCardId("");setQuickCardMode("budget");}},[quickOpen]);
   const TABS_ORDER=useMemo(()=>["overview","paychecks","debts","calendar","history","settings"],[]);
   const handleSwipeTouchStart=useCallback(e=>{
     const t=e.touches[0];
@@ -1733,7 +1604,7 @@ function App(){
         const gastos=(newPeriods[mp.id]?.gastos)||[];
         // Remove any existing copy of this item (same nombre+destino+monto)
         const filtered=gastos.filter(g=>!(g.nombre===item.nombre&&g.destino===item.destino&&g._recurring&&!g._recurringCheckOnly));
-        const newItem={...item,id:uid(),state:"pending",pagado:false,_potAdded:false};
+        const newItem={...item,id:Date.now()*1000+Math.floor(Math.random()*999),state:"pending",pagado:false,_potAdded:false};
         newPeriods[mp.id]={...(newPeriods[mp.id]||{}),gastos:[...filtered,newItem]};
       });
       return{...p,periods:newPeriods};
@@ -1745,7 +1616,7 @@ function App(){
     setGastoTypePicker({pid});
   },[]);
   const addGastoRegular=useCallback(pid=>{
-    const nid=uid();
+    const nid=Date.now();
     const scrollY=window.scrollY;
     updPeriodGastos(pid,g=>[...g,{id:nid,nombre:"",monto:0,cat:"",state:"pending",pagado:false,destino:"__new__",tarjetaRef:"",diaPago:null,_quick:false}]);
     editGroupKeyRef.current="__new__";
@@ -1756,7 +1627,7 @@ function App(){
     },30);
   },[]);
   const addGastoDebt=useCallback((pid,debtRef,debt,tipo)=>{
-    const nid=uid();
+    const nid=Date.now();
     const isCard=tipo==="card";
     const realCat=isCard?"credit_card":"auto";
     editGroupKeyRef.current=isCard?"__cards__":realCat;
@@ -1799,50 +1670,6 @@ function App(){
       return{...p,periods:newPeriods};
     });
   },[activeCheckPid]);
-  // Compress periods older than 2 months that already have a snapshot — replace gastos[] with category summary
-  useEffect(()=>{
-    if(!data.snapshots||!data.periods)return;
-    const now=new Date();
-    const cutoffYM=`${now.getFullYear()}-${String(now.getMonth()-1).padStart(2,"0")}`; // 2 months ago YYYY-MM
-    const snapshotMonths=new Set((data.snapshots||[]).map(s=>{
-      if(!s.fecha)return null;
-      try{const d=new Date(s.fecha);return`${d.getFullYear()}-${String(d.getMonth()).padStart(2,"0")}`;}catch{return null;}
-    }).filter(Boolean));
-    const toCompress=Object.keys(data.periods).filter(pid=>{
-      const m=pid.replace("period_","").slice(0,7);
-      if(m>=cutoffYM)return false;
-      const per=data.periods[pid];
-      if(per._compressed)return false;
-      if(!per._archived)return false;
-      // Never compress if it has recurring items — needed for auto-copy
-      if((per.gastos||[]).some(g=>g._recurring))return false;
-      const [yr,mo]=m.split("-");
-      const snapKey=`${yr}-${String(parseInt(mo)-1).padStart(2,"0")}`;
-      return snapshotMonths.has(snapKey)||snapshotMonths.has(m);
-    });
-    if(!toCompress.length)return;
-    setData(p=>{
-      const newPeriods={...p.periods};
-      toCompress.forEach(pid=>{
-        const gastos=newPeriods[pid]?.gastos||[];
-        // Build category summary
-        const catTotals={};
-        gastos.forEach(g=>{
-          const cat=g.destino||g.cat||"other";
-          catTotals[cat]=(catTotals[cat]||0)+n(g.monto);
-        });
-        const totalSpent=gastos.reduce((s,g)=>s+n(g.monto),0);
-        const recurringNames=[...new Set(gastos.filter(g=>g._recurring).map(g=>g.nombre))];
-        newPeriods[pid]={
-          ...newPeriods[pid],
-          gastos:[], // drop full expense list
-          _compressed:true,
-          _summary:{catTotals,totalSpent,recurringNames,count:gastos.length},
-        };
-      });
-      return{...p,periods:newPeriods};
-    });
-  },[data.snapshots,activeCheckPid]);
   useEffect(()=>{
     if(!activeCheckPid)return;
     const curGastos=(data.periods[activeCheckPid]?.gastos)||[];
@@ -1885,7 +1712,7 @@ function App(){
       return true;
     });
     if(!recurring.length)return;
-    const copies=recurring.map((x,i)=>({...x,id:uid(),state:"pending",pagado:false,_potAdded:false}));
+    const copies=recurring.map((x,i)=>({...x,id:Date.now()*1000+i*100+Math.floor(Math.random()*99),state:"pending",pagado:false,_potAdded:false}));
     setData(p=>({...p,periods:{...p.periods,[activeCheckPid]:{...(p.periods[activeCheckPid]||{}),gastos:[...(p.periods[activeCheckPid]?.gastos||[]),...copies]}}}));
     setTimeout(()=>toast_(`🔁 ${copies.length} recurring copied`),100);
   },[activeCheckPid]);
@@ -1930,7 +1757,7 @@ function App(){
       setTimeout(()=>{if(newCardRef.current)newCardRef.current.scrollIntoView({behavior:"smooth",block:"start"});},80);
       return;
     }
-    const id=uid();
+    const id=Date.now();
     const usedCount=data.tarjetas.filter(t=>!CC[t.nombre]).length;
     const vc=CARD_PALETTE[usedCount%CARD_PALETTE.length];
     setData(p=>({...p,tarjetas:[...p.tarjetas,{id,nombre:"New Card",balance:0,limite:0,minimo:0,interes:0,fechaCorte:"",fechaPago:"",historial:[],tipo:"card",priority:false,_vc:vc}]}));
@@ -1941,7 +1768,7 @@ function App(){
     // Scroll to the new card after it renders
     setTimeout(()=>{if(newCardRef.current)newCardRef.current.scrollIntoView({behavior:"smooth",block:"start"});},120);
   },[data.tarjetas,newCardDraftId]);
-  const addLoan=useCallback(()=>{const id=uid();setData(p=>({...p,loans:[...(p.loans||[]),{id,nombre:"New Loan",balance:0,original:0,minimo:0,interes:0,fechaPago:"",historial:[],tipo:"loan",priority:false}]}));setExpandedLoanId(prev=>{if(prev&&prev!==id)bumpReset(prev);return id;});setAccion(null);setMontoAccion("");setAddingDebt({id,tipo:"loan"});setTimeout(()=>{const el=document.getElementById(`debt-${id}`);if(el){el.scrollIntoView({behavior:"smooth",block:"center"});}else{window.scrollTo({top:document.body.scrollHeight,behavior:"smooth"});}},350);},[]);
+  const addLoan=useCallback(()=>{const id=Date.now();setData(p=>({...p,loans:[...(p.loans||[]),{id,nombre:"New Loan",balance:0,original:0,minimo:0,interes:0,fechaPago:"",historial:[],tipo:"loan",priority:false}]}));setExpandedLoanId(prev=>{if(prev&&prev!==id)bumpReset(prev);return id;});setAccion(null);setMontoAccion("");setAddingDebt({id,tipo:"loan"});setTimeout(()=>{const el=document.getElementById(`debt-${id}`);if(el){el.scrollIntoView({behavior:"smooth",block:"center"});}else{window.scrollTo({top:document.body.scrollHeight,behavior:"smooth"});}},350);},[]);
   const togglePriorityCard=useCallback(id=>setData(p=>({...p,tarjetas:p.tarjetas.map(t=>t.id===id?{...t,priority:!t.priority}:t)})),[]);
   const togglePriorityLoan=useCallback(id=>setData(p=>({...p,loans:(p.loans||[]).map(l=>l.id===id?{...l,priority:!l.priority}:l)})),[]);
   useEffect(()=>{if(sortMenuOpen)setSortMenuOpen(false);},[expandedCardId]);
@@ -1950,7 +1777,7 @@ function App(){
 
   const addQuickExpenseToCheck=()=>{
     const m=parseFloat(quickAmt);if(!m||m<=0||!quickNote.trim())return toast_("Add name and amount","err");
-    const pid=quickPid||currentPid;const nid=uid();
+    const pid=quickPid||currentPid;const nid=Date.now();
     updPeriodGastos(pid,g=>[...g,{id:nid,nombre:quickNote.trim(),monto:m,cat:"temp",state:"paid",pagado:true,destino:"temp",tarjetaRef:"",diaPago:null,_quick:true}]);
     setQuickNote("");setQuickAmt("");setQuickOpen(false);toast_(`✅ "${quickNote.trim()}" ${fmt(m)} added & paid`);
   };
@@ -1969,7 +1796,7 @@ function App(){
     const m=parseFloat(quickAmt);
     if(!m||m<=0||!quickNote.trim())return toast_("Add name and amount","err");
     const pid=quickPid||currentPid;
-    const nid=uid();
+    const nid=Date.now();
     const cardIdNum=quickCardId?parseInt(quickCardId):null;
     const card=cardIdNum?data.tarjetas.find(t=>t.id===cardIdNum):null;
     const isCardOnly=card&&quickCardMode==="cardonly";
@@ -2030,14 +1857,17 @@ function App(){
       const toPot=potsList.find(p=>p.id===moveTransferTo);
       if(!fromPot||!toPot)return toast_("Invalid pot","err");
       if(m>n(fromPot.balance))return toast_("Not enough in "+fromPot.name,"err");
+      const mvId=Date.now();
       setData(p=>({...p,
-        potsList:(p.potsList||[]).map(pt=>pt.id===moveTo?{...pt,balance:Math.max(0,n(pt.balance)-m)}:pt.id===moveTransferTo?{...pt,balance:n(pt.balance)+m}:pt)}));
+        potsList:(p.potsList||[]).map(pt=>pt.id===moveTo?{...pt,balance:Math.max(0,n(pt.balance)-m)}:pt.id===moveTransferTo?{...pt,balance:n(pt.balance)+m}:pt),
+        potMovements:[...(p.potMovements||[]),{id:mvId,potKey:moveTo,amount:-m,date:new Date().toLocaleDateString("en-US",{month:"short",day:"numeric"}),note:"Transfer to "+toPot.name},{id:mvId+1,potKey:moveTransferTo,amount:m,date:new Date().toLocaleDateString("en-US",{month:"short",day:"numeric"}),note:"Transfer from "+fromPot.name}]}));
       setMoveAmt("");toast_("↔️ "+fmt(m)+" transferred");return;
     }
     const pot=potsList.find(p=>p.id===moveTo);
     const isUse=moveMode==="use";
     const curBal=n(pot?.balance)||0;
     if(isUse&&m>curBal)return toast_("Not enough in "+(pot?.name||moveTo),"err");
+    const mvId=Date.now();
     setData(p=>({...p,
       potsList:(p.potsList||[]).map(pt=>{
         if(pt.id!==moveTo)return pt;
@@ -2047,7 +1877,8 @@ function App(){
           setTimeout(()=>{launchConfetti();toast_(`🎉 ${pt.name} goal reached!`);},100);
         }
         return{...pt,balance:newBal};
-      })}));
+      }),
+      potMovements:[...(p.potMovements||[]),{id:mvId,potKey:moveTo,amount:isUse?-m:m,date:new Date().toLocaleDateString("en-US",{month:"short",day:"numeric"}),note:(isUse?"Used from ":"Added to ")+(pot?.name||moveTo)}]}));
     setMoveAmt("");
     toast_(isUse?"💳 "+fmt(m)+" used from "+(pot?.name||moveTo):"💸 "+fmt(m)+" added to "+(pot?.name||moveTo));
   };
@@ -2058,21 +1889,7 @@ function App(){
   const importData=useCallback(e=>{
     const f=e.target.files[0];if(!f)return;
     const r=new FileReader();
-    r.onload=ev=>{
-      try{
-        const parsed=JSON.parse(ev.target.result);
-        const restored=migrate(parsed);
-        if(!restored)throw new Error("Invalid");
-        const summary={
-          cards:(restored.tarjetas||[]).length,
-          loans:(restored.loans||[]).length,
-          periods:Object.keys(restored.periods||{}).length,
-          snapshots:(restored.snapshots||[]).length,
-          pots:(restored.potsList||[]).length,
-        };
-        setImportPreview({restored,summary});
-      }catch{toast_("❌ Invalid backup file","err");}
-    };
+    r.onload=ev=>{try{const parsed=JSON.parse(ev.target.result);const restored=migrate(parsed);setData(restored);localStorage.setItem(SK,JSON.stringify(restored));toast_("✅ Backup restored");}catch{toast_("❌ Invalid backup file","err");}};
     r.readAsText(f);e.target.value="";
   },[]);
 
@@ -2110,7 +1927,7 @@ function App(){
           <span style={{fontFamily:"monospace",fontSize:13,fontWeight:800,color:dst.color}}>{fmt(sub)}</span>
         </div>
         <DragList items={items}
-          renderItem={(item)=>(<GastoItem key={item.id} item={item} pid={pid} editId={editId} setEditId={(id)=>openEditId(id,gastos)} tarjetas={data.tarjetas} loans={data.loans||[]} potsList={potsList} globalEditingAmt={globalEditingAmt} checkIdx={monthPeriods.findIndex(p=>p.id===pid)} periodDate={periodDate} customLabels={data.customLabels||[]} onAddCustomLabel={(name,id,parent)=>{const lid=id||"label_"+uid();setData(p=>({...p,customLabels:[...(p.customLabels||[]),{id:lid,name,icon:"🏷️",parent:parent||null}]}));}}
+          renderItem={(item)=>(<GastoItem key={item.id} item={item} pid={pid} editId={editId} setEditId={(id)=>openEditId(id,gastos)} tarjetas={data.tarjetas} loans={data.loans||[]} potsList={potsList} globalEditingAmt={globalEditingAmt} checkIdx={monthPeriods.findIndex(p=>p.id===pid)} periodDate={periodDate} customLabels={data.customLabels||[]} onAddCustomLabel={(name,id,parent)=>{const lid=id||"label_"+Date.now();setData(p=>({...p,customLabels:[...(p.customLabels||[]),{id:lid,name,icon:"🏷️",parent:parent||null}]}));}}
             onCycle={id=>cycleState(pid,id)} onLongPress={id=>setReserved(pid,id)}
             onUpdate={(id,f,v)=>updateGasto(pid,id,f,v)}
             onBatchUpdate={(id,fields)=>batchUpdateGasto(pid,id,fields)} onPropagate={(item)=>propagateToAllChecks(pid,item)}
@@ -2160,7 +1977,7 @@ function App(){
           <span style={{fontFamily:"monospace",fontSize:13,fontWeight:800,color:dst.color}}>{fmt(sub)}</span>
         </div>
         <DragList items={sortedItems}
-          renderItem={(item,_,touch)=>(<GastoItem key={item.id} item={item} pid={pid} editId={editId} setEditId={(id)=>openEditId(id,gastos)} tarjetas={data.tarjetas} loans={data.loans||[]} potsList={potsList} globalEditingAmt={globalEditingAmt} checkIdx={monthPeriods.findIndex(p=>p.id===pid)} periodDate={periodDate} customLabels={data.customLabels||[]} onAddCustomLabel={(name,id,parent)=>{const lid=id||"label_"+uid();setData(p=>({...p,customLabels:[...(p.customLabels||[]),{id:lid,name,icon:"🏷️",parent:parent||null}]}));}}
+          renderItem={(item,_,touch)=>(<GastoItem key={item.id} item={item} pid={pid} editId={editId} setEditId={(id)=>openEditId(id,gastos)} tarjetas={data.tarjetas} loans={data.loans||[]} potsList={potsList} globalEditingAmt={globalEditingAmt} checkIdx={monthPeriods.findIndex(p=>p.id===pid)} periodDate={periodDate} customLabels={data.customLabels||[]} onAddCustomLabel={(name,id,parent)=>{const lid=id||"label_"+Date.now();setData(p=>({...p,customLabels:[...(p.customLabels||[]),{id:lid,name,icon:"🏷️",parent:parent||null}]}));}}
             onCycle={id=>cycleState(pid,id)} onLongPress={id=>setReserved(pid,id)}
             onUpdate={(id,f,v)=>updateGasto(pid,id,f,v)}
             onBatchUpdate={(id,fields)=>batchUpdateGasto(pid,id,fields)} onPropagate={(item)=>propagateToAllChecks(pid,item)}
@@ -2299,7 +2116,7 @@ function App(){
         <div style={{fontSize:48,marginBottom:4}}>🔒</div>
         <div style={{fontSize:20,fontWeight:700,color:T.text}}>My Budget</div>
         <div style={{fontSize:13,color:T.muted,textAlign:"center"}}>
-          {pinNeedsMigration?"🔐 Security upgrade — re-enter your PIN":pinSetup?(pinStep===1?"Create a PIN":"Confirm your PIN"):"Enter your PIN"}
+          {pinSetup?(pinStep===1?"Create a PIN":"Confirm your PIN"):"Enter your PIN"}
         </div>
         {/* PIN dots */}
         <div style={{display:"flex",gap:16,marginBottom:8}}>
@@ -2307,8 +2124,7 @@ function App(){
             <div key={i} style={{width:14,height:14,borderRadius:"50%",
               background:pinInput.length>i?T.accent:"rgba(255,255,255,0.15)",
               border:`2px solid ${pinInput.length>i?T.accent:T.border}`,
-              transition:"background 0.15s, transform 0.15s",
-              animation:pinInput.length===i+1?"dotPop 0.3s cubic-bezier(0.34,1.56,0.64,1) both":"none",
+              transition:"background 0.15s",
               transform:pinError&&pinInput.length===0?"scale(1.2)":"scale(1)"}}/>
           ))}
         </div>
@@ -2342,30 +2158,25 @@ function App(){
       onTouchEnd={handleSwipeTouchEnd}
       style={{minHeight:"100vh",background:T.bg,color:T.text,fontFamily:"-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif",paddingTop:urgentDebts.length>0&&!alertDim&&tab!=="debts"?34:0,transition:"padding-top 0.2s"}}>
       <style>{`
-        @keyframes tabEnter{from{opacity:0;transform:translateY(8px);}to{opacity:1;transform:translateY(0);}}.anim{animation:tabEnter 0.38s cubic-bezier(0.4,0,0.2,1) both;}@keyframes onboardPulse{0%,100%{box-shadow:0 0 0 0 rgba(88,166,255,0.5);}50%{box-shadow:0 0 0 8px rgba(88,166,255,0);}}.onboard-pulse{animation:onboardPulse 1.8s ease-in-out infinite;border-radius:inherit;}
-        @keyframes itemEnter{from{opacity:0;transform:translateY(6px) scale(0.98);}to{opacity:1;transform:translateY(0) scale(1);}}
+        @keyframes tabEnter{from{opacity:0;transform:translateY(4px);}to{opacity:1;transform:translateY(0);}}.anim{animation:tabEnter 0.35s cubic-bezier(0.4,0,0.2,1) both;}@keyframes onboardPulse{0%,100%{box-shadow:0 0 0 0 rgba(88,166,255,0.5);}50%{box-shadow:0 0 0 8px rgba(88,166,255,0);}}.onboard-pulse{animation:onboardPulse 1.8s ease-in-out infinite;border-radius:inherit;}
+        @keyframes itemEnter{from{opacity:0;}to{opacity:1;}}
         @keyframes itemExit{0%{opacity:1;transform:translateX(0);max-height:120px;margin-bottom:7px;}100%{opacity:0;transform:translateX(60px);max-height:0;margin-bottom:0;}}.expense-row-exit{animation:itemExit 0.25s cubic-bezier(0.4,0,1,1) forwards;}
-        @keyframes modalEnter{from{opacity:0;transform:scale(0.94) translateY(12px);}to{opacity:1;transform:scale(1) translateY(0);}}.modal-anim{animation:modalEnter 0.32s cubic-bezier(0.34,1.1,0.64,1) both;}
-        @keyframes overlayFadeIn{from{opacity:0;}to{opacity:1;}}.overlay-anim{animation:overlayFadeIn 0.2s ease both;}
-        @keyframes pop{from{opacity:0.6;transform:scale(0.95);}to{opacity:1;transform:scale(1);}}
-        @keyframes dotPop{0%{transform:scale(1);}40%{transform:scale(2.2);}70%{transform:scale(0.85);}100%{transform:scale(1);}}
+        @keyframes modalEnter{from{opacity:0;transform:scale(0.97) translateY(6px);}to{opacity:1;transform:scale(1) translateY(0);}}.modal-anim{animation:modalEnter 0.28s cubic-bezier(0.4,0,0.2,1) both;}
+        @keyframes pop{from{opacity:0.6;transform:scale(0.97);}to{opacity:1;transform:scale(1);}}
+        @keyframes dotPop{0%{transform:scale(1);}40%{transform:scale(2.0);}70%{transform:scale(0.88);}100%{transform:scale(1);}}
         @keyframes donutFill{from{stroke-dashoffset:var(--dash-full);}to{stroke-dashoffset:0;}}
-        .donut-arc{animation:donutFill 1s cubic-bezier(0.4,0,0.2,1) both;}
+        .donut-arc{animation:donutFill 0.8s cubic-bezier(0.4,0,0.2,1) both;}
         .amt-wrap{position:relative;display:block;}.amt-prefix{position:absolute;left:11px;top:50%;transform:translateY(-50%);font-family:monospace;font-weight:700;pointer-events:none;z-index:1;}
-        @keyframes editOpen{from{opacity:0;max-height:0;transform:translateY(-6px);}to{opacity:1;max-height:400px;transform:translateY(0);}}
+        @keyframes editOpen{from{opacity:0;transform:translateY(-4px);}to{opacity:1;transform:translateY(0);}}
         @keyframes debtExit{0%{opacity:1;max-height:200px;margin-bottom:9px;}100%{opacity:0;max-height:0;margin-bottom:0;}}.debt-exit{animation:debtExit 0.28s cubic-bezier(0.4,0,1,1) forwards;}
-        @keyframes debtEnter{from{opacity:0;transform:translateY(10px) scale(0.98);}to{opacity:1;transform:translateY(0) scale(1);}}.debt-enter{animation:debtEnter 0.35s cubic-bezier(0.34,1.1,0.64,1) both;}
-        .expense-row:active{transform:scale(0.985);transition:transform 0.06s ease;}
+        .expense-row:active{transform:scale(0.99);transition:transform 0.08s ease;}
         input,select,textarea{scroll-margin-bottom:200px;}
         input[type=number]:focus,input[type=text]:focus{border-color:${T.accent}!important;box-shadow:0 0 0 3px ${T.accent}26!important;outline:none;transition:border-color 0.15s,box-shadow 0.15s;}
-        .debt-card-tap:active{transform:scale(0.984);transition:transform 0.06s ease;}
-        @keyframes slideInDown{from{opacity:0;transform:translateY(-10px);}to{opacity:1;transform:translateY(0);}}
+        .debt-card-tap:active{transform:scale(0.988);transition:transform 0.08s ease;}
+        @keyframes slideInDown{from{opacity:0;transform:translateY(-8px);}to{opacity:1;transform:translateY(0);}}
         @keyframes fadeIn{from{opacity:0;}to{opacity:1;}}
         @keyframes slideInUp{from{opacity:0;transform:translateY(100%);}to{opacity:1;transform:translateY(0);}}
-        @keyframes slideInUpSmall{from{opacity:0;transform:translateY(20px);}to{opacity:1;transform:translateY(0);}}.card-anim{animation:slideInUpSmall 0.4s cubic-bezier(0.34,1.1,0.64,1) both;}
         @keyframes pulse{0%,100%{opacity:1;}50%{opacity:0.6;}}
-        @keyframes scaleIn{from{opacity:0;transform:scale(0.85);}to{opacity:1;transform:scale(1);}}.scale-anim{animation:scaleIn 0.3s cubic-bezier(0.34,1.56,0.64,1) both;}
-        @keyframes shimmer{0%{opacity:0.6;}50%{opacity:1;}100%{opacity:0.6;}}
         input[type=range]{width:100%;accent-color:#58a6ff;}
         input[type=date]::-webkit-calendar-picker-indicator{width:12px;height:12px;opacity:0.35;filter:invert(0.7);cursor:pointer;padding:0;margin:0;}
         input[type=date]{min-width:0;}
@@ -2375,11 +2186,9 @@ function App(){
         .g2{display:grid;grid-template-columns:1fr 1fr;gap:10px;}
         .tabs{display:flex;gap:4px;overflow-x:auto;padding-bottom:2px;-webkit-overflow-scrolling:touch;scrollbar-width:none;margin-bottom:14px;}
         .tabs::-webkit-scrollbar{display:none;}
-        .quick-modal-fullscreen{animation:slideInUp 0.34s cubic-bezier(0.34,1.05,0.64,1) both;}
+        .quick-modal-fullscreen{animation:slideInUp 0.32s cubic-bezier(0.4,0,0.2,1) both;}
         @keyframes potsSlideUp{from{opacity:0;transform:translateY(100%);}to{opacity:1;transform:translateY(0);}}
-        .pots-modal{animation:potsSlideUp 0.34s cubic-bezier(0.34,1.05,0.64,1) both;}
-        button{-webkit-tap-highlight-color:transparent;}
-        button:active:not(:disabled){filter:brightness(0.88);transition:filter 0.06s ease;}
+        .pots-modal{animation:potsSlideUp 0.32s cubic-bezier(0.4,0,0.2,1) both;}
       `}</style>
       {toast&&<div style={{position:"fixed",top:"max(16px, env(safe-area-inset-top, 16px))",left:"50%",transform:"translateX(-50%)",zIndex:9999,background:toast.type==="err"?"#da3633":"#238636",color:"#fff",padding:"10px 20px",borderRadius:24,fontWeight:600,fontSize:13,boxShadow:"0 8px 32px rgba(0,0,0,0.4)",border:`1px solid ${toast.type==="err"?"rgba(248,81,73,0.4)":"rgba(46,160,67,0.4)"}`,whiteSpace:"nowrap",animation:"slideInDown 0.25s cubic-bezier(0.4,0,0.2,1)"}}>{toast.msg}</div>}
       <div id="confetti-container" style={{position:"fixed",inset:0,pointerEvents:"none",zIndex:9998,overflow:"hidden"}}/>
@@ -2736,11 +2545,10 @@ function App(){
                       setEditingPotId(isEditing?null:potId);
                     } else if(dx<-50){
                       // swiped left → delete
-                      appConfirm(`Delete "${potName}"?`,()=>{
+                      if(window.confirm(`Delete "${potName}"?`)){
                         setData(p=>({...p,potsList:(p.potsList||[]).filter(pt=>pt.id!==potId)}));
                         if(moveTo===potId)setMoveTo(potsList.find(p2=>p2.id!==potId)?.id||"");
-                        if(window._potSwipe)delete window._potSwipe[potId];
-                      });
+                      }
                     }
                     swRef.active=false;
                   };
@@ -2778,7 +2586,7 @@ function App(){
                         onClick={()=>{setEditingPotId(isEditing?null:pot.id);setMoveTo(pot.id);}}>✏️</div>
                       <div style={{flex:1,background:T.surface2}}/>
                       <div style={{width:70,background:"rgba(248,81,73,0.92)",display:"flex",alignItems:"center",justifyContent:"center",fontSize:18,cursor:"pointer",flexShrink:0}}
-                        onClick={()=>{appConfirm(`Delete "${pot.name}"?`,()=>{setData(p=>({...p,potsList:(p.potsList||[]).filter(pt=>pt.id!==pot.id)}));if(moveTo===pot.id)setMoveTo(potsList.find(p2=>p2.id!==pot.id)?.id||"");if(window._potSwipe)delete window._potSwipe[pot.id];});}}>🗑</div>
+                        onClick={()=>{if(window.confirm(`Delete "${pot.name}"?`)){setData(p=>({...p,potsList:(p.potsList||[]).filter(pt=>pt.id!==pot.id)}));if(moveTo===pot.id)setMoveTo(potsList.find(p2=>p2.id!==pot.id)?.id||"");}}}>🗑</div>
                     </div>
 
                     {/* Main row — NO border, NO borderRadius, clips to parent */}
@@ -2856,7 +2664,7 @@ function App(){
               {/* Add new pot */}
               <button style={{...BTN,width:"100%",padding:"10px",marginBottom:14,background:`${T.accent}0d`,color:T.accent,fontSize:13,fontWeight:600,border:`1px dashed ${T.accent}33`,borderRadius:12,display:"flex",alignItems:"center",justifyContent:"center",gap:6}}
                 onClick={()=>{
-                  const newId="pot_"+uid();
+                  const newId="pot_"+Date.now();
                   const icons=["🪣","✈️","🚗","🏖️","🎯","💊"];
                   const colors=["#58a6ff","#a78bfa","#f97316","#ec4899","#10b981","#d29922"];
                   const idx=(data.potsList||[]).length%6;
@@ -2922,6 +2730,15 @@ function App(){
                   </button>
                 </div>
 
+                {(data.potMovements||[]).filter(mv=>mv.potKey===selPot.id).slice(0,3).length>0&&<div style={{marginTop:4}}>
+                  <div style={{fontSize:9,color:T.muted,letterSpacing:1,marginBottom:6}}>RECENT</div>
+                  {(data.potMovements||[]).filter(mv=>mv.potKey===selPot.id).slice(0,3).map((mv,i)=>(
+                    <div key={mv.id||i} style={{display:"flex",justifyContent:"space-between",fontSize:10,padding:"4px 0",borderBottom:`1px solid ${T.border}`}}>
+                      <span style={{color:T.muted}}>{mv.date} · {mv.note}</span>
+                      <span style={{fontFamily:"monospace",fontWeight:700,color:mv.amount>=0?"#3fb950":"#f85149"}}>{mv.amount>=0?"+":""}{fmt(Math.abs(mv.amount))}</span>
+                    </div>
+                  ))}
+                </div>}
               </>}
             </div>
           </div>
@@ -3138,7 +2955,7 @@ function App(){
             })}
           </div>)}
           {/* CHECKS — compact grouped section */}
-          <div className="card-anim" style={{...CARD,padding:"13px 16px",marginBottom:12,animationDelay:"0.05s"}}>
+          <div style={{...CARD,padding:"13px 16px",marginBottom:12}}>
             <div style={{fontSize:10,color:T.muted,letterSpacing:1.5,fontWeight:700,marginBottom:10}}>💰 CHECKS</div>
             {monthPeriods.map((p,pi)=>{
               const gastos=getPGastos(p.id);
@@ -3190,7 +3007,7 @@ function App(){
           {(()=>{
             const totalCards=data.tarjetas.reduce((s,t)=>s+n(t.balance),0);
             const totalLoans=(data.loans||[]).reduce((s,l)=>s+n(l.balance),0);
-            return(<div className="card-anim" style={{...CARD,padding:"13px 16px",marginBottom:12,animationDelay:"0.1s"}}>
+            return(<div style={{...CARD,padding:"13px 16px",marginBottom:12}}>
               <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:10}}>
                 <div style={{fontSize:10,color:T.muted,letterSpacing:1.5,fontWeight:700}}>💳 DEBT OVERVIEW</div>
                 <button style={{...BTN,padding:"3px 9px",background:T.surface2,color:T.muted,fontSize:10,border:`1px solid ${T.border}`}} onClick={()=>setTab("debts")}>View all →</button>
@@ -3215,7 +3032,7 @@ function App(){
             // hidden=true means privacy mode ON: show •••• unless user tapped to reveal
             const hidden=data.potsHidden&&!potsRevealed;
             const totalPots=potsList.reduce((s,p)=>s+n(p.balance),0);
-            return(<div className="card-anim" style={{...CARD,padding:"13px 16px",marginBottom:12,animationDelay:"0.15s"}}>
+            return(<div style={{...CARD,padding:"13px 16px",marginBottom:12}}>
               <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:10}}>
                 <div style={{fontSize:10,color:T.muted,letterSpacing:1.5,fontWeight:700}}>🪣 POTS</div>
                 <button style={{...BTN,padding:"3px 10px",fontSize:10,background:`${T.accent}14`,color:T.accent,border:`1px solid ${T.accent}33`,borderRadius:7}} onClick={()=>{setMoveTo(potsList[0]?.id||"");setEditingPotId(null);setMoveTransferTo("");setMoveMode("add");setMoveOpen(true);}}>Manage</button>
@@ -3231,7 +3048,7 @@ function App(){
                     <span style={{fontSize:11,fontWeight:600,color:T.text,flex:1,cursor:"pointer"}}
                       onClick={()=>{setMoveTo(pot.id);setEditingPotId(null);setMoveMode("add");setMoveOpen(true);}}>
                       {pot.name}
-                      {pot.goal>0&&<span style={{fontSize:9,color:T.muted,fontWeight:400,marginLeft:6}}>{Math.min(100,Math.round((bal/pot.goal)*100))}%</span>}
+                      {pot.goal>0&&<span style={{fontSize:9,color:T.muted,fontWeight:400,marginLeft:6}}>{Math.min(100,Math.round((bal/pot.goal)*100))}% of {fmt(pot.goal)}</span>}
                     </span>
                     <div style={{display:"flex",alignItems:"center",gap:8,flexShrink:0}}>
                       {/* Tap balance → reveal (only when potsHidden is ON) */}
@@ -3239,6 +3056,8 @@ function App(){
                         style={{...BTN,fontFamily:"monospace",fontWeight:800,fontSize:13,color:bal>0?color:T.muted,background:"transparent",border:"none",padding:"2px 6px",transition:"opacity 0.12s",opacity:hidden?0.4:1,letterSpacing:hidden?1.5:0,cursor:data.potsHidden?"pointer":"default"}}>
                         {hidden?"••••":fmt(bal)}
                       </button>
+                      <button style={{...BTN,width:26,height:26,borderRadius:8,background:"rgba(63,185,80,0.12)",color:"#3fb950",border:"1px solid rgba(63,185,80,0.3)",fontSize:15,display:"flex",alignItems:"center",justifyContent:"center"}}
+                        onClick={()=>{setMoveTo(pot.id);setMoveMode("add");setEditingPotId(null);setMoveOpen(true);}}>+</button>
                     </div>
                   </div>
                   {pot.goal>0&&(()=>{
@@ -3264,20 +3083,11 @@ function App(){
           <button style={{...BTN,width:"100%",padding:"12px",background:"#238636",color:"#fff",fontSize:13,border:"1px solid #2ea043"}} onClick={()=>{
             const totalCards=data.tarjetas.reduce((s,t)=>s+n(t.balance),0);
             const totalLoans=(data.loans||[]).reduce((s,l)=>s+n(l.balance),0);
-            const mo=["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
-            const now=new Date();
-            const thisMonth=mo[now.getMonth()];
-            const thisYear=String(now.getFullYear());
-            const existing=(data.snapshots||[]).find(s=>s.fecha&&s.fecha.includes(thisMonth)&&s.fecha.includes(thisYear));
-            if(existing){
-              toast_("Snapshot for this month already exists","err");
-              return;
-            }
-            const s={id:uid(),fecha:now.toLocaleDateString("en-US",{month:"short",day:"numeric",year:"numeric"}),sobrante:totalMonthlyIncome-totalMonthlyExp,deuda:totalDebt,totalCards,totalLoans};
+            const s={id:Date.now(),fecha:new Date().toLocaleDateString("en-US",{month:"short",day:"numeric",year:"numeric"}),sobrante:totalMonthlyIncome-totalMonthlyExp,deuda:totalDebt,totalCards,totalLoans};
             setData(p=>({...p,snapshots:[s,...p.snapshots].slice(0,24)}));toast_("✅ Snapshot saved");
           }}>💾 Save Monthly Snapshot</button>
         </div>)}
-        {tab==="paychecks"&&(<div className="anim" onTouchStart={e=>{const t=e.touches[0];swipeStart.current={x:t.clientX,y:t.clientY};}} onTouchEnd={e=>{if(!swipeStart.current)return;const dx=e.changedTouches[0].clientX-swipeStart.current.x,dy=e.changedTouches[0].clientY-swipeStart.current.y;swipeStart.current=null;if(Math.abs(dx)<60||Math.abs(dx)<Math.abs(dy)*1.5||monthPeriods.length<2)return;const curIdx=monthPeriods.findIndex(p=>p.id===(activeCheckPid||(monthPeriods.find(p=>p.isCurrent)||monthPeriods[0])?.id));if(dx<0&&curIdx<monthPeriods.length-1){haptic(15);setActiveCheckPid(monthPeriods[curIdx+1].id);}else if(dx>0&&curIdx>0){haptic(15);setActiveCheckPid(monthPeriods[curIdx-1].id);}}}>
+        {tab==="paychecks"&&(<div className="anim" onTouchStart={e=>{swipeStart.current={x:e.touches[0].clientX,y:e.touches[0].clientY};}} onTouchEnd={e=>{if(!swipeStart.current||monthPeriods.length<2)return;const dx=e.changedTouches[0].clientX-swipeStart.current.x,dy=e.changedTouches[0].clientY-swipeStart.current.y;swipeStart.current=null;if(Math.abs(dx)<60||Math.abs(dx)<Math.abs(dy)*1.5)return;const pid=activeCheckPid||(monthPeriods.find(mp=>mp.isCurrent)||monthPeriods[0])?.id;const ci=monthPeriods.findIndex(mp=>mp.id===pid);if(dx<0&&ci<monthPeriods.length-1){haptic(15);setActiveCheckPid(monthPeriods[ci+1].id);}else if(dx>0&&ci>0){haptic(15);setActiveCheckPid(monthPeriods[ci-1].id);}}}>
           {!data.proximoCobro&&(<div style={{textAlign:"center",padding:"40px 20px"}}>
             <div style={{fontSize:36,marginBottom:12}}>💰</div>
             <div style={{fontSize:15,fontWeight:700,color:T.text,marginBottom:6}}>Set up your paycheck first</div>
@@ -3338,10 +3148,14 @@ function App(){
             if(sortStrategy==="balance") return [...arr].sort((a,b)=>(b.priority?1:0)-(a.priority?1:0)||n(a.balance)-n(b.balance));
             return [...arr].sort((a,b)=>(b.priority?1:0)-(a.priority?1:0));
           };
+          const sortedAllDebts=(expandedCardId||expandedLoanId)?allDebts:sortStrategy==="apr"
+            ?[...allDebts].sort((a,b)=>n(b.interes)-n(a.interes))
+            :sortStrategy==="balance"
+            ?[...allDebts].sort((a,b)=>n(a.balance)-n(b.balance))
+            :allDebts;
+          const firstDebtId=sortStrategy?sortedAllDebts.find(d=>n(d.balance)>0)?.id??null:null;
           const freshCards=sortCards(debtsFilter==="all"||debtsFilter==="cards"?cards:debtsFilter==="loans"?[]:cards);
           const freshLoans=(debtsFilter==="all"||debtsFilter==="loans"?loans:debtsFilter==="cards"?[]:loans).sort((a,b)=>(b.priority?1:0)-(a.priority?1:0));
-          // firstDebtId only used for gold star highlight — applies to cards only
-          const firstDebtId=sortStrategy?freshCards.find(d=>n(d.balance)>0)?.id??null:null;
           if(!expandedCardId&&!expandedLoanId){cardOrderRef.current=freshCards.map(c=>c.id);loanOrderRef.current=freshLoans.map(l=>l.id);}
           const visibleCards=expandedCardId&&cardOrderRef.current.length?[...freshCards].sort((a,b)=>cardOrderRef.current.indexOf(a.id)-cardOrderRef.current.indexOf(b.id)):freshCards;
           const visibleLoans=expandedLoanId&&loanOrderRef.current.length?[...freshLoans].sort((a,b)=>loanOrderRef.current.indexOf(a.id)-loanOrderRef.current.indexOf(b.id)):freshLoans;
@@ -3510,9 +3324,7 @@ function App(){
                           key={d.id}
                           id={`debt-${d.id}`}
                           ref={isNewDraft ? newCardRef : null}
-                          className="debt-enter"
                           style={{position:"relative",marginTop,zIndex,isolation:"isolate",opacity,transition,filter,transform,
-                            animationDelay:`${stackIdx*0.05}s`,
                             ...(isExpanded?{boxShadow:"0 8px 32px rgba(0,0,0,0.7)",borderRadius:14}:{})
                           }}
                           onTouchStart={isExpanded?e=>{
@@ -3559,9 +3371,8 @@ function App(){
                               onApply={isExpanded?applyAccion:()=>{}}
                               onUpdate={updateTarjeta}
                               onRemove={(id)=>{
-                                const isNew=id===newCardDraftId;
                                 const el=document.getElementById(`debt-${id}`);
-                                if(el&&!isNew){el.classList.add("debt-exit");setTimeout(()=>{removeTarjeta(id);setExpandedCardId(null);if(id===newCardDraftId){setNewCardDraftId(null);setAddingDebt(null);}},280);}
+                                if(el){el.classList.add("debt-exit");setTimeout(()=>{removeTarjeta(id);setExpandedCardId(null);if(id===newCardDraftId){setNewCardDraftId(null);setAddingDebt(null);}},280);}
                                 else{removeTarjeta(id);setExpandedCardId(null);if(id===newCardDraftId){setNewCardDraftId(null);setAddingDebt(null);}}
                               }}
                               isAdding={isAdding_}
@@ -3644,8 +3455,7 @@ function App(){
                       };
                       const clipH = isExpanded ? null : HEADER_H;
                       return(
-                        <div key={d.id} id={`debt-${d.id}`} className="debt-enter" style={{position:"relative",marginTop,zIndex,isolation:"isolate",filter:filter2,transform,transition:transition2,
-                          animationDelay:`${stackIdx*0.05}s`,
+                        <div key={d.id} id={`debt-${d.id}`} style={{position:"relative",marginTop,zIndex,isolation:"isolate",filter:filter2,transform,transition:transition2,
                           ...(isExpanded?{boxShadow:"0 8px 32px rgba(0,0,0,0.7)",borderRadius:14}:{})
                         }}>
                           <div style={{borderRadius:14,overflow:isExpanded?"visible":"hidden",cursor:isExpanded?"default":"pointer",userSelect:"none",WebkitUserSelect:"none",WebkitTouchCallout:"none",position:"relative",...(clipH!=null?{height:clipH,maxHeight:clipH}:{})}}
@@ -3667,7 +3477,7 @@ function App(){
                               setMontoAccion={isExpanded?setMontoAccion:()=>{}}
                               onApply={isExpanded?applyAccion:()=>{}}
                               onUpdate={updateLoan}
-                              onRemove={(id)=>{const isNew=addingDebt?.id===id;const el=document.getElementById(`debt-${id}`);if(el&&!isNew){el.classList.add("debt-exit");setTimeout(()=>{removeLoan(id);setExpandedLoanId(null);},280);}else{removeLoan(id);setExpandedLoanId(null);setAddingDebt(null);}}}
+                              onRemove={(id)=>{const el=document.getElementById(`debt-${id}`);if(el){el.classList.add("debt-exit");setTimeout(()=>{removeLoan(id);setExpandedLoanId(null);},280);}else{removeLoan(id);setExpandedLoanId(null);}}}
                               isAdding={addingDebt?.id===d.id}
                               setAddingDebt={setAddingDebt}
                               onTogglePriority={togglePriorityLoan}
@@ -3733,14 +3543,7 @@ function App(){
           });});
           return(<div className="anim">
             <div style={{...CARD,padding:"14px 14px 16px"}}>
-              <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:2}}>
-                <button style={{...BTN,background:"transparent",color:T.muted,fontSize:18,padding:"2px 10px",border:`1px solid ${T.border}`,borderRadius:8}} onClick={()=>setCalOffset(o=>o-1)}>‹</button>
-                <div style={{textAlign:"center"}}>
-                  <div style={{fontWeight:700,fontSize:15,color:T.text}}>{mo[mth]} {yr}</div>
-                  {!isCurrentMonth&&<button style={{...BTN,background:"transparent",color:T.accent,fontSize:10,padding:"1px 8px",border:`1px solid ${T.accent}33`,borderRadius:6,marginTop:2}} onClick={()=>setCalOffset(0)}>Today</button>}
-                </div>
-                <button style={{...BTN,background:"transparent",color:T.muted,fontSize:18,padding:"2px 10px",border:`1px solid ${T.border}`,borderRadius:8}} onClick={()=>setCalOffset(o=>o+1)}>›</button>
-              </div>
+              <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:2}}><button style={{...BTN,background:"transparent",color:T.muted,fontSize:20,padding:"0 10px",border:"none"}} onClick={()=>setCalOffset(o=>o-1)}>‹</button><div style={{textAlign:"center"}}><div style={{fontWeight:700,fontSize:15,color:T.text}}>{mo[mth]} {yr}</div>{!isCurrentMonth&&<button style={{...BTN,background:"transparent",color:T.accent,fontSize:10,padding:"1px 8px",border:`1px solid ${T.accent}33`,borderRadius:6}} onClick={()=>setCalOffset(0)}>Today</button>}</div><button style={{...BTN,background:"transparent",color:T.muted,fontSize:20,padding:"0 10px",border:"none"}} onClick={()=>setCalOffset(o=>o+1)}>›</button></div>
               <div style={{textAlign:"center",fontSize:9,color:T.muted,marginBottom:14,letterSpacing:0.5}}>READ ONLY · FINANCIAL OVERVIEW</div>
               <div style={{display:"grid",gridTemplateColumns:"repeat(7,1fr)",gap:1,marginBottom:3}}>
                 {["S","M","T","W","T","F","S"].map((d,i)=>(<div key={i} style={{textAlign:"center",fontSize:9,color:T.muted,fontWeight:600,padding:"2px 0"}}>{d}</div>))}
@@ -3780,16 +3583,11 @@ function App(){
             const SpendingBreakdown=(()=>{
               const now=new Date();
               const mo=["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
-              const months=[...new Set(Object.keys(data.periods||{}).map(pid=>pid.slice(0,7)))]
-                .filter(m=>{
-                  // Only show months that have at least one gasto
-                  return Object.entries(data.periods||{}).some(([pid,p])=>pid.slice(0,7)===m&&(p.gastos||[]).length>0);
-                })
-                .filter(Boolean).sort().reverse().slice(0,6);
+              const months=[...new Set(Object.keys(data.periods||{}).map(pid=>pid.slice(0,7)))].filter(Boolean).sort().reverse().slice(0,6);
               const [selMonth,setSelMonth]=React.useState(months[0]||now.toISOString().slice(0,7));
               const [expanded,setExpanded]=React.useState(new Set());
               const toggle=k=>setExpanded(prev=>{const n=new Set(prev);n.has(k)?n.delete(k):n.add(k);return n;});
-              const validPids=new Set(buildMonthPeriods(data.proximoCobro,data.payFreq||"biweekly").map(p=>p.id));
+              const validPids=new Set(buildMonthPeriods(data.proximoCobro,data.payFreq).map(p=>p.id));
               const monthGastos=Object.entries(data.periods||{})
                 .filter(([pid])=>pid.slice(0,7)===selMonth&&(validPids.has(pid)||months.length>1))
                 .flatMap(([,p])=>p.gastos||[]);
@@ -3900,8 +3698,8 @@ function App(){
           {data.snapshots&&data.snapshots.length>=2&&(()=>{
             const snaps=[...data.snapshots].sort((a,b)=>new Date(a.fecha)-new Date(b.fecha)).slice(-12);
             const W=340,H=120,PAD=8,PB=24;
-            const debtVals=snaps.map(s=>n(s.deuda)||n(s.totalDebt)||0);
-            const surpVals=snaps.map(s=>n(s.sobrante)||n(s.surplus)||0);
+            const debtVals=snaps.map(s=>n(s.totalDebt)||0);
+            const surpVals=snaps.map(s=>n(s.surplus)||0);
             const maxDebt=Math.max(...debtVals,1);
             const maxSurp=Math.max(...surpVals,1);
             const minSurp=Math.min(...surpVals,0);
@@ -4126,7 +3924,7 @@ function App(){
                 {localStorage.getItem(PIN_KEY)?"🔑 Change PIN":"🔑 Set PIN"}
               </button>}
               {data.biometricEnabled!==false&&localStorage.getItem(PIN_KEY)&&<button style={{...BTN,padding:"8px 12px",background:"rgba(248,81,73,0.1)",color:"#f85149",fontSize:11,border:"1px solid rgba(248,81,73,0.2)",borderRadius:9}}
-                onClick={()=>{appConfirm("Remove PIN?",()=>{localStorage.removeItem(PIN_KEY);localStorage.removeItem(PIN_HASHED_FLAG);setData(p=>({...p,biometricEnabled:false}));toast_("🔓 PIN removed");});}}>
+                onClick={()=>{if(window.confirm("Remove PIN?")){localStorage.removeItem(PIN_KEY);setData(p=>({...p,biometricEnabled:false}));toast_("🔓 PIN removed");}}}>
                 Remove
               </button>}
             </div>
@@ -4157,7 +3955,7 @@ function App(){
                     {cl.parent&&DEST[cl.parent]&&<span style={{fontSize:10,color:T.muted,marginLeft:6}}>under {DEST[cl.parent].label}</span>}
                   </div>
                   <button style={{...BTN,background:"rgba(248,81,73,0.1)",color:"#f85149",padding:"4px 10px",fontSize:11,borderRadius:8,border:"1px solid rgba(248,81,73,0.2)"}}
-                    onClick={()=>{appConfirm(`Delete "${cl.name}"?`,()=>{setData(p=>({...p,customLabels:(p.customLabels||[]).filter(l=>l.id!==cl.id)}));});}}>
+                    onClick={()=>{if(window.confirm(`Delete "${cl.name}"?`)){setData(p=>({...p,customLabels:(p.customLabels||[]).filter(l=>l.id!==cl.id)}));}}}>
                     🗑
                   </button>
                 </div>
@@ -4180,54 +3978,6 @@ function App(){
         </div>)}
       </div>
     </div>
-    {nativeConfirm&&(
-      <div className="overlay-anim" style={{position:"fixed",inset:0,zIndex:9996,background:"rgba(0,0,0,0.75)",display:"flex",alignItems:"center",justifyContent:"center",padding:24}}
-        onClick={e=>{if(e.target===e.currentTarget)setNativeConfirm(null);}}>
-        <div className="modal-anim" style={{background:T.surface,border:`1px solid ${T.border}`,borderRadius:16,padding:"20px 20px 16px",width:"100%",maxWidth:300}}>
-          <div style={{fontSize:15,fontWeight:700,color:T.text,marginBottom:18,lineHeight:1.4,textAlign:"center"}}>{nativeConfirm.msg}</div>
-          <div style={{display:"flex",gap:8}}>
-            <button style={{...BTN,flex:1,padding:"11px",background:T.surface2,color:T.muted,fontSize:14,border:`1px solid ${T.border}`,borderRadius:10}}
-              onClick={()=>setNativeConfirm(null)}>Cancel</button>
-            <button style={{...BTN,flex:1,padding:"11px",background:"rgba(248,81,73,0.15)",color:"#f85149",fontSize:14,fontWeight:700,border:"1px solid rgba(248,81,73,0.35)",borderRadius:10}}
-              onClick={()=>{nativeConfirm.onOk();setNativeConfirm(null);}}>Delete</button>
-          </div>
-        </div>
-      </div>
-    )}
-    {importPreview&&(
-      <div className="overlay-anim" style={{position:"fixed",inset:0,zIndex:9997,background:"rgba(0,0,0,0.7)",display:"flex",alignItems:"center",justifyContent:"center",padding:24}}>
-        <div className="modal-anim" style={{background:T.surface,border:`1px solid ${T.border}`,borderRadius:16,padding:22,width:"100%",maxWidth:340}}>
-          <div style={{fontSize:15,fontWeight:700,color:T.text,marginBottom:4}}>📤 Restore Backup?</div>
-          <div style={{fontSize:12,color:T.muted,marginBottom:14}}>This will replace ALL current data:</div>
-          <div style={{background:T.surface2,borderRadius:10,padding:"10px 14px",marginBottom:16,display:"flex",flexDirection:"column",gap:5}}>
-            {[
-              ["💳","Cards",importPreview.summary.cards],
-              ["🏦","Loans",importPreview.summary.loans],
-              ["📅","Pay periods",importPreview.summary.periods],
-              ["📸","Snapshots",importPreview.summary.snapshots],
-              ["🪣","Pots",importPreview.summary.pots],
-            ].map(([icon,label,val])=>(
-              <div key={label} style={{display:"flex",justifyContent:"space-between",fontSize:12}}>
-                <span style={{color:T.muted}}>{icon} {label}</span>
-                <span style={{color:T.text,fontWeight:700}}>{val}</span>
-              </div>
-            ))}
-          </div>
-          <div style={{display:"flex",gap:8}}>
-            <button style={{...BTN,flex:1,padding:"10px",background:"rgba(248,81,73,0.1)",color:"#f85149",fontSize:13,border:"1px solid rgba(248,81,73,0.3)",borderRadius:10}}
-              onClick={()=>setImportPreview(null)}>Cancel</button>
-            <button style={{...BTN,flex:1,padding:"10px",background:T.accent,color:"#fff",fontSize:13,fontWeight:700,borderRadius:10}}
-              onClick={()=>{
-                const{restored}=importPreview;
-                setData(restored);
-                try{localStorage.setItem(SK,JSON.stringify(restored));}catch(e){}
-                setImportPreview(null);
-                toast_("✅ Backup restored");
-              }}>Restore</button>
-          </div>
-        </div>
-      </div>
-    )}
     </>
   );
 }
