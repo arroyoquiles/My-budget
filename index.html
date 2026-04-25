@@ -524,9 +524,10 @@ const LimitBar=memo(({balance,limite,T})=>{
     </div>
   </div>);
 });
-const DragList=memo(({items,renderItem})=>{
+// DragList: memo removed — renderItem is always an inline arrow, so memo never prevented re-renders
+const DragList=({items,renderItem})=>{
   return(<div>{items.map((item,i)=>(<div key={item.id}>{renderItem(item,i,{})}</div>))}</div>);
-});
+};
 const getCatIcon=(cat)=>CICONS[cat]||"📌";
 const GastoItem=memo(({item,pid,editId,setEditId,tarjetas,loans,potsList,periodDate,customLabels,onAddCustomLabel,globalEditingAmt,checkIdx,onCycle,onLongPress,onUpdate,onBatchUpdate,onPropagate,onRemove,T})=>{
   const dest=gds(item.destino,item.tarjetaRef,null,potsList,customLabels);
@@ -1215,8 +1216,14 @@ const scrollLock={
 const PIN_KEY="mybudget_pin";
 const PIN_HASHED_FLAG="mybudget_pin_hashed";
 const hashPin=async(pin)=>{
-  const buf=await crypto.subtle.digest("SHA-256",new TextEncoder().encode(pin));
-  return Array.from(new Uint8Array(buf)).map(b=>b.toString(16).padStart(2,"0")).join("");
+  try{
+    const buf=await crypto.subtle.digest("SHA-256",new TextEncoder().encode(pin));
+    return Array.from(new Uint8Array(buf)).map(b=>b.toString(16).padStart(2,"0")).join("");
+  }catch(e){
+    // crypto.subtle unavailable (HTTP/old WebView) — fallback to simple obfuscation
+    let h=0;for(let i=0;i<pin.length;i++)h=Math.imul(31,h)+pin.charCodeAt(i)|0;
+    return"fallback_"+Math.abs(h).toString(16).padStart(8,"0");
+  }
 };
 function App(){
   const [data,setData]=useState(loadData);
@@ -1393,6 +1400,8 @@ function App(){
   const [resetConfirm,setResetConfirm]=useState(null);
   const [themePicker,setThemePicker]=useState(false);
   const [resetAllConfirm,setResetAllConfirm]=useState(false);
+  const [nativeConfirm,setNativeConfirm]=useState(null); // {msg, onOk}
+  const appConfirm=(msg,onOk)=>setNativeConfirm({msg,onOk});
   const [debtsFilter,setDebtsFilter]=useState("all");
   const [cardsCollapsed,setCardsCollapsed]=useState(false);
   const [loansCollapsed,setLoansCollapsed]=useState(false);
@@ -1432,6 +1441,17 @@ function App(){
     };
     window.addEventListener("beforeunload",flush);
     return()=>window.removeEventListener("beforeunload",flush);
+  },[]);
+  useEffect(()=>{
+    // Clean up stale notif_ keys older than 7 days
+    try{
+      const cutoff=new Date();cutoff.setDate(cutoff.getDate()-7);
+      const cutoffStr=cutoff.toISOString().slice(0,10);
+      Object.keys(localStorage).filter(k=>k.startsWith("notif_")).forEach(k=>{
+        const dateStr=k.slice(-10); // last 10 chars = YYYY-MM-DD
+        if(dateStr<cutoffStr)localStorage.removeItem(k);
+      });
+    }catch(e){}
   },[]);
   useEffect(()=>{
     const s=document.getElementById("splash");
@@ -1560,8 +1580,8 @@ function App(){
     const du=getDU(d.fechaPago);
     if(du===null||du>3)return false;
     // If a payment was recorded today, don't show alert
-    const todayStr=new Date().toLocaleDateString("en-US",{month:"short",day:"numeric"});
-    const paidToday=(d.historial||[]).some(h=>h.tipo==="pago"&&h.fecha===todayStr);
+    const todayStr=new Date().toLocaleDateString("en-US",{month:"short",day:"numeric",year:"numeric"});
+    const paidToday=(d.historial||[]).some(h=>h.tipo==="pago"&&(h.fecha===todayStr||h.fecha===new Date().toLocaleDateString("en-US",{month:"short",day:"numeric"})));
     if(paidToday)return false;
     return true;
   });
@@ -1593,6 +1613,7 @@ function App(){
   },[quickOpen]);
   useEffect(()=>{if(!quickPid&&currentPid)setQuickPid(currentPid);},[currentPid]);
   useEffect(()=>{if(currentPid&&!activeCheckPid)setActiveCheckPid(currentPid);},[currentPid]);
+  useEffect(()=>{setExpenseSearch("");},[activeCheckPid]);
   useEffect(()=>{
     if(tab==="paychecks"&&!activeCheckPid&&monthPeriods.length>0){const cur=monthPeriods.find(p=>p.isCurrent)||monthPeriods[0];setActiveCheckPid(cur.id);}
     if(tab!=="overview")setPotsRevealed(false);
@@ -1733,11 +1754,12 @@ function App(){
     }).filter(Boolean));
     const toCompress=Object.keys(data.periods).filter(pid=>{
       const m=pid.replace("period_","").slice(0,7);
-      if(m>=cutoffYM)return false; // too recent
+      if(m>=cutoffYM)return false;
       const per=data.periods[pid];
-      if(per._compressed)return false; // already done
-      if(!per._archived)return false; // only compress archived
-      // check snapshot exists for that month
+      if(per._compressed)return false;
+      if(!per._archived)return false;
+      // Never compress if it has recurring items — needed for auto-copy
+      if((per.gastos||[]).some(g=>g._recurring))return false;
       const [yr,mo]=m.split("-");
       const snapKey=`${yr}-${String(parseInt(mo)-1).padStart(2,"0")}`;
       return snapshotMonths.has(snapKey)||snapshotMonths.has(m);
@@ -2653,10 +2675,11 @@ function App(){
                       setEditingPotId(isEditing?null:potId);
                     } else if(dx<-50){
                       // swiped left → delete
-                      if(window.confirm(`Delete "${potName}"?`)){
+                      appConfirm(`Delete "${potName}"?`,()=>{
                         setData(p=>({...p,potsList:(p.potsList||[]).filter(pt=>pt.id!==potId)}));
                         if(moveTo===potId)setMoveTo(potsList.find(p2=>p2.id!==potId)?.id||"");
-                      }
+                        if(window._potSwipe)delete window._potSwipe[potId];
+                      });
                     }
                     swRef.active=false;
                   };
@@ -2694,7 +2717,7 @@ function App(){
                         onClick={()=>{setEditingPotId(isEditing?null:pot.id);setMoveTo(pot.id);}}>✏️</div>
                       <div style={{flex:1,background:T.surface2}}/>
                       <div style={{width:70,background:"rgba(248,81,73,0.92)",display:"flex",alignItems:"center",justifyContent:"center",fontSize:18,cursor:"pointer",flexShrink:0}}
-                        onClick={()=>{if(window.confirm(`Delete "${pot.name}"?`)){setData(p=>({...p,potsList:(p.potsList||[]).filter(pt=>pt.id!==pot.id)}));if(moveTo===pot.id)setMoveTo(potsList.find(p2=>p2.id!==pot.id)?.id||"");}}}>🗑</div>
+                        onClick={()=>{appConfirm(`Delete "${pot.name}"?`,()=>{setData(p=>({...p,potsList:(p.potsList||[]).filter(pt=>pt.id!==pot.id)}));if(moveTo===pot.id)setMoveTo(potsList.find(p2=>p2.id!==pot.id)?.id||"");if(window._potSwipe)delete window._potSwipe[pot.id];});}}>🗑</div>
                     </div>
 
                     {/* Main row — NO border, NO borderRadius, clips to parent */}
@@ -4029,7 +4052,7 @@ function App(){
                 {localStorage.getItem(PIN_KEY)?"🔑 Change PIN":"🔑 Set PIN"}
               </button>}
               {data.biometricEnabled!==false&&localStorage.getItem(PIN_KEY)&&<button style={{...BTN,padding:"8px 12px",background:"rgba(248,81,73,0.1)",color:"#f85149",fontSize:11,border:"1px solid rgba(248,81,73,0.2)",borderRadius:9}}
-                onClick={()=>{if(window.confirm("Remove PIN?")){localStorage.removeItem(PIN_KEY);setData(p=>({...p,biometricEnabled:false}));toast_("🔓 PIN removed");}}}>
+                onClick={()=>{appConfirm("Remove PIN?",()=>{localStorage.removeItem(PIN_KEY);localStorage.removeItem(PIN_HASHED_FLAG);setData(p=>({...p,biometricEnabled:false}));toast_("🔓 PIN removed");});}}>
                 Remove
               </button>}
             </div>
@@ -4060,7 +4083,7 @@ function App(){
                     {cl.parent&&DEST[cl.parent]&&<span style={{fontSize:10,color:T.muted,marginLeft:6}}>under {DEST[cl.parent].label}</span>}
                   </div>
                   <button style={{...BTN,background:"rgba(248,81,73,0.1)",color:"#f85149",padding:"4px 10px",fontSize:11,borderRadius:8,border:"1px solid rgba(248,81,73,0.2)"}}
-                    onClick={()=>{if(window.confirm(`Delete "${cl.name}"?`)){setData(p=>({...p,customLabels:(p.customLabels||[]).filter(l=>l.id!==cl.id)}));}}}>
+                    onClick={()=>{appConfirm(`Delete "${cl.name}"?`,()=>{setData(p=>({...p,customLabels:(p.customLabels||[]).filter(l=>l.id!==cl.id)}));});}}>
                     🗑
                   </button>
                 </div>
@@ -4083,6 +4106,20 @@ function App(){
         </div>)}
       </div>
     </div>
+    {nativeConfirm&&(
+      <div style={{position:"fixed",inset:0,zIndex:9996,background:"rgba(0,0,0,0.75)",display:"flex",alignItems:"center",justifyContent:"center",padding:24}}
+        onClick={e=>{if(e.target===e.currentTarget)setNativeConfirm(null);}}>
+        <div style={{background:T.surface,border:`1px solid ${T.border}`,borderRadius:16,padding:"20px 20px 16px",width:"100%",maxWidth:300}}>
+          <div style={{fontSize:15,fontWeight:700,color:T.text,marginBottom:18,lineHeight:1.4,textAlign:"center"}}>{nativeConfirm.msg}</div>
+          <div style={{display:"flex",gap:8}}>
+            <button style={{...BTN,flex:1,padding:"11px",background:T.surface2,color:T.muted,fontSize:14,border:`1px solid ${T.border}`,borderRadius:10}}
+              onClick={()=>setNativeConfirm(null)}>Cancel</button>
+            <button style={{...BTN,flex:1,padding:"11px",background:"rgba(248,81,73,0.15)",color:"#f85149",fontSize:14,fontWeight:700,border:"1px solid rgba(248,81,73,0.35)",borderRadius:10}}
+              onClick={()=>{nativeConfirm.onOk();setNativeConfirm(null);}}>Delete</button>
+          </div>
+        </div>
+      </div>
+    )}
     {importPreview&&(
       <div style={{position:"fixed",inset:0,zIndex:9997,background:"rgba(0,0,0,0.7)",display:"flex",alignItems:"center",justifyContent:"center",padding:24}}>
         <div style={{background:T.surface,border:`1px solid ${T.border}`,borderRadius:16,padding:22,width:"100%",maxWidth:340}}>
