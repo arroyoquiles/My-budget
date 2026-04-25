@@ -240,14 +240,27 @@ const n=v=>parseFloat(v)||0;
 const fmd=d=>{const m=["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];return`${m[d.getMonth()]} ${d.getDate()}`;};
 const dateStr=d=>{const y=d.getFullYear(),mo=String(d.getMonth()+1).padStart(2,"0"),dy=String(d.getDate()).padStart(2,"0");return`${y}-${mo}-${dy}`;};
 const clampDay=(year,month,day)=>Math.min(day,new Date(year,month+1,0).getDate());
+// Safe date addition that never crosses DST boundary artifacts
+const addDays=(date,days)=>{
+  const r=new Date(date);
+  r.setDate(r.getDate()+days);
+  r.setHours(0,0,0,0);
+  return r;
+};
+// Integer day diff — immune to DST (uses local midnight, avoids ms drift)
+const dayDiff=(a,b)=>{
+  const utcA=Date.UTC(a.getFullYear(),a.getMonth(),a.getDate());
+  const utcB=Date.UTC(b.getFullYear(),b.getMonth(),b.getDate());
+  return Math.round((utcA-utcB)/86400000);
+};
 const getDU=dia=>{
   if(!dia)return null;
   const h=new Date();h.setHours(0,0,0,0);
   const d=parseInt(dia);
   let y=h.getFullYear(),m=h.getMonth();
   const c=new Date(y,m,clampDay(y,m,d));
-  if(c<h){m++;if(m>11){m=0;y++;}const c2=new Date(y,m,clampDay(y,m,d));return Math.ceil((c2-h)/86400000);}
-  return Math.ceil((c-h)/86400000);
+  if(c<h){m++;if(m>11){m=0;y++;}const c2=new Date(y,m,clampDay(y,m,d));return Math.ceil(dayDiff(c2,h));}
+  return Math.ceil(dayDiff(c,h));
 };
 const gdf=dia=>{
   if(!dia)return null;
@@ -271,7 +284,7 @@ const getDUPeriod=(dia,periodDate)=>{
   if(!dia||!periodDate)return getDU(dia);
   const today=new Date();today.setHours(0,0,0,0);
   const due=gdfPeriod(dia,periodDate);
-  return Math.ceil((due-today)/86400000);
+  return Math.ceil(dayDiff(due,today));
 };
 const calcLoan=(balance,apr,pmt)=>{
   const b=n(balance),r=n(apr)/100/12,p=n(pmt);
@@ -285,22 +298,27 @@ const parseAnchor=anchor=>{
   const[y,m,d]=anchor.split("-").map(Number);
   const dt=new Date(y,m-1,d);dt.setHours(0,0,0,0);return dt;
 };
+// anchorDay: the original anchor day-of-month, used to clamp short months consistently
+const getAnchorDay=anchor=>{
+  if(!anchor)return 1;
+  return parseInt(anchor.split("-")[2])||1;
+};
 const getPaydaysInMonth=(anchor,freq,yr,mth)=>{
   if(freq==="semimonthly")return[new Date(yr,mth,1),new Date(yr,mth,15)];
   if(freq==="monthly"){
-    const base=parseAnchor(anchor);
-    const last=new Date(yr,mth+1,0).getDate();
-    return[new Date(yr,mth,Math.min(base.getDate(),last))];
+    const anchorDay=getAnchorDay(anchor);
+    return[new Date(yr,mth,clampDay(yr,mth,anchorDay))];
   }
   const step=freq==="weekly"?7:14;
   const base=parseAnchor(anchor);
   const monthStart=new Date(yr,mth,1);
   const monthEnd=new Date(yr,mth+1,0);monthEnd.setHours(23,59,59,999);
-  const diffDays=Math.round((monthStart.getTime()-base.getTime())/86400000);
+  // Use integer day math to avoid DST drift
+  const diffDays=dayDiff(monthStart,base);
   const startN=Math.ceil(diffDays/step);
   const days=[];
   for(let i=startN;i<=startN+8;i++){
-    const pd=new Date(base.getTime()+i*step*86400000);
+    const pd=addDays(base,i*step);
     if(pd>monthEnd)break;
     if(pd>=monthStart)days.push(pd);
   }
@@ -314,16 +332,22 @@ const getCurrentPeriodStart=(anchor,freq)=>{
     return today>=d15?d15:d1;
   }
   if(freq==="monthly"){
-    const base=parseAnchor(anchor);
-    let pday=new Date(today.getFullYear(),today.getMonth(),base.getDate());
-    if(pday>today)pday=new Date(pday.getFullYear(),pday.getMonth()-1,base.getDate());
+    const anchorDay=getAnchorDay(anchor);
+    const y=today.getFullYear(),m=today.getMonth();
+    // Payday this month (clamped)
+    let pday=new Date(y,m,clampDay(y,m,anchorDay));
+    if(pday>today){
+      // Not yet this month — payday was last month
+      const pm=m===0?11:m-1,py=m===0?y-1:y;
+      pday=new Date(py,pm,clampDay(py,pm,anchorDay));
+    }
     return pday;
   }
   const step=freq==="weekly"?7:14;
   const base=parseAnchor(anchor);
-  const diffDays=Math.round((today.getTime()-base.getTime())/86400000);
-  const periodsDone=today>=base?Math.floor(diffDays/step):0;
-  return new Date(base.getTime()+periodsDone*step*86400000);
+  const diff=dayDiff(today,base);
+  const periodsDone=today>=base?Math.floor(diff/step):0;
+  return addDays(base,periodsDone*step);
 };
 const getNextPayday=(anchor,freq)=>{
   if(!anchor)return null;
@@ -335,17 +359,23 @@ const getNextPayday=(anchor,freq)=>{
     return today>=d15?nm1:d15;
   }
   if(freq==="monthly"){
-    const base=parseAnchor(anchor);
-    let pday=new Date(today.getFullYear(),today.getMonth(),base.getDate());
-    if(pday>today)pday=new Date(pday.getFullYear(),pday.getMonth()-1,base.getDate());
-    return new Date(pday.getFullYear(),pday.getMonth()+1,base.getDate());
+    const anchorDay=getAnchorDay(anchor);
+    const y=today.getFullYear(),m=today.getMonth();
+    let pday=new Date(y,m,clampDay(y,m,anchorDay));
+    if(pday>today){
+      // Payday is still this month
+      return pday;
+    }
+    // Already passed — next is next month
+    const nm=m===11?0:m+1,ny=m===11?y+1:y;
+    return new Date(ny,nm,clampDay(ny,nm,anchorDay));
   }
   const step=freq==="weekly"?7:14;
   const base=parseAnchor(anchor);
-  const diffDays=Math.round((today.getTime()-base.getTime())/86400000);
-  const periodsDone=today>=base?Math.floor(diffDays/step):0;
-  const curStart=new Date(base.getTime()+periodsDone*step*86400000);
-  return new Date(curStart.getTime()+step*86400000);
+  const diff=dayDiff(today,base);
+  const periodsDone=today>=base?Math.floor(diff/step):0;
+  const curStart=addDays(base,periodsDone*step);
+  return addDays(curStart,step);
 };
 const getUpcomingPaydays=(anchor,count=8,freq="biweekly")=>{
   if(!anchor)return[];
@@ -363,19 +393,25 @@ const getUpcomingPaydays=(anchor,count=8,freq="biweekly")=>{
     return days.slice(0,count);
   }
   if(freq==="monthly"){
-    const base=parseAnchor(anchor);
-    let d=new Date(today.getFullYear(),today.getMonth(),base.getDate());
-    if(d<today)d=new Date(d.getFullYear(),d.getMonth()+1,base.getDate());
-    while(days.length<count){days.push(new Date(d));d=new Date(d.getFullYear(),d.getMonth()+1,d.getDate());}
+    const anchorDay=getAnchorDay(anchor);
+    let y=today.getFullYear(),m=today.getMonth();
+    // Start from this month's payday (clamped)
+    let d=new Date(y,m,clampDay(y,m,anchorDay));
+    if(d<today){m++;if(m>11){m=0;y++;}d=new Date(y,m,clampDay(y,m,anchorDay));}
+    while(days.length<count){
+      days.push(new Date(d));
+      m++;if(m>11){m=0;y++;}
+      d=new Date(y,m,clampDay(y,m,anchorDay));
+    }
     return days;
   }
   const step=freq==="weekly"?7:14;
   const base=parseAnchor(anchor);
-  const diffDays=Math.round((today.getTime()-base.getTime())/86400000);
-  const periodsDone=today>=base?Math.floor(diffDays/step):0;
-  const curStart=new Date(base.getTime()+periodsDone*step*86400000);
-  let cur=new Date(curStart.getTime()+step*86400000);
-  while(days.length<count){days.push(new Date(cur));cur=new Date(cur.getTime()+step*86400000);}
+  const diff=dayDiff(today,base);
+  const periodsDone=today>=base?Math.floor(diff/step):0;
+  const curStart=addDays(base,periodsDone*step);
+  let cur=addDays(curStart,step);
+  while(days.length<count){days.push(new Date(cur));cur=addDays(cur,step);}
   return days.slice(0,count);
 };
 const buildMonthPeriods=(anchor,freq)=>{
@@ -405,8 +441,6 @@ const DD={
   tarjetas:[],
   loans:[],
   pots:{savings_acct:0,emergency:0,investment:0},
-  potTargets:{},
-  potMovements:[],
   potsList:[
     {id:"savings_acct", name:"Savings",    icon:"🏦", color:"#3fb950", balance:0},
     {id:"emergency",    name:"Emergency",  icon:"🆘", color:"#06b6d4", balance:0},
@@ -433,10 +467,13 @@ const migrate=raw=>{
       const d15=new Date(curStart.getFullYear(),curStart.getMonth(),15);
       prevStart=curStart.getDate()===15?d1:new Date(curStart.getFullYear(),curStart.getMonth()-1,15);
     } else if(freq==="monthly"){
-      prevStart=new Date(curStart.getFullYear(),curStart.getMonth()-1,curStart.getDate());
+      const anchorDay=getAnchorDay(anchor);
+      const pm=curStart.getMonth()===0?11:curStart.getMonth()-1;
+      const py=curStart.getMonth()===0?curStart.getFullYear()-1:curStart.getFullYear();
+      prevStart=new Date(py,pm,clampDay(py,pm,anchorDay));
     } else {
-      const step=(freq==="weekly"?7:14)*86400000;
-      prevStart=new Date(curStart.getTime()-step);
+      const step=freq==="weekly"?7:14;
+      prevStart=addDays(curStart,-step);
     }
     const prevKey="period_"+dateStr(prevStart);
     const legacyChecks=raw.checks||[{id:"c1",num:1},{id:"c2",num:2}];
@@ -467,8 +504,6 @@ const migrate=raw=>{
     tarjetas:(raw.tarjetas||[]).map(t=>({...t,fechaPago:t.fechaPago||"",fechaCorte:t.fechaCorte||"",historial:t.historial||[],tipo:"card"})),
     loans:(raw.loans||DD.loans).map(l=>({...l,tipo:"loan"})),
     pots:raw.pots||{savings_acct:0,emergency:0,investment:0},
-    potTargets:raw.potTargets||{},
-    potMovements:raw.potMovements||[],
     potsList:raw.potsList||[
       {id:"savings_acct", name:"Savings",    icon:"🏦", color:"#3fb950", balance:n(raw.pots?.savings_acct)||0},
       {id:"emergency",    name:"Emergency",  icon:"🆘", color:"#06b6d4", balance:n(raw.pots?.emergency)||0},
@@ -1875,6 +1910,7 @@ function App(){
       return;
     }
     const id=uid();
+    const usedCount=data.tarjetas.filter(t=>!CC[t.nombre]).length;
     const vc=CARD_PALETTE[usedCount%CARD_PALETTE.length];
     setData(p=>({...p,tarjetas:[...p.tarjetas,{id,nombre:"New Card",balance:0,limite:0,minimo:0,interes:0,fechaCorte:"",fechaPago:"",historial:[],tipo:"card",priority:false,_vc:vc}]}));
     setExpandedCardId(prev=>{if(prev&&prev!==id)bumpReset(prev);return id;});
@@ -1973,17 +2009,14 @@ function App(){
       const toPot=potsList.find(p=>p.id===moveTransferTo);
       if(!fromPot||!toPot)return toast_("Invalid pot","err");
       if(m>n(fromPot.balance))return toast_("Not enough in "+fromPot.name,"err");
-      const mvId=uid();
       setData(p=>({...p,
-        potsList:(p.potsList||[]).map(pt=>pt.id===moveTo?{...pt,balance:Math.max(0,n(pt.balance)-m)}:pt.id===moveTransferTo?{...pt,balance:n(pt.balance)+m}:pt),
-        potMovements:[...(p.potMovements||[]),{id:mvId,potKey:moveTo,amount:-m,date:new Date().toLocaleDateString("en-US",{month:"short",day:"numeric"}),note:"Transfer to "+toPot.name},{id:uid(),potKey:moveTransferTo,amount:m,date:new Date().toLocaleDateString("en-US",{month:"short",day:"numeric"}),note:"Transfer from "+fromPot.name}].slice(-200)}));
+        potsList:(p.potsList||[]).map(pt=>pt.id===moveTo?{...pt,balance:Math.max(0,n(pt.balance)-m)}:pt.id===moveTransferTo?{...pt,balance:n(pt.balance)+m}:pt)}));
       setMoveAmt("");toast_("↔️ "+fmt(m)+" transferred");return;
     }
     const pot=potsList.find(p=>p.id===moveTo);
     const isUse=moveMode==="use";
     const curBal=n(pot?.balance)||0;
     if(isUse&&m>curBal)return toast_("Not enough in "+(pot?.name||moveTo),"err");
-    const mvId=uid();
     setData(p=>({...p,
       potsList:(p.potsList||[]).map(pt=>{
         if(pt.id!==moveTo)return pt;
@@ -1993,8 +2026,7 @@ function App(){
           setTimeout(()=>{launchConfetti();toast_(`🎉 ${pt.name} goal reached!`);},100);
         }
         return{...pt,balance:newBal};
-      }),
-      potMovements:[...(p.potMovements||[]),{id:mvId,potKey:moveTo,amount:isUse?-m:m,date:new Date().toLocaleDateString("en-US",{month:"short",day:"numeric"}),note:(isUse?"Used from ":"Added to ")+(pot?.name||moveTo)}].slice(-200)}));
+      })}));
     setMoveAmt("");
     toast_(isUse?"💳 "+fmt(m)+" used from "+(pot?.name||moveTo):"💸 "+fmt(m)+" added to "+(pot?.name||moveTo));
   };
@@ -2254,7 +2286,8 @@ function App(){
             <div key={i} style={{width:14,height:14,borderRadius:"50%",
               background:pinInput.length>i?T.accent:"rgba(255,255,255,0.15)",
               border:`2px solid ${pinInput.length>i?T.accent:T.border}`,
-              transition:"background 0.15s",
+              transition:"background 0.15s, transform 0.15s",
+              animation:pinInput.length===i+1?"dotPop 0.3s cubic-bezier(0.34,1.56,0.64,1) both":"none",
               transform:pinError&&pinInput.length===0?"scale(1.2)":"scale(1)"}}/>
           ))}
         </div>
@@ -2288,25 +2321,30 @@ function App(){
       onTouchEnd={handleSwipeTouchEnd}
       style={{minHeight:"100vh",background:T.bg,color:T.text,fontFamily:"-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif",paddingTop:urgentDebts.length>0&&!alertDim&&tab!=="debts"?34:0,transition:"padding-top 0.2s"}}>
       <style>{`
-        @keyframes tabEnter{from{opacity:0;transform:translateY(4px);}to{opacity:1;transform:translateY(0);}}.anim{animation:tabEnter 0.35s cubic-bezier(0.4,0,0.2,1) both;}@keyframes onboardPulse{0%,100%{box-shadow:0 0 0 0 rgba(88,166,255,0.5);}50%{box-shadow:0 0 0 8px rgba(88,166,255,0);}}.onboard-pulse{animation:onboardPulse 1.8s ease-in-out infinite;border-radius:inherit;}
-        @keyframes itemEnter{from{opacity:0;}to{opacity:1;}}
+        @keyframes tabEnter{from{opacity:0;transform:translateY(8px);}to{opacity:1;transform:translateY(0);}}.anim{animation:tabEnter 0.38s cubic-bezier(0.4,0,0.2,1) both;}@keyframes onboardPulse{0%,100%{box-shadow:0 0 0 0 rgba(88,166,255,0.5);}50%{box-shadow:0 0 0 8px rgba(88,166,255,0);}}.onboard-pulse{animation:onboardPulse 1.8s ease-in-out infinite;border-radius:inherit;}
+        @keyframes itemEnter{from{opacity:0;transform:translateY(6px) scale(0.98);}to{opacity:1;transform:translateY(0) scale(1);}}
         @keyframes itemExit{0%{opacity:1;transform:translateX(0);max-height:120px;margin-bottom:7px;}100%{opacity:0;transform:translateX(60px);max-height:0;margin-bottom:0;}}.expense-row-exit{animation:itemExit 0.25s cubic-bezier(0.4,0,1,1) forwards;}
-        @keyframes modalEnter{from{opacity:0;transform:scale(0.97) translateY(6px);}to{opacity:1;transform:scale(1) translateY(0);}}.modal-anim{animation:modalEnter 0.28s cubic-bezier(0.4,0,0.2,1) both;}
-        @keyframes pop{from{opacity:0.6;transform:scale(0.97);}to{opacity:1;transform:scale(1);}}
-        @keyframes dotPop{0%{transform:scale(1);}40%{transform:scale(2.0);}70%{transform:scale(0.88);}100%{transform:scale(1);}}
+        @keyframes modalEnter{from{opacity:0;transform:scale(0.94) translateY(12px);}to{opacity:1;transform:scale(1) translateY(0);}}.modal-anim{animation:modalEnter 0.32s cubic-bezier(0.34,1.1,0.64,1) both;}
+        @keyframes overlayFadeIn{from{opacity:0;}to{opacity:1;}}.overlay-anim{animation:overlayFadeIn 0.2s ease both;}
+        @keyframes pop{from{opacity:0.6;transform:scale(0.95);}to{opacity:1;transform:scale(1);}}
+        @keyframes dotPop{0%{transform:scale(1);}40%{transform:scale(2.2);}70%{transform:scale(0.85);}100%{transform:scale(1);}}
         @keyframes donutFill{from{stroke-dashoffset:var(--dash-full);}to{stroke-dashoffset:0;}}
-        .donut-arc{animation:donutFill 0.8s cubic-bezier(0.4,0,0.2,1) both;}
+        .donut-arc{animation:donutFill 1s cubic-bezier(0.4,0,0.2,1) both;}
         .amt-wrap{position:relative;display:block;}.amt-prefix{position:absolute;left:11px;top:50%;transform:translateY(-50%);font-family:monospace;font-weight:700;pointer-events:none;z-index:1;}
-        @keyframes editOpen{from{opacity:0;transform:translateY(-4px);}to{opacity:1;transform:translateY(0);}}
+        @keyframes editOpen{from{opacity:0;max-height:0;transform:translateY(-6px);}to{opacity:1;max-height:400px;transform:translateY(0);}}
         @keyframes debtExit{0%{opacity:1;max-height:200px;margin-bottom:9px;}100%{opacity:0;max-height:0;margin-bottom:0;}}.debt-exit{animation:debtExit 0.28s cubic-bezier(0.4,0,1,1) forwards;}
-        .expense-row:active{transform:scale(0.99);transition:transform 0.08s ease;}
+        @keyframes debtEnter{from{opacity:0;transform:translateY(10px) scale(0.98);}to{opacity:1;transform:translateY(0) scale(1);}}.debt-enter{animation:debtEnter 0.35s cubic-bezier(0.34,1.1,0.64,1) both;}
+        .expense-row:active{transform:scale(0.985);transition:transform 0.06s ease;}
         input,select,textarea{scroll-margin-bottom:200px;}
         input[type=number]:focus,input[type=text]:focus{border-color:${T.accent}!important;box-shadow:0 0 0 3px ${T.accent}26!important;outline:none;transition:border-color 0.15s,box-shadow 0.15s;}
-        .debt-card-tap:active{transform:scale(0.988);transition:transform 0.08s ease;}
-        @keyframes slideInDown{from{opacity:0;transform:translateY(-8px);}to{opacity:1;transform:translateY(0);}}
+        .debt-card-tap:active{transform:scale(0.984);transition:transform 0.06s ease;}
+        @keyframes slideInDown{from{opacity:0;transform:translateY(-10px);}to{opacity:1;transform:translateY(0);}}
         @keyframes fadeIn{from{opacity:0;}to{opacity:1;}}
         @keyframes slideInUp{from{opacity:0;transform:translateY(100%);}to{opacity:1;transform:translateY(0);}}
+        @keyframes slideInUpSmall{from{opacity:0;transform:translateY(20px);}to{opacity:1;transform:translateY(0);}}.card-anim{animation:slideInUpSmall 0.4s cubic-bezier(0.34,1.1,0.64,1) both;}
         @keyframes pulse{0%,100%{opacity:1;}50%{opacity:0.6;}}
+        @keyframes scaleIn{from{opacity:0;transform:scale(0.85);}to{opacity:1;transform:scale(1);}}.scale-anim{animation:scaleIn 0.3s cubic-bezier(0.34,1.56,0.64,1) both;}
+        @keyframes shimmer{0%{opacity:0.6;}50%{opacity:1;}100%{opacity:0.6;}}
         input[type=range]{width:100%;accent-color:#58a6ff;}
         input[type=date]::-webkit-calendar-picker-indicator{width:12px;height:12px;opacity:0.35;filter:invert(0.7);cursor:pointer;padding:0;margin:0;}
         input[type=date]{min-width:0;}
@@ -2316,9 +2354,11 @@ function App(){
         .g2{display:grid;grid-template-columns:1fr 1fr;gap:10px;}
         .tabs{display:flex;gap:4px;overflow-x:auto;padding-bottom:2px;-webkit-overflow-scrolling:touch;scrollbar-width:none;margin-bottom:14px;}
         .tabs::-webkit-scrollbar{display:none;}
-        .quick-modal-fullscreen{animation:slideInUp 0.32s cubic-bezier(0.4,0,0.2,1) both;}
+        .quick-modal-fullscreen{animation:slideInUp 0.34s cubic-bezier(0.34,1.05,0.64,1) both;}
         @keyframes potsSlideUp{from{opacity:0;transform:translateY(100%);}to{opacity:1;transform:translateY(0);}}
-        .pots-modal{animation:potsSlideUp 0.32s cubic-bezier(0.4,0,0.2,1) both;}
+        .pots-modal{animation:potsSlideUp 0.34s cubic-bezier(0.34,1.05,0.64,1) both;}
+        button{-webkit-tap-highlight-color:transparent;}
+        button:active:not(:disabled){filter:brightness(0.88);transition:filter 0.06s ease;}
       `}</style>
       {toast&&<div style={{position:"fixed",top:"max(16px, env(safe-area-inset-top, 16px))",left:"50%",transform:"translateX(-50%)",zIndex:9999,background:toast.type==="err"?"#da3633":"#238636",color:"#fff",padding:"10px 20px",borderRadius:24,fontWeight:600,fontSize:13,boxShadow:"0 8px 32px rgba(0,0,0,0.4)",border:`1px solid ${toast.type==="err"?"rgba(248,81,73,0.4)":"rgba(46,160,67,0.4)"}`,whiteSpace:"nowrap",animation:"slideInDown 0.25s cubic-bezier(0.4,0,0.2,1)"}}>{toast.msg}</div>}
       <div id="confetti-container" style={{position:"fixed",inset:0,pointerEvents:"none",zIndex:9998,overflow:"hidden"}}/>
@@ -2860,15 +2900,6 @@ function App(){
                   </button>
                 </div>
 
-                {(data.potMovements||[]).filter(mv=>mv.potKey===selPot.id).slice(0,3).length>0&&<div style={{marginTop:4}}>
-                  <div style={{fontSize:9,color:T.muted,letterSpacing:1,marginBottom:6}}>RECENT</div>
-                  {(data.potMovements||[]).filter(mv=>mv.potKey===selPot.id).slice(0,3).map((mv,i)=>(
-                    <div key={mv.id||i} style={{display:"flex",justifyContent:"space-between",fontSize:10,padding:"4px 0",borderBottom:`1px solid ${T.border}`}}>
-                      <span style={{color:T.muted}}>{mv.date} · {mv.note}</span>
-                      <span style={{fontFamily:"monospace",fontWeight:700,color:mv.amount>=0?"#3fb950":"#f85149"}}>{mv.amount>=0?"+":""}{fmt(Math.abs(mv.amount))}</span>
-                    </div>
-                  ))}
-                </div>}
               </>}
             </div>
           </div>
@@ -3085,7 +3116,7 @@ function App(){
             })}
           </div>)}
           {/* CHECKS — compact grouped section */}
-          <div style={{...CARD,padding:"13px 16px",marginBottom:12}}>
+          <div className="card-anim" style={{...CARD,padding:"13px 16px",marginBottom:12,animationDelay:"0.05s"}}>
             <div style={{fontSize:10,color:T.muted,letterSpacing:1.5,fontWeight:700,marginBottom:10}}>💰 CHECKS</div>
             {monthPeriods.map((p,pi)=>{
               const gastos=getPGastos(p.id);
@@ -3137,9 +3168,7 @@ function App(){
           {(()=>{
             const totalCards=data.tarjetas.reduce((s,t)=>s+n(t.balance),0);
             const totalLoans=(data.loans||[]).reduce((s,l)=>s+n(l.balance),0);
-            return(<div style={{...CARD,padding:"13px 16px",marginBottom:12}}>
-              <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:10}}>
-                <div style={{fontSize:10,color:T.muted,letterSpacing:1.5,fontWeight:700}}>💳 DEBT OVERVIEW</div>
+            return(<div className="card-anim" style={{...CARD,padding:"13px 16px",marginBottom:12,animationDelay:"0.1s"}}>
                 <button style={{...BTN,padding:"3px 9px",background:T.surface2,color:T.muted,fontSize:10,border:`1px solid ${T.border}`}} onClick={()=>setTab("debts")}>View all →</button>
               </div>
               <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"6px 0",borderBottom:`1px solid ${T.border}`}}>
@@ -3162,9 +3191,7 @@ function App(){
             // hidden=true means privacy mode ON: show •••• unless user tapped to reveal
             const hidden=data.potsHidden&&!potsRevealed;
             const totalPots=potsList.reduce((s,p)=>s+n(p.balance),0);
-            return(<div style={{...CARD,padding:"13px 16px",marginBottom:12}}>
-              <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:10}}>
-                <div style={{fontSize:10,color:T.muted,letterSpacing:1.5,fontWeight:700}}>🪣 POTS</div>
+            return(<div className="card-anim" style={{...CARD,padding:"13px 16px",marginBottom:12,animationDelay:"0.15s"}}>
                 <button style={{...BTN,padding:"3px 10px",fontSize:10,background:`${T.accent}14`,color:T.accent,border:`1px solid ${T.accent}33`,borderRadius:7}} onClick={()=>{setMoveTo(potsList[0]?.id||"");setEditingPotId(null);setMoveTransferTo("");setMoveMode("add");setMoveOpen(true);}}>Manage</button>
               </div>
               {potsList.length===0&&<div style={{fontSize:11,color:T.muted,textAlign:"center",padding:"8px 0"}}>No pots yet — tap Manage to add one</div>}
@@ -3278,14 +3305,10 @@ function App(){
             if(sortStrategy==="balance") return [...arr].sort((a,b)=>(b.priority?1:0)-(a.priority?1:0)||n(a.balance)-n(b.balance));
             return [...arr].sort((a,b)=>(b.priority?1:0)-(a.priority?1:0));
           };
-          const sortedAllDebts=(expandedCardId||expandedLoanId)?allDebts:sortStrategy==="apr"
-            ?[...allDebts].sort((a,b)=>n(b.interes)-n(a.interes))
-            :sortStrategy==="balance"
-            ?[...allDebts].sort((a,b)=>n(a.balance)-n(b.balance))
-            :allDebts;
-          const firstDebtId=sortStrategy?sortedAllDebts.find(d=>n(d.balance)>0)?.id??null:null;
           const freshCards=sortCards(debtsFilter==="all"||debtsFilter==="cards"?cards:debtsFilter==="loans"?[]:cards);
           const freshLoans=(debtsFilter==="all"||debtsFilter==="loans"?loans:debtsFilter==="cards"?[]:loans).sort((a,b)=>(b.priority?1:0)-(a.priority?1:0));
+          // firstDebtId only used for gold star highlight — applies to cards only
+          const firstDebtId=sortStrategy?freshCards.find(d=>n(d.balance)>0)?.id??null:null;
           if(!expandedCardId&&!expandedLoanId){cardOrderRef.current=freshCards.map(c=>c.id);loanOrderRef.current=freshLoans.map(l=>l.id);}
           const visibleCards=expandedCardId&&cardOrderRef.current.length?[...freshCards].sort((a,b)=>cardOrderRef.current.indexOf(a.id)-cardOrderRef.current.indexOf(b.id)):freshCards;
           const visibleLoans=expandedLoanId&&loanOrderRef.current.length?[...freshLoans].sort((a,b)=>loanOrderRef.current.indexOf(a.id)-loanOrderRef.current.indexOf(b.id)):freshLoans;
@@ -3454,7 +3477,9 @@ function App(){
                           key={d.id}
                           id={`debt-${d.id}`}
                           ref={isNewDraft ? newCardRef : null}
+                          className="debt-enter"
                           style={{position:"relative",marginTop,zIndex,isolation:"isolate",opacity,transition,filter,transform,
+                            animationDelay:`${stackIdx*0.05}s`,
                             ...(isExpanded?{boxShadow:"0 8px 32px rgba(0,0,0,0.7)",borderRadius:14}:{})
                           }}
                           onTouchStart={isExpanded?e=>{
@@ -3585,7 +3610,8 @@ function App(){
                       };
                       const clipH = isExpanded ? null : HEADER_H;
                       return(
-                        <div key={d.id} id={`debt-${d.id}`} style={{position:"relative",marginTop,zIndex,isolation:"isolate",filter:filter2,transform,transition:transition2,
+                        <div key={d.id} id={`debt-${d.id}`} className="debt-enter" style={{position:"relative",marginTop,zIndex,isolation:"isolate",filter:filter2,transform,transition:transition2,
+                          animationDelay:`${stackIdx*0.05}s`,
                           ...(isExpanded?{boxShadow:"0 8px 32px rgba(0,0,0,0.7)",borderRadius:14}:{})
                         }}>
                           <div style={{borderRadius:14,overflow:isExpanded?"visible":"hidden",cursor:isExpanded?"default":"pointer",userSelect:"none",WebkitUserSelect:"none",WebkitTouchCallout:"none",position:"relative",...(clipH!=null?{height:clipH,maxHeight:clipH}:{})}}
@@ -4107,9 +4133,9 @@ function App(){
       </div>
     </div>
     {nativeConfirm&&(
-      <div style={{position:"fixed",inset:0,zIndex:9996,background:"rgba(0,0,0,0.75)",display:"flex",alignItems:"center",justifyContent:"center",padding:24}}
+      <div className="overlay-anim" style={{position:"fixed",inset:0,zIndex:9996,background:"rgba(0,0,0,0.75)",display:"flex",alignItems:"center",justifyContent:"center",padding:24}}
         onClick={e=>{if(e.target===e.currentTarget)setNativeConfirm(null);}}>
-        <div style={{background:T.surface,border:`1px solid ${T.border}`,borderRadius:16,padding:"20px 20px 16px",width:"100%",maxWidth:300}}>
+        <div className="modal-anim" style={{background:T.surface,border:`1px solid ${T.border}`,borderRadius:16,padding:"20px 20px 16px",width:"100%",maxWidth:300}}>
           <div style={{fontSize:15,fontWeight:700,color:T.text,marginBottom:18,lineHeight:1.4,textAlign:"center"}}>{nativeConfirm.msg}</div>
           <div style={{display:"flex",gap:8}}>
             <button style={{...BTN,flex:1,padding:"11px",background:T.surface2,color:T.muted,fontSize:14,border:`1px solid ${T.border}`,borderRadius:10}}
@@ -4121,8 +4147,8 @@ function App(){
       </div>
     )}
     {importPreview&&(
-      <div style={{position:"fixed",inset:0,zIndex:9997,background:"rgba(0,0,0,0.7)",display:"flex",alignItems:"center",justifyContent:"center",padding:24}}>
-        <div style={{background:T.surface,border:`1px solid ${T.border}`,borderRadius:16,padding:22,width:"100%",maxWidth:340}}>
+      <div className="overlay-anim" style={{position:"fixed",inset:0,zIndex:9997,background:"rgba(0,0,0,0.7)",display:"flex",alignItems:"center",justifyContent:"center",padding:24}}>
+        <div className="modal-anim" style={{background:T.surface,border:`1px solid ${T.border}`,borderRadius:16,padding:22,width:"100%",maxWidth:340}}>
           <div style={{fontSize:15,fontWeight:700,color:T.text,marginBottom:4}}>📤 Restore Backup?</div>
           <div style={{fontSize:12,color:T.muted,marginBottom:14}}>This will replace ALL current data:</div>
           <div style={{background:T.surface2,borderRadius:10,padding:"10px 14px",marginBottom:16,display:"flex",flexDirection:"column",gap:5}}>
