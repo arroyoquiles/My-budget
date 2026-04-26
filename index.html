@@ -532,6 +532,7 @@ const GastoItem=memo(({item,pid,editId,setEditId,tarjetas,loans,potsList,periodD
   const [swipeX,setSwipeX]=useState(0);
   const [editingAmt,setEditingAmt]=useState(false);
   const [localAmt,setLocalAmt]=useState("");
+  const [openCatGroup,setOpenCatGroup]=useState(null);
   const amtInputRef=useRef(null);
   // Local edit state - buffers changes, commits on save
   const [localDestino,setLocalDestino]=useState(item.destino||"");
@@ -554,6 +555,7 @@ const GastoItem=memo(({item,pid,editId,setEditId,tarjetas,loans,potsList,periodD
       setLocalDestino(item.destino||"");
       setLocalTarjetaRef(item.tarjetaRef||"");
       setLocalCat(initCat(item.destino,item.cat));
+      setOpenCatGroup(null);
       didFocusRef.current=false;
     }
   },[isEditing]);
@@ -631,54 +633,98 @@ const GastoItem=memo(({item,pid,editId,setEditId,tarjetas,loans,potsList,periodD
       {/* AMOUNT */}
       <div style={{marginBottom:10}}><div style={{fontSize:10,color:T.muted,marginBottom:5}}>AMOUNT ($)</div><div className="amt-wrap"><span className="amt-prefix" style={{fontSize:14,color:item.monto?T.accent+"99":T.muted+"55"}}>$</span><input style={{...INP,paddingLeft:20}} type="number" inputMode="decimal" value={item.monto||""} onChange={e=>onUpdate(item.id,"monto",e.target.value)} placeholder="0"/></div></div>
 
-      {/* CATEGORY — what type of expense is this */}
+      {/* CATEGORY — grouped collapsible */}
       <div style={{marginBottom:10}}>
         <div style={{fontSize:10,color:T.muted,marginBottom:5}}>CATEGORY</div>
-        <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:5}}>
-          {/* Fixed categories — exclude credit_card */}
-          {DEST_ORDER.map(k=>{
-            const d=DEST[k];const isSel=localCat===k||(!localCat&&localDestino===k&&localDestino!=="credit_card");
-            return(<button key={k} style={{cursor:"pointer",border:"none",borderRadius:10,fontFamily:"inherit",fontWeight:600,WebkitTapHighlightColor:"transparent",padding:"7px 9px",fontSize:11,textAlign:"left",background:isSel?d.bg:"#21262d",color:isSel?d.color:T.muted,border:`1px solid ${isSel?d.border:T.border}`,transition:"all 0.1s",whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}
-              onMouseDown={e=>{e.preventDefault();setLocalCat(k);if(localDestino==="credit_card"){}else{setLocalDestino(k==="credit_card"?"credit_card":k);setLocalTarjetaRef("");}}}>
-              {d.icon} {d.label}
-            </button>);
-          })}
-
-          {/* Pots */}
-          {(potsList||[]).map(pot=>{
-            const isSel=localDestino===pot.id;const color=pot.color||"#58a6ff";
-            return(<button key={pot.id} style={{cursor:"pointer",border:"none",borderRadius:10,fontFamily:"inherit",fontWeight:600,WebkitTapHighlightColor:"transparent",padding:"7px 9px",fontSize:11,textAlign:"left",background:isSel?color+"22":"#21262d",color:isSel?color:T.muted,border:`1px solid ${isSel?color+"66":T.border}`,transition:"all 0.1s",whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}
-              onMouseDown={e=>{e.preventDefault();setLocalDestino(pot.id);setLocalCat("");setLocalTarjetaRef("");}}>
-              {pot.icon||"🪣"} {pot.name}
-            </button>);
-          })}
-          {/* Custom labels */}
-          {(customLabels||[]).map(cl=>{
-            const isSel=localDestino===cl.id;
-            return(<button key={cl.id} style={{cursor:"pointer",border:"none",borderRadius:10,fontFamily:"inherit",fontWeight:600,WebkitTapHighlightColor:"transparent",padding:"7px 9px",fontSize:11,textAlign:"left",background:isSel?"rgba(167,139,250,0.15)":"#21262d",color:isSel?"#a78bfa":T.muted,border:`1px solid ${isSel?"rgba(167,139,250,0.5)":T.border}`,transition:"all 0.1s",whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}
-              onMouseDown={e=>{e.preventDefault();setLocalDestino(cl.id);setLocalCat("");setLocalTarjetaRef("");}}>
-              {cl.icon||"🏷️"} {cl.name}
-            </button>);
-          })}
-          {/* + New label */}
-          {newLabelInput
-            ? <div style={{gridColumn:"1/-1",display:"flex",flexDirection:"column",gap:4}}>
-                <input autoFocus style={{...INP,fontSize:11,padding:"6px 8px"}} placeholder="Label name..." value={newLabelName} onChange={e=>setNewLabelName(e.target.value)} onKeyDown={e=>{if(e.key==="Escape"){setNewLabelInput(false);setNewLabelName("");}}}/>
-                <select style={{...INP,fontSize:11,padding:"6px 8px"}} value={newLabelParent||""} onChange={e=>setNewLabelParent(e.target.value)}>
-                  <option value="">No parent category</option>
-                  {PARENT_CATS.map(k=><option key={k} value={k}>{DEST[k].icon} {DEST[k].label}</option>)}
-                </select>
-                <div style={{display:"flex",gap:4}}>
-                  <button style={{...{cursor:"pointer",border:"none",borderRadius:8,fontFamily:"inherit",fontWeight:700},flex:1,background:"#238636",color:"#fff",padding:"7px",fontSize:11,WebkitTapHighlightColor:"transparent"}}
-                    onMouseDown={e=>{e.preventDefault();if(newLabelName.trim()){const id="label_"+Date.now();onAddCustomLabel&&onAddCustomLabel(newLabelName.trim(),id,newLabelParent||null);setLocalDestino(id);setLocalCat("");setNewLabelName("");setNewLabelParent("");setNewLabelInput(false);}}}>✓ Add</button>
-                  <button style={{...{cursor:"pointer",border:"none",borderRadius:8,fontFamily:"inherit",fontWeight:700},background:T.surface2,color:T.muted,padding:"7px 12px",fontSize:11,WebkitTapHighlightColor:"transparent"}}
-                    onMouseDown={e=>{e.preventDefault();setNewLabelInput(false);setNewLabelName("");setNewLabelParent("");}}>✕</button>
+        {(()=>{
+          const CAT_GROUPS=[
+            {id:"essentials", label:"Essentials", icon:"🏠", cats:["rent","utilities","gas","groceries","auto"]},
+            {id:"spending",   label:"Spending",   icon:"🛍️", cats:["dining","entertainment","lifestyle","travel","personal"]},
+            {id:"bills",      label:"Bills",      icon:"📋", cats:["subscription","insurance","medical","education"]},
+            {id:"finance",    label:"Finance",    icon:"💳", cats:["credit_card"]},
+          ];
+          const selCat=localCat||(localDestino&&!localDestino.startsWith("label_")&&!(potsList||[]).find(p=>p.id===localDestino)?localDestino:"");
+          const selGroup=selCat?CAT_GROUPS.find(g=>g.cats.includes(selCat))?.id:(potsList||[]).find(p=>p.id===localDestino)?"finance":null;
+          const activeGroup=openCatGroup||(selGroup&&!openCatGroup?selGroup:null);
+          return(<>
+            {/* Group header buttons — 3 cols */}
+            <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:5,marginBottom:5}}>
+              {CAT_GROUPS.map(g=>{
+                const isActive=activeGroup===g.id;
+                const hasSel=selGroup===g.id;
+                const selD=hasSel&&selCat?DEST[selCat]:null;
+                const selPot=g.id==="finance"?(potsList||[]).find(p=>p.id===localDestino):null;
+                const label=selPot?`${selPot.icon||"🪣"} ${selPot.name}`:hasSel&&selD?`${selD.icon} ${selD.label}`:`${g.icon} ${g.label}`;
+                return(<button key={g.id}
+                  style={{cursor:"pointer",fontFamily:"inherit",WebkitTapHighlightColor:"transparent",
+                    padding:"7px 8px",fontSize:11,textAlign:"left",borderRadius:10,fontWeight:600,border:"none",
+                    background:isActive?`${T.accent}15`:"#21262d",
+                    color:isActive?T.accent:hasSel||selPot?(selD?.color||selPot?.color||T.text):T.muted,
+                    border:`1px solid ${isActive?T.accent+"55":hasSel||selPot?(selD?.border||selPot?.color+"66"||T.border):T.border}`,
+                    transition:"all 0.15s",display:"flex",alignItems:"center",justifyContent:"space-between",gap:4}}
+                  onMouseDown={e=>{e.preventDefault();setOpenCatGroup(activeGroup===g.id?null:g.id);}}>
+                  <span style={{overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{label}</span>
+                  <span style={{fontSize:9,opacity:0.5,flexShrink:0}}>{isActive?"▲":"▼"}</span>
+                </button>);
+              })}
+            </div>
+            {/* Expanded group — 3 cols */}
+            {CAT_GROUPS.filter(g=>g.id===activeGroup).map(g=>(
+              <div key={g.id} style={{marginBottom:5,padding:"8px",background:T.surface2,borderRadius:10,border:`1px solid ${T.border}`}}>
+                <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:4}}>
+                  {g.cats.map(k=>{
+                    const d=DEST[k];if(!d)return null;
+                    const isSel=selCat===k;
+                    return(<button key={k}
+                      style={{cursor:"pointer",border:"none",borderRadius:8,fontFamily:"inherit",fontWeight:600,WebkitTapHighlightColor:"transparent",
+                        padding:"7px 6px",fontSize:11,textAlign:"left",
+                        background:isSel?d.bg:"transparent",color:isSel?d.color:T.muted,
+                        border:`1px solid ${isSel?d.border:"transparent"}`,transition:"all 0.1s",
+                        whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}
+                      onMouseDown={e=>{e.preventDefault();setLocalCat(k);setLocalDestino(k==="credit_card"?"credit_card":k);if(k!=="credit_card")setLocalTarjetaRef("");setOpenCatGroup(null);}}>
+                      {d.icon} {d.label}
+                    </button>);
+                  })}
+                  {/* Pots inside Finance */}
+                  {g.id==="finance"&&(potsList||[]).map(pot=>{
+                    const isSel=localDestino===pot.id;const color=pot.color||"#58a6ff";
+                    return(<button key={pot.id} style={{cursor:"pointer",border:"none",borderRadius:8,fontFamily:"inherit",fontWeight:600,WebkitTapHighlightColor:"transparent",padding:"7px 6px",fontSize:11,textAlign:"left",background:isSel?color+"22":"transparent",color:isSel?color:T.muted,border:`1px solid ${isSel?color+"66":"transparent"}`,transition:"all 0.1s",whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}
+                      onMouseDown={e=>{e.preventDefault();setLocalDestino(pot.id);setLocalCat("");setLocalTarjetaRef("");setOpenCatGroup(null);}}>
+                      {pot.icon||"🪣"} {pot.name}
+                    </button>);
+                  })}
                 </div>
               </div>
-            : <button style={{cursor:"pointer",border:"none",borderRadius:10,fontFamily:"inherit",fontWeight:600,WebkitTapHighlightColor:"transparent",padding:"7px 9px",fontSize:11,textAlign:"left",background:"transparent",color:T.muted,border:`1px dashed ${T.border}`,whiteSpace:"nowrap"}}
-                onMouseDown={e=>{e.preventDefault();setNewLabelInput(true);}}>+ New</button>
-          }
-        </div>
+            ))}
+            {/* Custom labels + new — 3 cols */}
+            <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:5}}>
+              {(customLabels||[]).map(cl=>{
+                const isSel=localDestino===cl.id;
+                return(<button key={cl.id} style={{cursor:"pointer",border:"none",borderRadius:10,fontFamily:"inherit",fontWeight:600,WebkitTapHighlightColor:"transparent",padding:"7px 9px",fontSize:11,textAlign:"left",background:isSel?"rgba(167,139,250,0.15)":"#21262d",color:isSel?"#a78bfa":T.muted,border:`1px solid ${isSel?"rgba(167,139,250,0.5)":T.border}`,transition:"all 0.1s",whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}
+                  onMouseDown={e=>{e.preventDefault();setLocalDestino(cl.id);setLocalCat("");setLocalTarjetaRef("");}}>
+                  {cl.icon||"🏷️"} {cl.name}
+                </button>);
+              })}
+              {newLabelInput
+                ? <div style={{gridColumn:"1/-1",display:"flex",flexDirection:"column",gap:4}}>
+                    <input autoFocus style={{...INP,fontSize:11,padding:"6px 8px"}} placeholder="Label name..." value={newLabelName} onChange={e=>setNewLabelName(e.target.value)} onKeyDown={e=>{if(e.key==="Escape"){setNewLabelInput(false);setNewLabelName("");}}}/>
+                    <select style={{...INP,fontSize:11,padding:"6px 8px"}} value={newLabelParent||""} onChange={e=>setNewLabelParent(e.target.value)}>
+                      <option value="">No parent category</option>
+                      {PARENT_CATS.map(k=><option key={k} value={k}>{DEST[k].icon} {DEST[k].label}</option>)}
+                    </select>
+                    <div style={{display:"flex",gap:4}}>
+                      <button style={{...{cursor:"pointer",border:"none",borderRadius:8,fontFamily:"inherit",fontWeight:700},flex:1,background:"#238636",color:"#fff",padding:"7px",fontSize:11,WebkitTapHighlightColor:"transparent"}}
+                        onMouseDown={e=>{e.preventDefault();if(newLabelName.trim()){const id="label_"+uid();onAddCustomLabel&&onAddCustomLabel(newLabelName.trim(),id,newLabelParent||null);setLocalDestino(id);setLocalCat("");setNewLabelName("");setNewLabelParent("");setNewLabelInput(false);}}}>✓ Add</button>
+                      <button style={{...{cursor:"pointer",border:"none",borderRadius:8,fontFamily:"inherit",fontWeight:700},background:T.surface2,color:T.muted,padding:"7px 12px",fontSize:11,WebkitTapHighlightColor:"transparent"}}
+                        onMouseDown={e=>{e.preventDefault();setNewLabelInput(false);setNewLabelName("");setNewLabelParent("");}}>✕</button>
+                    </div>
+                  </div>
+                : <button style={{cursor:"pointer",border:"none",borderRadius:10,fontFamily:"inherit",fontWeight:600,WebkitTapHighlightColor:"transparent",padding:"7px 9px",fontSize:11,textAlign:"left",background:"transparent",color:T.muted,border:`1px dashed ${T.border}`,whiteSpace:"nowrap"}}
+                    onMouseDown={e=>{e.preventDefault();setNewLabelInput(true);}}>+ New</button>
+              }
+            </div>
+          </>);
+        })()}
       </div>
 
       {/* PAID WITH — native select picker */}
