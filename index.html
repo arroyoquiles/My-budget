@@ -117,6 +117,8 @@
 <script type="text/babel">
 const { useState, useEffect, useRef, useCallback, memo, useMemo } = React;
 const SK = "mybudget_v17";
+let _uidSeq=0;
+const uid=()=>Date.now()*10000+(++_uidSeq%10000);
 const THEMES = {
   dark:    { bg:"#080c14", surface:"#0f1724", surface2:"#1a2236", border:"#243048", text:"#e6edf3", muted:"#8b949e", accent:"#58a6ff", inp:{background:"#0a1020",color:"#e6edf3",border:"1.5px solid #243048"} },
   light:   { bg:"#f0f4f8", surface:"#ffffff", surface2:"#e8edf5", border:"#d0d7de", text:"#1c2128", muted:"#656d76", accent:"#0969da", inp:{background:"#ffffff",color:"#1c2128",border:"1.5px solid #d0d7de"} },
@@ -3143,24 +3145,17 @@ function App(){
             const now=new Date();
             const thisMonth=mo[now.getMonth()];
             const thisYear=String(now.getFullYear());
-            const hasExisting=(data.snapshots||[]).some(snap=>snap.fecha&&snap.fecha.includes(thisMonth)&&snap.fecha.includes(thisYear));
-            const doSave=()=>{
-              const tCards=data.tarjetas.reduce((s,t)=>s+n(t.balance),0);
-              const tLoans=(data.loans||[]).reduce((s,l)=>s+n(l.balance),0);
-              const newSnap={
-                id:uid(),
-                fecha:new Date().toLocaleDateString("en-US",{month:"short",day:"numeric",year:"numeric"}),
-                sobrante:totalMonthlyIncome-totalMonthlyExp,
-                deuda:tCards+tLoans,
-                totalCards:tCards,
-                totalLoans:tLoans,
-              };
-              setData(p=>({...p,snapshots:[newSnap,...(p.snapshots||[]).filter(s=>!(s.fecha&&s.fecha.includes(thisMonth)&&s.fecha.includes(thisYear)))].slice(0,24)}));
+            const tCards=data.tarjetas.reduce((acc,t)=>acc+n(t.balance),0);
+            const tLoans=(data.loans||[]).reduce((acc,l)=>acc+n(l.balance),0);
+            const snap={id:uid(),fecha:now.toLocaleDateString("en-US",{month:"short",day:"numeric",year:"numeric"}),sobrante:totalMonthlyIncome-totalMonthlyExp,deuda:tCards+tLoans,totalCards:tCards,totalLoans:tLoans};
+            const commit=()=>{
+              setData(p=>({...p,snapshots:[snap,...(p.snapshots||[]).filter(x=>!(x.fecha&&x.fecha.includes(thisMonth)&&x.fecha.includes(thisYear)))].slice(0,24)}));
               toast_("✅ Snapshot saved");
             };
-            if(hasExisting){appConfirm(`Overwrite ${thisMonth} ${thisYear} snapshot?`,doSave);}
-            else{doSave();}
-          }}>💾 <span>Save Monthly Snapshot</span></button>
+            const hasExisting=(data.snapshots||[]).some(x=>x.fecha&&x.fecha.includes(thisMonth)&&x.fecha.includes(thisYear));
+            if(hasExisting){setNativeConfirm({msg:`Overwrite ${thisMonth} ${thisYear} snapshot?`,onOk:commit});}
+            else{commit();}
+          }}>📸 <span>Save Monthly Snapshot</span></button>
         </div>)}
         {tab==="paychecks"&&(<div className="anim">
           {!data.proximoCobro&&(<div style={{textAlign:"center",padding:"40px 20px"}}>
