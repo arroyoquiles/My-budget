@@ -3106,21 +3106,17 @@ function App(){
                 const bal=n(pot.balance)||0;
                 const color=pot.color||"#58a6ff";
                 return(<div key={pot.id} style={{paddingBottom:i<potsList.length-1?8:0,marginBottom:i<potsList.length-1?8:0,borderBottom:i<potsList.length-1?`1px solid ${T.border}`:"none"}}>
-                  <div style={{display:"flex",alignItems:"center",gap:0}}>
+                  <div style={{display:"flex",alignItems:"center"}}>
                     <span style={{fontSize:12,marginRight:6,flexShrink:0}}>{pot.icon||"🪣"}</span>
-                    {/* Tap name → open transaction modal */}
-                    <span style={{fontSize:11,fontWeight:600,color:T.text,flex:1,cursor:"pointer"}}
+                    <span style={{fontSize:11,fontWeight:600,color:T.text,flex:1,cursor:"pointer",minWidth:0,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}
                       onClick={()=>{setMoveTo(pot.id);setEditingPotId(null);setMoveMode("add");setMoveOpen(true);}}>
                       {pot.name}
                       {pot.goal>0&&<span style={{fontSize:9,color:T.muted,fontWeight:400,marginLeft:6}}>{Math.min(100,Math.round((bal/pot.goal)*100))}%</span>}
                     </span>
-                    <div style={{display:"flex",alignItems:"center",gap:8,flexShrink:0}}>
-                      {/* Tap balance → reveal (only when potsHidden is ON) */}
-                      <button onClick={()=>{if(data.potsHidden)setPotsRevealed(r=>!r);}}
-                        style={{...BTN,fontFamily:"monospace",fontWeight:800,fontSize:13,color:bal>0?color:T.muted,background:"transparent",border:"none",padding:"2px 6px",transition:"opacity 0.12s",opacity:hidden?0.4:1,letterSpacing:hidden?1.5:0,cursor:data.potsHidden?"pointer":"default"}}>
-                        {hidden?"••••":fmt(bal)}
-                      </button>
-                    </div>
+                    <button onClick={()=>{if(data.potsHidden)setPotsRevealed(r=>!r);}}
+                      style={{...BTN,fontFamily:"monospace",fontWeight:800,fontSize:13,color:bal>0?color:T.muted,background:"transparent",border:"none",padding:"2px 0",width:52,textAlign:"right",flexShrink:0,transition:"opacity 0.12s",opacity:hidden?0.4:1,letterSpacing:hidden?1.5:0,cursor:data.potsHidden?"pointer":"default"}}>
+                      {hidden?"••••":fmt(bal)}
+                    </button>
                   </div>
                   {pot.goal>0&&(()=>{
                     const pct=Math.min(100,Math.round((bal/pot.goal)*100));
@@ -3136,31 +3132,34 @@ function App(){
               {potsList.length>0&&<div style={{marginTop:9,paddingTop:8,borderTop:`1px solid ${T.border}`,display:"flex",justifyContent:"space-between",alignItems:"center"}}>
                 <span style={{fontSize:10,color:T.muted}}>Total</span>
                 <button onClick={()=>{if(data.potsHidden)setPotsRevealed(r=>!r);}}
-                  style={{...BTN,fontFamily:"monospace",fontWeight:800,fontSize:13,color:T.accent,background:"transparent",border:"none",padding:0,transition:"opacity 0.12s",opacity:hidden?0.4:1,cursor:data.potsHidden?"pointer":"default"}}>
+                  style={{...BTN,fontFamily:"monospace",fontWeight:800,fontSize:13,color:T.accent,background:"transparent",border:"none",padding:"2px 0",width:52,textAlign:"right",transition:"opacity 0.12s",opacity:hidden?0.4:1,cursor:data.potsHidden?"pointer":"default"}}>
                   {hidden?"••••":fmt(totalPots)}
                 </button>
               </div>}
             </div>);
           })()}
           <button style={{...BTN,width:"100%",padding:"7px 12px",background:"transparent",color:T.muted,fontSize:11,border:`1px dashed ${T.border}`,borderRadius:9,display:"flex",alignItems:"center",justifyContent:"center",gap:6,marginTop:4}} onClick={()=>{
-            const totalCards=data.tarjetas.reduce((s,t)=>s+n(t.balance),0);
-            const totalLoans=(data.loans||[]).reduce((s,l)=>s+n(l.balance),0);
             const mo=["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
-            const now=new Date();const thisMonth=mo[now.getMonth()];const thisYear=String(now.getFullYear());
-            const existingIdx=(data.snapshots||[]).findIndex(s=>s.fecha&&s.fecha.includes(thisMonth)&&s.fecha.includes(thisYear));
-            const save=()=>{
-              const s={id:uid(),fecha:now.toLocaleDateString("en-US",{month:"short",day:"numeric",year:"numeric"}),sobrante:totalMonthlyIncome-totalMonthlyExp,deuda:totalDebt,totalCards,totalLoans};
-              setData(p=>{
-                const snaps=(p.snapshots||[]).filter(snap=>!(snap.fecha&&snap.fecha.includes(thisMonth)&&snap.fecha.includes(thisYear)));
-                return{...p,snapshots:[s,...snaps].slice(0,24)};
-              });
+            const now=new Date();
+            const thisMonth=mo[now.getMonth()];
+            const thisYear=String(now.getFullYear());
+            const hasExisting=(data.snapshots||[]).some(snap=>snap.fecha&&snap.fecha.includes(thisMonth)&&snap.fecha.includes(thisYear));
+            const doSave=()=>{
+              const tCards=data.tarjetas.reduce((s,t)=>s+n(t.balance),0);
+              const tLoans=(data.loans||[]).reduce((s,l)=>s+n(l.balance),0);
+              const newSnap={
+                id:uid(),
+                fecha:new Date().toLocaleDateString("en-US",{month:"short",day:"numeric",year:"numeric"}),
+                sobrante:totalMonthlyIncome-totalMonthlyExp,
+                deuda:tCards+tLoans,
+                totalCards:tCards,
+                totalLoans:tLoans,
+              };
+              setData(p=>({...p,snapshots:[newSnap,...(p.snapshots||[]).filter(s=>!(s.fecha&&s.fecha.includes(thisMonth)&&s.fecha.includes(thisYear)))].slice(0,24)}));
               toast_("✅ Snapshot saved");
             };
-            if(existingIdx>=0){
-              appConfirm(`Overwrite ${thisMonth} ${thisYear} snapshot?`,save);
-            } else {
-              save();
-            }
+            if(hasExisting){appConfirm(`Overwrite ${thisMonth} ${thisYear} snapshot?`,doSave);}
+            else{doSave();}
           }}>💾 <span>Save Monthly Snapshot</span></button>
         </div>)}
         {tab==="paychecks"&&(<div className="anim">
