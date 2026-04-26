@@ -1410,6 +1410,8 @@ function App(){
   const [potsRevealed,setPotsRevealed]=useState(false);
   const [resetConfirm,setResetConfirm]=useState(null);
   const [themePicker,setThemePicker]=useState(false);
+  const [nativeConfirm,setNativeConfirm]=useState(null);
+  const appConfirm=(msg,onOk)=>setNativeConfirm({msg,onOk});
   const [resetAllConfirm,setResetAllConfirm]=useState(false);
   const [debtsFilter,setDebtsFilter]=useState("all");
   const [cardsCollapsed,setCardsCollapsed]=useState(false);
@@ -3110,7 +3112,7 @@ function App(){
                     <span style={{fontSize:11,fontWeight:600,color:T.text,flex:1,cursor:"pointer"}}
                       onClick={()=>{setMoveTo(pot.id);setEditingPotId(null);setMoveMode("add");setMoveOpen(true);}}>
                       {pot.name}
-                      {pot.goal>0&&<span style={{fontSize:9,color:T.muted,fontWeight:400,marginLeft:6}}>{Math.min(100,Math.round((bal/pot.goal)*100))}% of {fmt(pot.goal)}</span>}
+                      {pot.goal>0&&<span style={{fontSize:9,color:T.muted,fontWeight:400,marginLeft:6}}>{Math.min(100,Math.round((bal/pot.goal)*100))}%</span>}
                     </span>
                     <div style={{display:"flex",alignItems:"center",gap:8,flexShrink:0}}>
                       {/* Tap balance → reveal (only when potsHidden is ON) */}
@@ -3147,26 +3149,24 @@ function App(){
             const totalLoans=(data.loans||[]).reduce((s,l)=>s+n(l.balance),0);
             const mo=["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
             const now=new Date();const thisMonth=mo[now.getMonth()];const thisYear=String(now.getFullYear());
-            const existing=(data.snapshots||[]).find(s=>s.fecha&&s.fecha.includes(thisMonth)&&s.fecha.includes(thisYear));
-            if(existing){toast_("Snapshot for this month already exists","err");return;}
-            const s={id:uid(),fecha:now.toLocaleDateString("en-US",{month:"short",day:"numeric",year:"numeric"}),sobrante:totalMonthlyIncome-totalMonthlyExp,deuda:totalDebt,totalCards,totalLoans};
-            setData(p=>({...p,snapshots:[s,...p.snapshots].slice(0,24)}));toast_("✅ Snapshot saved");
+            const existingIdx=(data.snapshots||[]).findIndex(s=>s.fecha&&s.fecha.includes(thisMonth)&&s.fecha.includes(thisYear));
+            const save=()=>{
+              const s={id:uid(),fecha:now.toLocaleDateString("en-US",{month:"short",day:"numeric",year:"numeric"}),sobrante:totalMonthlyIncome-totalMonthlyExp,deuda:totalDebt,totalCards,totalLoans};
+              setData(p=>{
+                const snaps=[...(p.snapshots||[])];
+                if(existingIdx>=0)snaps.splice(existingIdx,1);
+                return{...p,snapshots:[s,...snaps].slice(0,24)};
+              });
+              toast_("✅ Snapshot saved");
+            };
+            if(existingIdx>=0){
+              appConfirm(`Overwrite ${thisMonth} ${thisYear} snapshot?`,save);
+            } else {
+              save();
+            }
           }}>💾 <span>Save Monthly Snapshot</span></button>
         </div>)}
-        {tab==="paychecks"&&(<div className="anim" onTouchStart={e=>{
-            swipeStart.current={x:e.touches[0].clientX,y:e.touches[0].clientY,onRow:!!e.target.closest(".expense-row")};
-          }} onTouchEnd={e=>{
-            if(!swipeStart.current||monthPeriods.length<2)return;
-            const{x,y,onRow}=swipeStart.current;
-            const dx=e.changedTouches[0].clientX-x,dy=e.changedTouches[0].clientY-y;
-            swipeStart.current=null;
-            // If started on an expense row, or not clearly horizontal, skip
-            if(onRow||Math.abs(dx)<80||Math.abs(dx)<Math.abs(dy)*2)return;
-            const pid=activeCheckPid||(monthPeriods.find(mp=>mp.isCurrent)||monthPeriods[0])?.id;
-            const ci=monthPeriods.findIndex(mp=>mp.id===pid);
-            if(dx<0&&ci<monthPeriods.length-1){haptic(15);setActiveCheckPid(monthPeriods[ci+1].id);}
-            else if(dx>0&&ci>0){haptic(15);setActiveCheckPid(monthPeriods[ci-1].id);}
-          }}>
+        {tab==="paychecks"&&(<div className="anim">
           {!data.proximoCobro&&(<div style={{textAlign:"center",padding:"40px 20px"}}>
             <div style={{fontSize:36,marginBottom:12}}>💰</div>
             <div style={{fontSize:15,fontWeight:700,color:T.text,marginBottom:6}}>Set up your paycheck first</div>
@@ -4057,6 +4057,20 @@ function App(){
         </div>)}
       </div>
     </div>
+    {nativeConfirm&&(
+      <div style={{position:"fixed",inset:0,zIndex:9996,background:"rgba(0,0,0,0.75)",display:"flex",alignItems:"center",justifyContent:"center",padding:24}}
+        onClick={e=>{if(e.target===e.currentTarget)setNativeConfirm(null);}}>
+        <div style={{background:T.surface,border:`1px solid ${T.border}`,borderRadius:16,padding:"20px 20px 16px",width:"100%",maxWidth:300,animation:"modalEnter 0.28s cubic-bezier(0.34,1.1,0.64,1) both"}}>
+          <div style={{fontSize:15,fontWeight:700,color:T.text,marginBottom:18,lineHeight:1.4,textAlign:"center"}}>{nativeConfirm.msg}</div>
+          <div style={{display:"flex",gap:8}}>
+            <button style={{flex:1,padding:"11px",background:T.surface2,color:T.muted,fontSize:14,border:`1px solid ${T.border}`,borderRadius:10,cursor:"pointer",fontFamily:"inherit",fontWeight:600}}
+              onClick={()=>setNativeConfirm(null)}>Cancel</button>
+            <button style={{flex:1,padding:"11px",background:"rgba(88,166,255,0.15)",color:T.accent,fontSize:14,fontWeight:700,border:`1px solid ${T.accent}44`,borderRadius:10,cursor:"pointer",fontFamily:"inherit"}}
+              onClick={()=>{nativeConfirm.onOk();setNativeConfirm(null);}}>Confirm</button>
+          </div>
+        </div>
+      </div>
+    )}
     </>
   );
 }
