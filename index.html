@@ -151,8 +151,8 @@ const DEST = {
   personal:     {label:"Personal Care",  icon:"💆",color:"#f472b6",bg:"rgba(244,114,182,0.1)", border:"rgba(244,114,182,0.3)"},
   other:        {label:"Other",         icon:"📌",color:"#8b949e",bg:"transparent",            border:"#21262d"},
 };
-const DEST_ORDER = ["credit_card","rent","auto","utilities","gas","subscription","other","temp"];
-const PARENT_CATS = ["credit_card","rent","auto","utilities","gas","subscription","insurance","temp","other"];
+const DEST_ORDER = ["credit_card","rent","auto","utilities","gas","groceries","subscription","dining","entertainment","medical","insurance","lifestyle","travel","education","personal","other","temp"];
+const PARENT_CATS = ["credit_card","rent","auto","utilities","gas","groceries","subscription","dining","entertainment","medical","insurance","lifestyle","travel","education","personal","temp","other"];
 const POTS = {
   savings_acct:{label:"Savings",   icon:"🏦",color:"#3fb950",bg:"rgba(63,185,80,0.1)"},
   emergency:   {label:"Emergency", icon:"🆘",color:"#06b6d4",bg:"rgba(6,182,212,0.1)"},
@@ -189,12 +189,14 @@ const CICONS={
   groceries:"🛒",other:"📌",insurance:"🛡️",utilities:"⚡",savings_acct:"🏦",
   emergency:"🆘",investment:"📈",loan:"🏦",temp:"🔄",
   dining:"🍽️",entertainment:"🎬",medical:"🏥",lifestyle:"✨",
+  travel:"🌍",education:"📚",personal:"💆",
 };
 const CATCOLORS={
   auto:"#f97316",rent:"#3b82f6",subscription:"#8b5cf6",gas:"#ef4444",
   credit_card:"#ec4899",groceries:"#22c55e",other:"#94a3b8",insurance:"#6366f1",
   utilities:"#f59e0b",savings_acct:"#3fb950",emergency:"#06b6d4",investment:"#10b981",
   loan:"#f97316",temp:"#d29922",dining:"#f472b6",entertainment:"#a78bfa",medical:"#34d399",lifestyle:"#a78bfa",
+  travel:"#06b6d4",education:"#8b5cf6",personal:"#f472b6",
 };
 const LOAN_ICONS={
   "auto loan":"🚗","auto":"🚗","car loan":"🚗","car":"🚗",
@@ -534,7 +536,13 @@ const GastoItem=memo(({item,pid,editId,setEditId,tarjetas,loans,potsList,periodD
   // Local edit state - buffers changes, commits on save
   const [localDestino,setLocalDestino]=useState(item.destino||"");
   const [localTarjetaRef,setLocalTarjetaRef]=useState(item.tarjetaRef||"");
-  const initCat=(destino,cat)=>destino==="temp"?"temp":destino==="__new__"?"":((cat&&cat!==destino)?cat:(destino||""));
+  const initCat=(destino,cat)=>{
+    if(destino==="temp")return"temp";
+    if(destino==="__new__")return"";
+    // If destino is a custom label (label_xxx), don't use credit_card as cat
+    if(destino&&destino.startsWith("label_")&&cat==="credit_card")return"";
+    return(cat&&cat!==destino)?cat:(destino||"");
+  };
   const [localCat,setLocalCat]=useState(initCat(item.destino,item.cat));
   const [newLabelInput,setNewLabelInput]=useState(false);
   const [newLabelName,setNewLabelName]=useState("");
@@ -683,7 +691,7 @@ const GastoItem=memo(({item,pid,editId,setEditId,tarjetas,loans,potsList,periodD
               onChange={e=>{
                 const v=e.target.value;
                 if(v==="cash"){setLocalTarjetaRef("");}
-                else{const name=v.replace("card:","");setLocalTarjetaRef(name);setLocalDestino("credit_card");}
+                else{const name=v.replace("card:","");setLocalTarjetaRef(name);}
               }}>
               <option value="cash">💵 Debit / Cash</option>
               {tarjetas.map(t=>{
@@ -733,20 +741,23 @@ const GastoItem=memo(({item,pid,editId,setEditId,tarjetas,loans,potsList,periodD
       <div style={{display:"flex",gap:8,marginTop:10}}>
         <button style={{...BTN,flex:1,padding:"12px",background:"#238636",color:"#fff",fontSize:13,fontWeight:700,borderRadius:11,letterSpacing:0.8}}
           onClick={()=>{
-            const cat=localCat||localDestino;
             const isPot=(potsList||[]).find(p=>p.id===localDestino);
             const isCustom=(customLabels||[]).find(l=>l.id===localDestino);
             const isPaidWithCard=!!localTarjetaRef;
-            let dest;
-            if(isPot)dest=localDestino;
-            else if(isCustom)dest=localDestino;
-            else if(localDestino==="__cash__")dest=cat||"other";
-            else dest=cat||localDestino;
+            let dest,cat;
+            if(isPot){dest=localDestino;cat=localDestino;}
+            else if(isCustom){
+              dest=localDestino;
+              // cat = parent category of the label (for filtering/history), or the label id itself
+              cat=isCustom.parent||localDestino;
+            }
+            else if(localDestino==="__cash__"){dest=localCat||"other";cat=localCat||"other";}
+            else{dest=localCat||localDestino;cat=localCat||localDestino;}
             // Cleanup __new__ sentinel
             if(dest==="__new__"||dest==="")dest="other";
-            // If paying a card directly (category = credit_card), destino = credit_card
-            if(cat==="credit_card"&&isPaidWithCard)dest="credit_card";
-            if(cat==="credit_card"&&!isPaidWithCard)dest="credit_card";
+            if(cat==="__new__"||cat==="")cat="other";
+            // Only force destino=credit_card if it's a card payment with no other category
+            if(cat==="credit_card"&&!isCustom&&!isPot)dest="credit_card";
             const tRef=isPaidWithCard?localTarjetaRef:"";
             const updates={destino:dest,cat,tarjetaRef:tRef};
             onBatchUpdate(item.id,updates);
@@ -1951,7 +1962,10 @@ function App(){
     gastos.forEach(g=>{
       let k;
       if(editId===g.id&&editGroupKeyRef.current!==null){k=editGroupKeyRef.current;}
-      else{k=g.destino==="credit_card"?(g.tarjetaRef||"Credit Card"):g.destino;}
+      else{
+        const isCustomLabel=g.destino&&(g.destino.startsWith("label_")||(data.customLabels||[]).some(cl=>cl.id===g.destino));
+        k=g.destino==="credit_card"&&!isCustomLabel?(g.tarjetaRef||"Credit Card"):g.destino;
+      }
       if(!groups[k])groups[k]={d:g.destino,r:g.tarjetaRef,items:[]};
       groups[k].items.push(g);
     });
