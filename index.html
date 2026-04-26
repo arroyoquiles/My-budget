@@ -3153,7 +3153,11 @@ function App(){
             setData(p=>({...p,snapshots:[s,...p.snapshots].slice(0,24)}));toast_("✅ Snapshot saved");
           }}>💾 <span>Save Monthly Snapshot</span></button>
         </div>)}
-        {tab==="paychecks"&&(<div className="anim" onTouchStart={e=>{swipeStart.current={x:e.touches[0].clientX,y:e.touches[0].clientY};}} onTouchEnd={e=>{if(!swipeStart.current||monthPeriods.length<2)return;const dx=e.changedTouches[0].clientX-swipeStart.current.x,dy=e.changedTouches[0].clientY-swipeStart.current.y;swipeStart.current=null;if(Math.abs(dx)<60||Math.abs(dx)<Math.abs(dy)*1.5)return;const pid=activeCheckPid||(monthPeriods.find(mp=>mp.isCurrent)||monthPeriods[0])?.id;const ci=monthPeriods.findIndex(mp=>mp.id===pid);if(dx<0&&ci<monthPeriods.length-1){haptic(15);setActiveCheckPid(monthPeriods[ci+1].id);}else if(dx>0&&ci>0){haptic(15);setActiveCheckPid(monthPeriods[ci-1].id);}}}>
+        {tab==="paychecks"&&(<div className="anim" onTouchStart={e=>{
+            // Don't steal swipe if it starts on an expense row (those have their own swipe-to-edit)
+            if(e.target.closest(".expense-row"))return;
+            swipeStart.current={x:e.touches[0].clientX,y:e.touches[0].clientY};
+          }} onTouchEnd={e=>{if(!swipeStart.current||monthPeriods.length<2)return;const dx=e.changedTouches[0].clientX-swipeStart.current.x,dy=e.changedTouches[0].clientY-swipeStart.current.y;swipeStart.current=null;if(Math.abs(dx)<60||Math.abs(dx)<Math.abs(dy)*1.5)return;const pid=activeCheckPid||(monthPeriods.find(mp=>mp.isCurrent)||monthPeriods[0])?.id;const ci=monthPeriods.findIndex(mp=>mp.id===pid);if(dx<0&&ci<monthPeriods.length-1){haptic(15);setActiveCheckPid(monthPeriods[ci+1].id);}else if(dx>0&&ci>0){haptic(15);setActiveCheckPid(monthPeriods[ci-1].id);}}}>
           {!data.proximoCobro&&(<div style={{textAlign:"center",padding:"40px 20px"}}>
             <div style={{fontSize:36,marginBottom:12}}>💰</div>
             <div style={{fontSize:15,fontWeight:700,color:T.text,marginBottom:6}}>Set up your paycheck first</div>
