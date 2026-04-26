@@ -1280,6 +1280,13 @@ function App(){
   const cardOrderRef=useRef([]);
   const loanOrderRef=useRef([]);
   const PIN_KEY="mybudget_pin";
+const PIN_HASHED_FLAG="mybudget_pin_hashed";
+const hashPin=async(pin)=>{
+  try{const buf=await crypto.subtle.digest("SHA-256",new TextEncoder().encode(pin));
+    return Array.from(new Uint8Array(buf)).map(b=>b.toString(16).padStart(2,"0")).join("");}
+  catch(e){let h=0;for(let i=0;i<pin.length;i++)h=Math.imul(31,h)+pin.charCodeAt(i)|0;
+    return"fallback_"+Math.abs(h).toString(16).padStart(8,"0");}
+};
   const [pinInput,setPinInput]=useState("");
   const [pinSetup,setPinSetup]=useState(false);
   const [pinConfirm,setPinConfirm]=useState("");
@@ -1348,6 +1355,7 @@ function App(){
   const [amtInputVal,setAmtInputVal]=useState({});
   const [toast,setToast]=useState(null);
   const [backupPrompt,setBackupPrompt]=useState(false);
+  const [importPreview,setImportPreview]=useState(null);
   const [locked,setLocked]=useState(true);
   const [editId,setEditId]=useState(null);
   const [accion,setAccion]=useState(null);
@@ -1438,7 +1446,25 @@ function App(){
   const theme=data.theme||"dark";
   const T=THEMES[theme];
   useEffect(()=>{document.body.className=theme;},[theme]);
-  useEffect(()=>{localStorage.setItem(SK,JSON.stringify(data));},[data]);
+  const saveTimerRef=React.useRef(null);
+  const latestDataRef=React.useRef(data);
+  latestDataRef.current=data;
+  useEffect(()=>{
+    clearTimeout(saveTimerRef.current);
+    saveTimerRef.current=setTimeout(()=>{
+      try{localStorage.setItem(SK,JSON.stringify(latestDataRef.current));}
+      catch(e){if(e.name==="QuotaExceededError")toast_("⚠️ Storage full — export a backup now!","err");}
+    },500);
+  },[data]);
+  useEffect(()=>{
+    const flush=()=>{try{localStorage.setItem(SK,JSON.stringify(latestDataRef.current));}catch(e){}};
+    window.addEventListener("beforeunload",flush);
+    return()=>window.removeEventListener("beforeunload",flush);
+  },[]);
+  useEffect(()=>{
+    try{const cutoff=new Date();cutoff.setDate(cutoff.getDate()-7);const cutoffStr=cutoff.toISOString().slice(0,10);
+      Object.keys(localStorage).filter(k=>k.startsWith("notif_")).forEach(k=>{if(k.slice(-10)<cutoffStr)localStorage.removeItem(k);});}catch(e){}
+  },[]);
   useEffect(()=>{
     const s=document.getElementById("splash");
     if(s){setTimeout(()=>{s.classList.add("hide");setTimeout(()=>s.remove(),500);},1600);}
@@ -1455,7 +1481,7 @@ function App(){
       if(!hasSnap){
         const totalCards=data.tarjetas.reduce((s,t)=>n(t.balance)+s,0);
         const totalLoans=(data.loans||[]).reduce((s,l)=>n(l.balance)+s,0);
-        const snap={id:Date.now(),fecha:prevMonthEnd.toLocaleDateString("en-US",{month:"short",day:"numeric",year:"numeric"}),sobrante:0,deuda:totalCards+totalLoans,totalCards,totalLoans,_auto:true};
+        const snap={id:uid(),fecha:prevMonthEnd.toLocaleDateString("en-US",{month:"short",day:"numeric",year:"numeric"}),sobrante:0,deuda:totalCards+totalLoans,totalCards,totalLoans,_auto:true};
         setData(p=>{
           const already=(p.snapshots||[]).some(s=>s.fecha&&s.fecha.includes(mo[prevMonthEnd.getMonth()])&&s.fecha.includes(String(prevMonthEnd.getFullYear())));
           if(already)return p;
@@ -1569,8 +1595,9 @@ function App(){
     const du=getDU(d.fechaPago);
     if(du===null||du>3)return false;
     // If a payment was recorded today, don't show alert
-    const todayStr=new Date().toLocaleDateString("en-US",{month:"short",day:"numeric"});
-    const paidToday=(d.historial||[]).some(h=>h.tipo==="pago"&&h.fecha===todayStr);
+    const todayStr=new Date().toLocaleDateString("en-US",{month:"short",day:"numeric",year:"numeric"});
+    const todayStrShort=new Date().toLocaleDateString("en-US",{month:"short",day:"numeric"});
+    const paidToday=(d.historial||[]).some(h=>h.tipo==="pago"&&(h.fecha===todayStr||h.fecha===todayStrShort));
     if(paidToday)return false;
     return true;
   });
@@ -1672,7 +1699,7 @@ function App(){
         const gastos=(newPeriods[mp.id]?.gastos)||[];
         // Remove any existing copy of this item (same nombre+destino+monto)
         const filtered=gastos.filter(g=>!(g.nombre===item.nombre&&g.destino===item.destino&&g._recurring&&!g._recurringCheckOnly));
-        const newItem={...item,id:Date.now()*1000+Math.floor(Math.random()*999),state:"pending",pagado:false,_potAdded:false};
+        const newItem={...item,id:uid(),state:"pending",pagado:false,_potAdded:false};
         newPeriods[mp.id]={...(newPeriods[mp.id]||{}),gastos:[...filtered,newItem]};
       });
       return{...p,periods:newPeriods};
@@ -1684,7 +1711,7 @@ function App(){
     setGastoTypePicker({pid});
   },[]);
   const addGastoRegular=useCallback(pid=>{
-    const nid=Date.now();
+    const nid=uid();
     const scrollY=window.scrollY;
     updPeriodGastos(pid,g=>[...g,{id:nid,nombre:"",monto:0,cat:"",state:"pending",pagado:false,destino:"__new__",tarjetaRef:"",diaPago:null,_quick:false}]);
     editGroupKeyRef.current="__new__";
@@ -1695,7 +1722,7 @@ function App(){
     },30);
   },[]);
   const addGastoDebt=useCallback((pid,debtRef,debt,tipo)=>{
-    const nid=Date.now();
+    const nid=uid();
     const isCard=tipo==="card";
     const realCat=isCard?"credit_card":"auto";
     editGroupKeyRef.current=isCard?"__cards__":realCat;
@@ -1780,7 +1807,7 @@ function App(){
       return true;
     });
     if(!recurring.length)return;
-    const copies=recurring.map((x,i)=>({...x,id:Date.now()*1000+i*100+Math.floor(Math.random()*99),state:"pending",pagado:false,_potAdded:false}));
+    const copies=recurring.map((x,i)=>({...x,id:uid(),state:"pending",pagado:false,_potAdded:false}));
     setData(p=>({...p,periods:{...p.periods,[activeCheckPid]:{...(p.periods[activeCheckPid]||{}),gastos:[...(p.periods[activeCheckPid]?.gastos||[]),...copies]}}}));
     setTimeout(()=>toast_(`🔁 ${copies.length} recurring copied`),100);
   },[activeCheckPid]);
@@ -1825,7 +1852,7 @@ function App(){
       setTimeout(()=>{if(newCardRef.current)newCardRef.current.scrollIntoView({behavior:"smooth",block:"start"});},80);
       return;
     }
-    const id=Date.now();
+    const id=uid();
     const usedCount=data.tarjetas.filter(t=>!CC[t.nombre]).length;
     const vc=CARD_PALETTE[usedCount%CARD_PALETTE.length];
     setData(p=>({...p,tarjetas:[...p.tarjetas,{id,nombre:"New Card",balance:0,limite:0,minimo:0,interes:0,fechaCorte:"",fechaPago:"",historial:[],tipo:"card",priority:false,_vc:vc}]}));
@@ -1836,7 +1863,7 @@ function App(){
     // Scroll to the new card after it renders
     setTimeout(()=>{if(newCardRef.current)newCardRef.current.scrollIntoView({behavior:"smooth",block:"start"});},120);
   },[data.tarjetas,newCardDraftId]);
-  const addLoan=useCallback(()=>{const id=Date.now();setData(p=>({...p,loans:[...(p.loans||[]),{id,nombre:"New Loan",balance:0,original:0,minimo:0,interes:0,fechaPago:"",historial:[],tipo:"loan",priority:false}]}));setExpandedLoanId(prev=>{if(prev&&prev!==id)bumpReset(prev);return id;});setAccion(null);setMontoAccion("");setAddingDebt({id,tipo:"loan"});setTimeout(()=>{const el=document.getElementById(`debt-${id}`);if(el){el.scrollIntoView({behavior:"smooth",block:"center"});}else{window.scrollTo({top:document.body.scrollHeight,behavior:"smooth"});}},350);},[]);
+  const addLoan=useCallback(()=>{const id=uid();setData(p=>({...p,loans:[...(p.loans||[]),{id,nombre:"New Loan",balance:0,original:0,minimo:0,interes:0,fechaPago:"",historial:[],tipo:"loan",priority:false}]}));setExpandedLoanId(prev=>{if(prev&&prev!==id)bumpReset(prev);return id;});setAccion(null);setMontoAccion("");setAddingDebt({id,tipo:"loan"});setTimeout(()=>{const el=document.getElementById(`debt-${id}`);if(el){el.scrollIntoView({behavior:"smooth",block:"center"});}else{window.scrollTo({top:document.body.scrollHeight,behavior:"smooth"});}},350);},[]);
   const togglePriorityCard=useCallback(id=>setData(p=>({...p,tarjetas:p.tarjetas.map(t=>t.id===id?{...t,priority:!t.priority}:t)})),[]);
   const togglePriorityLoan=useCallback(id=>setData(p=>({...p,loans:(p.loans||[]).map(l=>l.id===id?{...l,priority:!l.priority}:l)})),[]);
   useEffect(()=>{if(sortMenuOpen)setSortMenuOpen(false);},[expandedCardId]);
@@ -1845,7 +1872,7 @@ function App(){
 
   const addQuickExpenseToCheck=()=>{
     const m=parseFloat(quickAmt);if(!m||m<=0||!quickNote.trim())return toast_("Add name and amount","err");
-    const pid=quickPid||currentPid;const nid=Date.now();
+    const pid=quickPid||currentPid;const nid=uid();
     updPeriodGastos(pid,g=>[...g,{id:nid,nombre:quickNote.trim(),monto:m,cat:"temp",state:"paid",pagado:true,destino:"temp",tarjetaRef:"",diaPago:null,_quick:true}]);
     setQuickNote("");setQuickAmt("");setQuickOpen(false);toast_(`✅ "${quickNote.trim()}" ${fmt(m)} added & paid`);
   };
@@ -1864,7 +1891,7 @@ function App(){
     const m=parseFloat(quickAmt);
     if(!m||m<=0||!quickNote.trim())return toast_("Add name and amount","err");
     const pid=quickPid||currentPid;
-    const nid=Date.now();
+    const nid=uid();
     const cardIdNum=quickCardId?parseInt(quickCardId):null;
     const card=cardIdNum?data.tarjetas.find(t=>t.id===cardIdNum):null;
     const isCardOnly=card&&quickCardMode==="cardonly";
@@ -1925,17 +1952,17 @@ function App(){
       const toPot=potsList.find(p=>p.id===moveTransferTo);
       if(!fromPot||!toPot)return toast_("Invalid pot","err");
       if(m>n(fromPot.balance))return toast_("Not enough in "+fromPot.name,"err");
-      const mvId=Date.now();
+      const mvId=uid();
       setData(p=>({...p,
         potsList:(p.potsList||[]).map(pt=>pt.id===moveTo?{...pt,balance:Math.max(0,n(pt.balance)-m)}:pt.id===moveTransferTo?{...pt,balance:n(pt.balance)+m}:pt),
-        potMovements:[...(p.potMovements||[]),{id:mvId,potKey:moveTo,amount:-m,date:new Date().toLocaleDateString("en-US",{month:"short",day:"numeric"}),note:"Transfer to "+toPot.name},{id:mvId+1,potKey:moveTransferTo,amount:m,date:new Date().toLocaleDateString("en-US",{month:"short",day:"numeric"}),note:"Transfer from "+fromPot.name}]}));
+        potMovements:[...(p.potMovements||[]),{id:mvId,potKey:moveTo,amount:-m,date:new Date().toLocaleDateString("en-US",{month:"short",day:"numeric"}),note:"Transfer to "+toPot.name},{id:mvId+1,potKey:moveTransferTo,amount:m,date:new Date().toLocaleDateString("en-US",{month:"short",day:"numeric"}),note:"Transfer from "+fromPot.name}].slice(-200)}));
       setMoveAmt("");toast_("↔️ "+fmt(m)+" transferred");return;
     }
     const pot=potsList.find(p=>p.id===moveTo);
     const isUse=moveMode==="use";
     const curBal=n(pot?.balance)||0;
     if(isUse&&m>curBal)return toast_("Not enough in "+(pot?.name||moveTo),"err");
-    const mvId=Date.now();
+    const mvId=uid();
     setData(p=>({...p,
       potsList:(p.potsList||[]).map(pt=>{
         if(pt.id!==moveTo)return pt;
@@ -1946,7 +1973,7 @@ function App(){
         }
         return{...pt,balance:newBal};
       }),
-      potMovements:[...(p.potMovements||[]),{id:mvId,potKey:moveTo,amount:isUse?-m:m,date:new Date().toLocaleDateString("en-US",{month:"short",day:"numeric"}),note:(isUse?"Used from ":"Added to ")+(pot?.name||moveTo)}]}));
+      potMovements:[...(p.potMovements||[]),{id:mvId,potKey:moveTo,amount:isUse?-m:m,date:new Date().toLocaleDateString("en-US",{month:"short",day:"numeric"}),note:(isUse?"Used from ":"Added to ")+(pot?.name||moveTo)}].slice(-200)}));
     setMoveAmt("");
     toast_(isUse?"💳 "+fmt(m)+" used from "+(pot?.name||moveTo):"💸 "+fmt(m)+" added to "+(pot?.name||moveTo));
   };
@@ -1957,7 +1984,11 @@ function App(){
   const importData=useCallback(e=>{
     const f=e.target.files[0];if(!f)return;
     const r=new FileReader();
-    r.onload=ev=>{try{const parsed=JSON.parse(ev.target.result);const restored=migrate(parsed);setData(restored);localStorage.setItem(SK,JSON.stringify(restored));toast_("✅ Backup restored");}catch{toast_("❌ Invalid backup file","err");}};
+    r.onload=ev=>{try{const parsed=JSON.parse(ev.target.result);const restored=migrate(parsed);
+      if(!restored)throw new Error("Invalid");
+      const summary={cards:(restored.tarjetas||[]).length,loans:(restored.loans||[]).length,periods:Object.keys(restored.periods||{}).length,snapshots:(restored.snapshots||[]).length,pots:(restored.potsList||[]).length};
+      setImportPreview({restored,summary});
+    }catch{toast_("❌ Invalid backup file","err");}};
     r.readAsText(f);e.target.value="";
   },[]);
 
@@ -2610,11 +2641,10 @@ function App(){
                       setMoveTo(potId);
                       setEditingPotId(isEditing?null:potId);
                     } else if(dx<-50){
-                      // swiped left → delete
-                      if(window.confirm(`Delete "${potName}"?`)){
+                      appConfirm(`Delete "${potName}"?`,()=>{
                         setData(p=>({...p,potsList:(p.potsList||[]).filter(pt=>pt.id!==potId)}));
                         if(moveTo===potId)setMoveTo(potsList.find(p2=>p2.id!==potId)?.id||"");
-                      }
+                      });
                     }
                     swRef.active=false;
                   };
@@ -2652,7 +2682,7 @@ function App(){
                         onClick={()=>{setEditingPotId(isEditing?null:pot.id);setMoveTo(pot.id);}}>✏️</div>
                       <div style={{flex:1,background:T.surface2}}/>
                       <div style={{width:70,background:"rgba(248,81,73,0.92)",display:"flex",alignItems:"center",justifyContent:"center",fontSize:18,cursor:"pointer",flexShrink:0}}
-                        onClick={()=>{if(window.confirm(`Delete "${pot.name}"?`)){setData(p=>({...p,potsList:(p.potsList||[]).filter(pt=>pt.id!==pot.id)}));if(moveTo===pot.id)setMoveTo(potsList.find(p2=>p2.id!==pot.id)?.id||"");}}}>🗑</div>
+                        onClick={()=>{appConfirm(`Delete "${pot.name}"?`,()=>{setData(p=>({...p,potsList:(p.potsList||[]).filter(pt=>pt.id!==pot.id)}));if(moveTo===pot.id)setMoveTo(potsList.find(p2=>p2.id!==pot.id)?.id||"");});}}>🗑</div>
                     </div>
 
                     {/* Main row — NO border, NO borderRadius, clips to parent */}
@@ -2730,7 +2760,7 @@ function App(){
               {/* Add new pot */}
               <button style={{...BTN,width:"100%",padding:"10px",marginBottom:14,background:`${T.accent}0d`,color:T.accent,fontSize:13,fontWeight:600,border:`1px dashed ${T.accent}33`,borderRadius:12,display:"flex",alignItems:"center",justifyContent:"center",gap:6}}
                 onClick={()=>{
-                  const newId="pot_"+Date.now();
+                  const newId="pot_"+uid();
                   const icons=["🪣","✈️","🚗","🏖️","🎯","💊"];
                   const colors=["#58a6ff","#a78bfa","#f97316","#ec4899","#10b981","#d29922"];
                   const idx=(data.potsList||[]).length%6;
@@ -3994,7 +4024,7 @@ function App(){
                 {localStorage.getItem(PIN_KEY)?"🔑 Change PIN":"🔑 Set PIN"}
               </button>}
               {data.biometricEnabled!==false&&localStorage.getItem(PIN_KEY)&&<button style={{...BTN,padding:"8px 12px",background:"rgba(248,81,73,0.1)",color:"#f85149",fontSize:11,border:"1px solid rgba(248,81,73,0.2)",borderRadius:9}}
-                onClick={()=>{if(window.confirm("Remove PIN?")){localStorage.removeItem(PIN_KEY);setData(p=>({...p,biometricEnabled:false}));toast_("🔓 PIN removed");}}}>
+                onClick={()=>{appConfirm("Remove PIN?",()=>{localStorage.removeItem(PIN_KEY);setData(p=>({...p,biometricEnabled:false}));toast_("🔓 PIN removed");});}}>>
                 Remove
               </button>}
             </div>
@@ -4025,7 +4055,7 @@ function App(){
                     {cl.parent&&DEST[cl.parent]&&<span style={{fontSize:10,color:T.muted,marginLeft:6}}>under {DEST[cl.parent].label}</span>}
                   </div>
                   <button style={{...BTN,background:"rgba(248,81,73,0.1)",color:"#f85149",padding:"4px 10px",fontSize:11,borderRadius:8,border:"1px solid rgba(248,81,73,0.2)"}}
-                    onClick={()=>{if(window.confirm(`Delete "${cl.name}"?`)){setData(p=>({...p,customLabels:(p.customLabels||[]).filter(l=>l.id!==cl.id)}));}}}>
+                    onClick={()=>{appConfirm(`Delete "${cl.name}"?`,()=>{setData(p=>({...p,customLabels:(p.customLabels||[]).filter(l=>l.id!==cl.id)}));});}}>>
                     🗑
                   </button>
                 </div>
@@ -4048,6 +4078,27 @@ function App(){
         </div>)}
       </div>
     </div>
+    {importPreview&&(
+      <div style={{position:"fixed",inset:0,zIndex:9997,background:"rgba(0,0,0,0.7)",display:"flex",alignItems:"center",justifyContent:"center",padding:24}}>
+        <div style={{background:T.surface,border:`1px solid ${T.border}`,borderRadius:16,padding:22,width:"100%",maxWidth:340,animation:"modalEnter 0.32s cubic-bezier(0.34,1.1,0.64,1) both"}}>
+          <div style={{fontSize:15,fontWeight:700,color:T.text,marginBottom:4}}>📤 Restore Backup?</div>
+          <div style={{fontSize:12,color:T.muted,marginBottom:14}}>This will replace ALL current data:</div>
+          <div style={{background:T.surface2,borderRadius:10,padding:"10px 14px",marginBottom:16}}>
+            {[["💳","Cards",importPreview.summary.cards],["🏦","Loans",importPreview.summary.loans],["📅","Periods",importPreview.summary.periods],["📸","Snapshots",importPreview.summary.snapshots],["🪣","Pots",importPreview.summary.pots]].map(([icon,label,val])=>(
+              <div key={label} style={{display:"flex",justifyContent:"space-between",fontSize:12,marginBottom:3}}>
+                <span style={{color:T.muted}}>{icon} {label}</span>
+                <span style={{color:T.text,fontWeight:700}}>{val}</span>
+              </div>
+            ))}
+          </div>
+          <div style={{display:"flex",gap:8}}>
+            <button style={{flex:1,padding:"10px",background:"rgba(248,81,73,0.1)",color:"#f85149",fontSize:13,border:"1px solid rgba(248,81,73,0.3)",borderRadius:10,cursor:"pointer",fontFamily:"inherit",fontWeight:600}} onClick={()=>setImportPreview(null)}>Cancel</button>
+            <button style={{flex:1,padding:"10px",background:T.accent,color:"#fff",fontSize:13,fontWeight:700,borderRadius:10,cursor:"pointer",fontFamily:"inherit",border:"none"}}
+              onClick={()=>{const{restored}=importPreview;setData(restored);try{localStorage.setItem(SK,JSON.stringify(restored));}catch(e){}setImportPreview(null);toast_("✅ Backup restored");}}>Restore</button>
+          </div>
+        </div>
+      </div>
+    )}
     {nativeConfirm&&(
       <div style={{position:"fixed",inset:0,zIndex:9996,background:"rgba(0,0,0,0.75)",display:"flex",alignItems:"center",justifyContent:"center",padding:24}}
         onClick={e=>{if(e.target===e.currentTarget)setNativeConfirm(null);}}>
