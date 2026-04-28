@@ -1716,9 +1716,19 @@ const hashPin=async(pin)=>{
     const gastos=(data.periods[pid]?.gastos)||[];
     const item=gastos.find(x=>x.id===id);
     const markingPaid=item&&item.state!=="paid";
-    // If already registered debt payment, don't allow unpaid
+    // If unmarking a registered debt payment — reverse it
     if(item&&item._debtPaid&&!markingPaid){
-      toast_("Payment already registered in Debts","err");
+      const[tipo,idStr]=(item.debtRef||"").split(":");
+      const debtId=parseInt(idStr);
+      const m=n(item.monto);
+      if(tipo==="card"){
+        setData(p=>({...p,tarjetas:p.tarjetas.map(t=>t.id!==debtId?t:{...t,balance:n(t.balance)+m,historial:(t.historial||[]).slice(1)})}));
+        toast_("↩️ Payment reversed from card");
+      } else if(tipo==="loan"){
+        setData(p=>({...p,loans:(p.loans||[]).map(l=>l.id!==debtId?l:{...l,balance:n(l.balance)+m,historial:(l.historial||[]).slice(1)})}));
+        toast_("↩️ Payment reversed from loan");
+      }
+      updPeriodGastos(pid,g=>g.map(x=>x.id!==id?x:{...x,_debtPaid:false,state:"pending",pagado:false}));
       return;
     }
     // If unmarking a charged card expense, reverse the charge
