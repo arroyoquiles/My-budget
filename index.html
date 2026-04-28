@@ -11,20 +11,30 @@
   <script>
   (function(){
     const svg='<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><rect width="512" height="512" rx="100" fill="#0b1220"/><rect x="76" y="158" width="324" height="224" rx="30" fill="none" stroke="white" stroke-width="22"/><rect x="318" y="188" width="102" height="72" rx="18" fill="none" stroke="white" stroke-width="18"/><circle cx="371" cy="224" r="13" fill="white"/><line x1="156" y1="118" x2="206" y2="158" stroke="white" stroke-width="21" stroke-linecap="round"/><line x1="238" y1="106" x2="268" y2="158" stroke="white" stroke-width="21" stroke-linecap="round"/><text x="100" y="330" font-family="-apple-system,BlinkMacSystemFont,Helvetica,sans-serif" font-size="96" font-weight="700" fill="white">MB</text></svg>';
-    // Update splash icon color based on saved theme - run after DOM ready
+    // Read theme IMMEDIATELY (sync) so splash shows correct color from frame 1
+    try{
+      const saved=JSON.parse(localStorage.getItem('mybudget_v17')||'{}');
+      const th=saved.theme||'dark';
+      const accents={dark:'#5ca8ff',violet:'#a78bfa',green:'#3fb950',pink:'#ec4899',orange:'#f97316',black:'#ffffff',copper:'#c2823a',teal:'#06b6d4',gold:'#d29922',light:'#0969da'};
+      const bgs={dark:'#05080f',violet:'#0a0814',green:'#08140c',pink:'#140810',orange:'#140e08',black:'#000000',copper:'#130f08',teal:'#08141a',gold:'#14110a',light:'#f0f4f8'};
+      const accent=accents[th]||'#5ca8ff';
+      const bg=bgs[th]||'#05080f';
+      // Apply to body immediately — zero flash
+      document.documentElement.style.background=bg;
+      document.write('<style>body{background:'+bg+' !important;}#splash{background:'+bg+' !important;}</style>');
+      window._splashBg=bg;
+      window._splashAccent=accent;
+    }catch(e){}
+    // After DOM ready, apply accent color to splash text/icon
     document.addEventListener('DOMContentLoaded',()=>{
       try{
-        const saved=JSON.parse(localStorage.getItem('mybudget_v17')||'{}');
-        const th=saved.theme||'dark';
-        const accents={dark:'#58a6ff',violet:'#a78bfa',green:'#3fb950',pink:'#ec4899',orange:'#f97316',black:'#ffffff',copper:'#c2823a',teal:'#06b6d4',gold:'#d29922',light:'#0969da'};
-        const bgs={dark:'#080c14',violet:'#0a0814',green:'#08140c',pink:'#140810',orange:'#140e08',black:'#000000',copper:'#130f08',teal:'#08141a',gold:'#14110a',light:'#f0f4f8'};
-        const accent=accents[th]||'#58a6ff';
-        const bg=bgs[th]||'#080c14';
+        const bg=window._splashBg||'#05080f';
+        const accent=window._splashAccent||'#5ca8ff';
         const splash=document.getElementById('splash');
         if(splash){
           splash.style.background=bg;
           const title=splash.querySelector('.st');
-          if(title)title.style.backgroundImage=`linear-gradient(120deg,white 0%,white 50%,${accent} 100%)`;
+          if(title)title.style.backgroundImage='linear-gradient(120deg,white 0%,white 50%,'+accent+' 100%)';
           const svgEl=splash.querySelector('svg rect');
           if(svgEl)svgEl.setAttribute('fill',bg);
         }
@@ -37,17 +47,20 @@
     const al=document.createElement("link");al.rel="apple-touch-icon";al.href="data:image/svg+xml,"+enc;document.head.appendChild(al);
   })();
   </script>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
   <script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.23.2/babel.min.js"></script>
   <style>
     *{box-sizing:border-box;margin:0;padding:0;}
     html,body{height:100%;}
-    body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;-webkit-tap-highlight-color:transparent;overscroll-behavior:none;transition:background 0.2s,color 0.2s;}
+    body{font-family:'Inter',-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;-webkit-tap-highlight-color:transparent;overscroll-behavior:none;transition:background 0.3s,color 0.3s;background:#080c14;color:#e6edf3;-webkit-font-smoothing:antialiased;-moz-osx-font-smoothing:grayscale;letter-spacing:-0.01em;}
     *{-webkit-tap-highlight-color:transparent;}
     div,span{-webkit-user-select:none;user-select:none;}
     input,textarea,select{-webkit-user-select:text;user-select:text;}
-    body.dark{background:#080c14;color:#e6edf3;}
+    body.dark{background:#060a11;color:#f0f6fc;}
     body.light{background:#f0f4f8;color:#1c2128;}
     body.violet{background:#0a0814;color:#e6edf3;}
     body.green{background:#08140c;color:#e6edf3;}
@@ -57,19 +70,22 @@
     body.copper{background:#130f08;color:#e6edf3;}
     body.teal{background:#08141a;color:#e6edf3;}
     body.gold{background:#14110a;color:#e6edf3;}
-    #splash{position:fixed;inset:0;z-index:9999;display:flex;align-items:center;justify-content:center;flex-direction:column;gap:16px;background:#080c14;transition:opacity 0.5s ease;}
+    #splash{position:fixed;inset:0;z-index:9999;display:flex;align-items:center;justify-content:center;flex-direction:column;gap:16px;background:inherit;transition:opacity 0.5s ease;}
     #splash.hide{opacity:0;pointer-events:none;}
     #splash svg{animation:splashPop 0.6s cubic-bezier(0.34,1.56,0.64,1) both;opacity:0;}
-    #splash .st{font-family:-apple-system,sans-serif;font-size:28px;font-weight:800;background:linear-gradient(120deg,#e6edf3 0%,#e6edf3 50%,#58a6ff 100%);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;opacity:0;animation:splashFade 0.4s ease 0.4s forwards;}
-    #splash .ss{font-family:-apple-system,sans-serif;font-size:11px;color:#8b949e;letter-spacing:2px;opacity:0;animation:splashFade 0.4s ease 0.6s forwards;}
+    #splash .st{font-family:'Inter',-apple-system,sans-serif;font-size:30px;font-weight:900;letter-spacing:-0.5px;background:linear-gradient(120deg,#e6edf3 0%,#e6edf3 50%,#58a6ff 100%);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;opacity:0;animation:splashFade 0.4s ease 0.4s forwards;}
+    #splash .ss{font-family:'Inter',-apple-system,sans-serif;font-size:10px;color:#5a7a9e;letter-spacing:3px;font-weight:500;opacity:0;animation:splashFade 0.4s ease 0.6s forwards;}
     @keyframes splashPop{0%{transform:scale(0.5);opacity:0;}100%{transform:scale(1);opacity:1;}}
     @keyframes splashFade{0%{opacity:0;transform:translateY(6px);}100%{opacity:1;transform:translateY(0);}}
-    @keyframes dropIn{0%{opacity:0;transform:translateY(-24px) scale(0.96);}60%{transform:translateY(4px) scale(1.01);}100%{opacity:1;transform:translateY(0) scale(1);}}
+    @keyframes dropIn{0%{opacity:0;transform:translateY(-20px) scale(0.97);}65%{transform:translateY(3px) scale(1.005);}100%{opacity:1;transform:translateY(0) scale(1);}}
     .drop-item{opacity:0;}
-    .drop-item.dropped{animation:dropIn 0.55s cubic-bezier(0.22,1,0.36,1) both;}
+    .drop-item.dropped{animation:dropIn 0.6s cubic-bezier(0.16,1,0.3,1) both;}
     @keyframes confettiFall{0%{transform:translateY(-20px) rotate(0deg);opacity:1;}100%{transform:translateY(100vh) rotate(720deg);opacity:0;}}
-    .confetti-piece{position:fixed;width:8px;height:8px;top:-10px;animation:confettiFall linear forwards;pointer-events:none;z-index:9998;border-radius:2px;}
-    ::-webkit-scrollbar{width:3px;}::-webkit-scrollbar-thumb{background:#30363d;}
+    .confetti-piece{position:fixed;width:7px;height:7px;top:-10px;animation:confettiFall linear forwards;pointer-events:none;z-index:9998;border-radius:50%;}
+    ::-webkit-scrollbar{width:2px;}::-webkit-scrollbar-thumb{background:#1e2d45;border-radius:2px;}
+    /* Professional micro-interactions */
+    button{transition:transform 0.12s ease,opacity 0.12s ease;}
+    button:active{transform:scale(0.96)!important;}
     input[type=text],input[type=number],input[type=email],input[type=date],select,textarea{font-size:16px!important;-webkit-text-size-adjust:100%!important;}
     .expense-row{user-select:none;-webkit-user-select:none;-webkit-touch-callout:none;}
     .dest-picker{display:grid;grid-template-columns:repeat(2,1fr);gap:5px;}
@@ -102,7 +118,7 @@
     }
   </style>
 <script>document.addEventListener("focusin",function(e){if(e.target.tagName==="INPUT"&&(e.target.type==="number"||e.target.inputMode==="decimal"||e.target.inputMode==="numeric")){var v=e.target.value;if(v){setTimeout(function(){try{e.target.type="text";e.target.setSelectionRange(v.length,v.length);e.target.type="number";}catch(x){e.target.setSelectionRange(v.length,v.length);}},0);}}});</script></head>
-<body class="dark">
+<body class="dark" style="background:#05080f;">
 <div id="splash">
   <svg width="90" height="90" viewBox="0 0 512 512" xmlns="http://www.w3.org/2000/svg">
     <rect width="512" height="512" rx="100" fill="#0f1724"/>
@@ -123,7 +139,7 @@ const SK = "mybudget_v17";
 let _uidSeq=0;
 const uid=()=>Date.now()*10000+(++_uidSeq%10000);
 const THEMES = {
-  dark:    { bg:"#080c14", surface:"#0f1724", surface2:"#1a2236", border:"#243048", text:"#e6edf3", muted:"#8b949e", accent:"#58a6ff", inp:{background:"#0a1020",color:"#e6edf3",border:"1.5px solid #243048"} },
+  dark:    { bg:"#05080f", surface:"#0c1422", surface2:"#111d30", border:"#1a2b40", text:"#eef4ff", muted:"#6b83a0", accent:"#5ca8ff", inp:{background:"#080f1c",color:"#eef4ff",border:"1.5px solid #1a2b40"} },
   light:   { bg:"#f0f4f8", surface:"#ffffff", surface2:"#e8edf5", border:"#d0d7de", text:"#1c2128", muted:"#656d76", accent:"#0969da", inp:{background:"#ffffff",color:"#1c2128",border:"1.5px solid #d0d7de"} },
   violet:  { bg:"#0a0814", surface:"#130f1f", surface2:"#1e1830", border:"#2e2048", text:"#e6edf3", muted:"#8b849e", accent:"#a78bfa", inp:{background:"#0a0818",color:"#e6edf3",border:"1.5px solid #2e2048"} },
   green:   { bg:"#08140c", surface:"#0f1f14", surface2:"#18301e", border:"#204830", text:"#e6edf3", muted:"#8b9e8e", accent:"#3fb950", inp:{background:"#081408",color:"#e6edf3",border:"1.5px solid #204830"} },
@@ -494,9 +510,9 @@ const loadData=()=>{
     return migrate(DD);
   }catch{return migrate(DD);}
 };
-const mkINP=T=>({display:"block",width:"100%",...T.inp,borderRadius:10,fontFamily:"inherit",fontSize:"16px",padding:"11px 14px",outline:"none",WebkitAppearance:"none",boxSizing:"border-box"});
-const mkBTN=()=>({cursor:"pointer",border:"none",borderRadius:10,fontFamily:"inherit",fontWeight:600,WebkitTapHighlightColor:"transparent"});
-const mkCARD=T=>({background:T.surface,border:`1px solid ${T.border}`,borderRadius:14});
+const mkINP=T=>({display:"block",width:"100%",...T.inp,borderRadius:12,fontFamily:"inherit",fontSize:"16px",padding:"12px 14px",outline:"none",WebkitAppearance:"none",boxSizing:"border-box",transition:"border-color 0.2s"});
+const mkBTN=()=>({cursor:"pointer",border:"none",borderRadius:12,fontFamily:"inherit",fontWeight:600,WebkitTapHighlightColor:"transparent",letterSpacing:"-0.01em"});
+const mkCARD=T=>({background:T.surface,border:`1px solid ${T.border}`,borderRadius:16,boxShadow:'0 4px 20px rgba(0,0,0,0.3),0 1px 0 rgba(255,255,255,0.04) inset'});
 
 const getUtilColor=(pct)=>{
   if(pct>=100)return"#f85149";
@@ -1043,7 +1059,7 @@ const GastoItem=memo(({item,pid,editId,setEditId,tarjetas,loans,potsList,periodD
             {tipo==="card"&&!showEdit&&clipH==null&&n(debt.limite)>0&&<span style={{fontSize:9,color:"#3fb950",fontWeight:600,opacity:0.85}}>{fmt(Math.max(0,n(debt.limite)-n(debt.balance)))}</span>}
           </div>
         }
-        <span style={{fontFamily:"monospace",fontWeight:800,fontSize:clipH!=null?(tipo==="card"?16:15):(tipo==="card"?18:16),color:balanceColor,flexShrink:0,letterSpacing:-0.3,pointerEvents:"none"}}>{fmt(n(debt.balance))}</span>
+        <span style={{fontFamily:"monospace",fontWeight:900,fontSize:clipH!=null?(tipo==="card"?17:16):(tipo==="card"?20:18),color:balanceColor,flexShrink:0,letterSpacing:-0.5,pointerEvents:"none"}}>{fmt(n(debt.balance))}</span>
         <button
           style={{...BTN,background:"transparent",color:debt.priority?"#f59e0b":T.muted,padding:"4px 5px",fontSize:clipH!=null?12:14,border:"none",opacity:debt.priority?1:0.4,flexShrink:0,transition:"opacity 0.15s",minWidth:clipH!=null?24:28,minHeight:clipH!=null?24:28,display:"flex",alignItems:"center",justifyContent:"center"}}
           onMouseDown={e=>{e.stopPropagation();e.preventDefault();clearTimeout(lpTimer.current);lpStartPos.current=null;}}
@@ -2170,11 +2186,11 @@ const hashPin=async(pin)=>{
           <div style={{flex:1,display:"flex",flexDirection:"column",gap:5}}>
             <div style={{display:"flex",justifyContent:"space-between"}}>
               <span style={{fontSize:10,color:T.muted}}>Income</span>
-              <span style={{fontFamily:"monospace",fontWeight:700,fontSize:11,color:"#3fb950"}}>{fmt(amt)}</span>
+              <span style={{fontFamily:"monospace",fontWeight:800,fontSize:13,color:"#56d364"}}>{fmt(amt)}</span>
             </div>
             <div style={{display:"flex",justifyContent:"space-between"}}>
               <span style={{fontSize:10,color:T.muted}}>Assigned</span>
-              <span style={{fontFamily:"monospace",fontWeight:700,fontSize:11,color:"#f85149"}}>{fmt(total)}</span>
+              <span style={{fontFamily:"monospace",fontWeight:800,fontSize:13,color:"#f85149"}}>{fmt(total)}</span>
             </div>
             <div style={{display:"flex",justifyContent:"space-between",borderTop:`1px solid ${T.border}`,paddingTop:4}}>
               <span style={{fontSize:11,fontWeight:700,color:T.text}}>Remaining</span>
@@ -2213,7 +2229,7 @@ const hashPin=async(pin)=>{
         <div style={{fontSize:14,fontWeight:600,color:T.text,marginBottom:4}}>No expenses yet</div>
         <div style={{fontSize:11,color:T.muted,marginBottom:16,lineHeight:1.5}}>Add your bills, subscriptions<br/>and recurring expenses</div>
       </div>)}
-      <button style={{...BTN,width:"100%",marginTop:2,marginBottom:8,padding:"11px",background:`${T.accent}14`,color:T.accent,fontSize:13,fontWeight:600,border:`1px solid ${T.accent}33`,borderRadius:10}} onClick={()=>addGasto(pid)}>+ Add Expense</button>
+      <button style={{...BTN,width:"100%",marginTop:2,marginBottom:8,padding:"11px",background:`${T.accent}20`,color:T.accent,fontSize:13,fontWeight:700,border:`1px solid ${T.accent}55`,borderRadius:12,boxShadow:`0 0 20px ${T.accent}1a`}} onClick={()=>addGasto(pid)}>+ Add Expense</button>
     </div>);
   };
   const hasActiveCheck=monthPeriods.some(p=>p.isCurrent);
@@ -2277,10 +2293,10 @@ const hashPin=async(pin)=>{
       onTouchEnd={handleSwipeTouchEnd}
       style={{minHeight:"100vh",background:T.bg,color:T.text,fontFamily:"-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif",paddingTop:urgentDebts.filter(d=>!alertDim.includes(d.id)).length>0&&tab!=="debts"?34:0,transition:"padding-top 0.2s"}}>
       <style>{`
-        @keyframes tabEnter{from{opacity:0;transform:translateY(4px);}to{opacity:1;transform:translateY(0);}}.anim{animation:tabEnter 0.35s cubic-bezier(0.4,0,0.2,1) both;}@keyframes onboardPulse{0%,100%{box-shadow:0 0 0 0 rgba(88,166,255,0.5);}50%{box-shadow:0 0 0 8px rgba(88,166,255,0);}}.onboard-pulse{animation:onboardPulse 1.8s ease-in-out infinite;border-radius:inherit;}
+        @keyframes tabEnter{from{opacity:0;transform:translateY(8px);}to{opacity:1;transform:translateY(0);}}.anim{animation:tabEnter 0.4s cubic-bezier(0.16,1,0.3,1) both;}@keyframes onboardPulse{0%,100%{box-shadow:0 0 0 0 rgba(88,166,255,0.5);}50%{box-shadow:0 0 0 8px rgba(88,166,255,0);}}.onboard-pulse{animation:onboardPulse 1.8s ease-in-out infinite;border-radius:inherit;}
         @keyframes itemEnter{from{opacity:0;}to{opacity:1;}}
         @keyframes itemExit{0%{opacity:1;transform:translateX(0);max-height:120px;margin-bottom:7px;}100%{opacity:0;transform:translateX(60px);max-height:0;margin-bottom:0;}}.expense-row-exit{animation:itemExit 0.25s cubic-bezier(0.4,0,1,1) forwards;}
-        @keyframes modalEnter{from{opacity:0;transform:scale(0.97) translateY(6px);}to{opacity:1;transform:scale(1) translateY(0);}}.modal-anim{animation:modalEnter 0.28s cubic-bezier(0.4,0,0.2,1) both;}
+        @keyframes modalEnter{from{opacity:0;transform:scale(0.95) translateY(10px);}to{opacity:1;transform:scale(1) translateY(0);}}.modal-anim{animation:modalEnter 0.35s cubic-bezier(0.16,1,0.3,1) both;}
         @keyframes pop{from{opacity:0.6;transform:scale(0.97);}to{opacity:1;transform:scale(1);}}
         @keyframes dotPop{0%{transform:scale(1);}40%{transform:scale(2.0);}70%{transform:scale(0.88);}100%{transform:scale(1);}}
         @keyframes donutFill{from{stroke-dashoffset:var(--dash-full);}to{stroke-dashoffset:0;}}
@@ -2294,12 +2310,12 @@ const hashPin=async(pin)=>{
         .debt-card-tap:active{transform:scale(0.988);transition:transform 0.08s ease;}
         @keyframes slideInDown{from{opacity:0;transform:translateY(-8px);}to{opacity:1;transform:translateY(0);}}
         @keyframes fadeIn{from{opacity:0;}to{opacity:1;}}
-        @keyframes slideInUp{from{opacity:0;transform:translateY(60%);}to{opacity:1;transform:translateY(0);}}
+        @keyframes slideInUp{from{opacity:0;transform:translateY(40%);}to{opacity:1;transform:translateY(0);}}
         @keyframes pulse{0%,100%{opacity:1;}50%{opacity:0.6;}}
         input[type=range]{width:100%;accent-color:#58a6ff;}
         input[type=date]::-webkit-calendar-picker-indicator{width:12px;height:12px;opacity:0.35;filter:invert(0.7);cursor:pointer;padding:0;margin:0;}
         input[type=date]{min-width:0;}
-        .c{max-width:500px;margin:0 auto;padding:14px 14px 110px;}
+        .c{max-width:500px;margin:0 auto;padding:16px 16px 120px;}
         @media(min-width:768px){.c{max-width:500px;padding:18px 18px 110px;}}
         @media(min-width:1024px){.c{max-width:760px;}}
         .g2{display:grid;grid-template-columns:1fr 1fr;gap:10px;}
@@ -2931,17 +2947,18 @@ const hashPin=async(pin)=>{
         </div>
       </div>)}
       <div className="c">
-        <div style={{marginBottom:16,display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+        <div style={{marginBottom:20,display:"flex",justifyContent:"space-between",alignItems:"center",paddingBottom:16,borderBottom:`1px solid ${T.border}`}}>
           <div>
-            <div style={{fontSize:26,fontWeight:800,letterSpacing:-0.8,background:`linear-gradient(120deg, ${T.text} 0%, ${T.text} 50%, ${T.accent} 100%)`,WebkitBackgroundClip:"text",WebkitTextFillColor:"transparent",backgroundClip:"text",userSelect:"none",WebkitUserSelect:"none",cursor:"pointer"}}
+            <div style={{fontSize:26,fontWeight:800,letterSpacing:-0.8,background:`linear-gradient(135deg, ${T.text} 0%, ${T.accent} 100%)`,WebkitBackgroundClip:"text",WebkitTextFillColor:"transparent",backgroundClip:"text",userSelect:"none",WebkitUserSelect:"none",cursor:"pointer",lineHeight:1.1}}
               onContextMenu={e=>{e.preventDefault();setThemePicker(p=>!p);}}
               onTouchStart={e=>{const t=setTimeout(()=>{setThemePicker(p=>!p);haptic(40);},600);e.currentTarget._lpt=t;}}
               onTouchEnd={e=>{clearTimeout(e.currentTarget._lpt);}}
               onTouchMove={e=>{clearTimeout(e.currentTarget._lpt);}}>My Budget</div>
+            <div style={{fontSize:10,color:T.muted,letterSpacing:1.5,fontWeight:600,marginTop:3,textTransform:"uppercase"}}>{new Date().toLocaleDateString("en-US",{month:"long",year:"numeric"})}</div>
           </div>
-          {diasProx!==null&&(<div style={{background:"rgba(63,185,80,0.08)",border:"1px solid rgba(63,185,80,0.25)",borderRadius:10,padding:"5px 10px",textAlign:"center",cursor:"pointer"}} onClick={()=>{if(currentPeriod){setActiveCheckPid(currentPeriod.id);setTab("paychecks");}}}>
+          {diasProx!==null&&(<div style={{background:"rgba(63,185,80,0.08)",border:"1px solid rgba(63,185,80,0.22)",borderRadius:12,padding:"6px 12px",textAlign:"center",cursor:"pointer",boxShadow:"0 2px 8px rgba(63,185,80,0.1)"}} onClick={()=>{if(currentPeriod){setActiveCheckPid(currentPeriod.id);setTab("paychecks");}}}>
             <div style={{fontSize:9,color:T.muted}}>NEXT CHECK</div>
-            <div style={{fontFamily:"monospace",fontWeight:800,color:diasProx===0?T.accent:"#3fb950",fontSize:diasProx===0?10:14}}>{diasProx===0?"TODAY 🎉":`${diasProx}d`}</div>
+            <div style={{fontFamily:"monospace",fontWeight:900,color:diasProx===0?T.accent:"#56d364",fontSize:diasProx===0?11:16,letterSpacing:-0.5}}>{diasProx===0?"TODAY 🎉":`${diasProx}d`}</div>
             <div style={{fontSize:9,color:T.muted}}>{nextPayday?fmd(nextPayday):""}</div>
           </div>)}
         </div>
@@ -2975,14 +2992,14 @@ const hashPin=async(pin)=>{
           return(
             <div ref={tabBarRef} style={{position:"fixed",bottom:0,left:0,right:0,zIndex:190,paddingBottom:"max(14px,env(safe-area-inset-bottom,14px))",paddingLeft:14,paddingRight:14,paddingTop:8,background:"transparent",pointerEvents:"none",WebkitTransform:"translateZ(0)",transform:"translateZ(0)",WebkitBackfaceVisibility:"hidden"}}>
               <div ref={tabBarInnerRef} onTouchStart={onTS} onTouchMove={onTM} onTouchEnd={onTE}
-                style={{display:"flex",alignItems:"center",background:T.surface,borderRadius:999,border:`1px solid ${T.border}`,boxShadow:`0 -1px 0 rgba(255,255,255,0.04),0 8px 32px rgba(0,0,0,0.6)`,padding:"4px 5px",gap:2,pointerEvents:"all",touchAction:"none"}}>
+                style={{display:"flex",alignItems:"center",background:T.surface,borderRadius:999,border:`1px solid ${T.border}`,boxShadow:`0 -1px 0 rgba(255,255,255,0.06),0 8px 40px rgba(0,0,0,0.7),inset 0 1px 0 rgba(255,255,255,0.05)`,padding:"5px 6px",gap:2,backdropFilter:"blur(20px)",WebkitBackdropFilter:"blur(20px)",pointerEvents:"all",touchAction:"none"}}>
                 {TABS.map((t)=>{
                   const isActive=tab===t.id;
                   return(
-                    <button key={t.id} style={{...BTN,flex:1,display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",gap:2,padding:"9px 2px 7px",borderRadius:999,background:isActive?`${T.accent}22`:"transparent",border:isActive?`1px solid ${T.accent}44`:"1px solid transparent",boxShadow:isActive?`0 1px 8px ${T.accent}22`:"none",color:isActive?T.accent:T.muted,transform:isActive?"scale(1.04)":"scale(1)",transition:"all 0.25s cubic-bezier(0.34,1.56,0.64,1)",position:"relative"}}
+                    <button key={t.id} style={{...BTN,flex:1,display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",gap:2,padding:"9px 2px 7px",borderRadius:999,background:isActive?`${T.accent}28`:"transparent",border:isActive?`1px solid ${T.accent}55`:"1px solid transparent",boxShadow:isActive?`0 0 14px ${T.accent}33,0 2px 6px rgba(0,0,0,0.3)`:"none",color:isActive?T.accent:T.muted,transform:isActive?"scale(1.06)":"scale(1)",transition:"all 0.3s cubic-bezier(0.34,1.56,0.64,1)",position:"relative"}}
                       onClick={()=>handleTabClick(t.id)}>
                       <div style={{transition:"color 0.2s"}}>{SVG_ICONS[t.id]}</div>
-                      <span style={{fontSize:9,fontWeight:isActive?700:500,letterSpacing:0.3}}>{t.label}</span>
+                      <span style={{fontSize:9,fontWeight:isActive?700:500,letterSpacing:0.4,fontFamily:"inherit"}}>{t.label}</span>
                       {t.urgent&&!isActive&&<span className="onboard-pulse" style={{position:"absolute",top:5,right:"calc(50% - 13px)",width:8,height:8,borderRadius:"50%",background:T.accent,border:"1.5px solid "+T.bg}}/>}
                     </button>
                   );
@@ -2996,12 +3013,12 @@ const hashPin=async(pin)=>{
             const remaining=totalMonthlyIncome-totalMonthlyExp;
             const remColor=remaining>=200?"#3fb950":remaining>=50?"#3fb950":remaining>=0?"#56d364":remaining>=-99?"#f97316":"#f85149";
             const remOpacity=remaining>=50?1:remaining>=0?0.8:1;
-            return(<div style={{...CARD,padding:"13px 16px",marginBottom:12}}>
-              <div style={{fontSize:10,color:T.muted,letterSpacing:1.5,fontWeight:700,marginBottom:12}}>📊 MONTHLY OVERVIEW</div>
-              <div style={{display:"flex",alignItems:"center",gap:16,marginBottom:14}}>
+            return(<div style={{...CARD,padding:"18px 18px",marginBottom:14,background:`linear-gradient(145deg,${T.surface},${T.surface2})`}}>
+              <div style={{fontSize:9,color:T.accent,letterSpacing:2.5,fontWeight:700,marginBottom:16,textTransform:"uppercase",opacity:0.9}}>📊 MONTHLY OVERVIEW</div>
+              <div style={{display:"flex",alignItems:"center",gap:18,marginBottom:16}}>
                 {/* Donut ring */}
-                <div style={{flexShrink:0,position:"relative",width:72,height:72}}>
-                  <svg width="72" height="72" viewBox="0 0 72 72">
+                <div style={{flexShrink:0,position:"relative",width:82,height:82}}>
+                  <svg width="82" height="82" viewBox="0 0 72 72">
                     <circle cx="36" cy="36" r="28" fill="none" stroke={T.surface2} strokeWidth="8"/>
                     <circle cx="36" cy="36" r="28" fill="none" stroke={totalMonthlyIncome>0?"#f85149":"#30363d"} strokeWidth="8"
                       strokeDasharray={`${totalMonthlyIncome>0?Math.min(175.9,(totalMonthlyExp/totalMonthlyIncome)*175.9):0} ${175.9}`}
@@ -3024,8 +3041,8 @@ const hashPin=async(pin)=>{
                       <span style={{fontSize:10,color:T.muted}}>Income</span>
                       <span style={{fontFamily:"monospace",fontWeight:700,fontSize:11,color:"#3fb950"}}>{fmt(totalMonthlyIncome)}</span>
                     </div>
-                    <div style={{height:4,background:T.surface2,borderRadius:4,overflow:"hidden"}}>
-                      <div style={{height:"100%",width:"100%",background:"#3fb950",borderRadius:4}}/>
+                    <div style={{height:6,background:T.surface2,borderRadius:6,overflow:"hidden"}}>
+                      <div style={{height:"100%",width:"100%",background:"linear-gradient(90deg,#2ea043,#56d364)",borderRadius:6}}/>
                     </div>
                   </div>
                   <div>
@@ -3033,13 +3050,13 @@ const hashPin=async(pin)=>{
                       <span style={{fontSize:10,color:T.muted}}>Spending</span>
                       <span style={{fontFamily:"monospace",fontWeight:700,fontSize:11,color:"#f85149"}}>{fmt(totalMonthlyExp)}</span>
                     </div>
-                    <div style={{height:4,background:T.surface2,borderRadius:4,overflow:"hidden"}}>
-                      <div style={{height:"100%",width:`${totalMonthlyIncome>0?Math.min(100,(totalMonthlyExp/totalMonthlyIncome)*100):0}%`,background:"#f85149",borderRadius:4,transition:"width 0.5s"}}/>
+                    <div style={{height:6,background:T.surface2,borderRadius:6,overflow:"hidden"}}>
+                      <div style={{height:"100%",width:`${totalMonthlyIncome>0?Math.min(100,(totalMonthlyExp/totalMonthlyIncome)*100):0}%`,background:"linear-gradient(90deg,#c9302c,#f85149)",borderRadius:6,transition:"width 0.8s cubic-bezier(0.16,1,0.3,1)"}}/>
                     </div>
                   </div>
                   <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",paddingTop:2,borderTop:`1px solid ${T.border}`}}>
-                    <span style={{fontSize:11,fontWeight:700,color:T.text}}>Buffer</span>
-                    <span style={{fontFamily:"monospace",fontWeight:800,fontSize:14,color:remColor,opacity:remOpacity}}>{fmt(remaining)}</span>
+                    <span style={{fontSize:11,fontWeight:700,color:T.muted,textTransform:"uppercase",letterSpacing:1}}>Buffer</span>
+                    <span style={{fontFamily:"monospace",fontWeight:900,fontSize:18,color:remColor,opacity:remOpacity,letterSpacing:-0.5}}>{fmt(remaining)}</span>
                   </div>
                 </div>
               </div>
@@ -3051,8 +3068,8 @@ const hashPin=async(pin)=>{
             <span style={{fontSize:11,color:snapReminder.type==="warn"?"#d29922":T.muted,flex:1}}>{snapReminder.msg}</span>
             <button style={{...BTN,padding:"3px 9px",background:T.surface2,color:T.muted,fontSize:10,border:`1px solid ${T.border}`,flexShrink:0}} onClick={()=>setTab("settings")}>Settings</button>
           </div>)}
-          {upcomingPaydays.length>0&&(<div style={{...CARD,padding:"13px 16px",marginBottom:12}}>
-            <div style={{fontSize:10,color:T.muted,letterSpacing:1.5,fontWeight:700,marginBottom:10}}>💵 UPCOMING PAYDAYS</div>
+          {upcomingPaydays.length>0&&(<div style={{...CARD,padding:"16px 18px",marginBottom:14}}>
+            <div style={{fontSize:9,color:T.accent,letterSpacing:2,fontWeight:700,marginBottom:12,textTransform:"uppercase",opacity:0.85}}>💵 UPCOMING PAYDAYS</div>
             {upcomingPaydays.slice(0,4).map((pd,i)=>{
               const dias=Math.ceil((pd-today)/86400000);
               return(<div key={i} style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"7px 0",borderBottom:i<3?`1px solid ${T.border}`:"none"}}>
@@ -3069,7 +3086,7 @@ const hashPin=async(pin)=>{
           </div>)}
           {/* CHECKS — compact grouped section */}
           <div style={{...CARD,padding:"13px 16px",marginBottom:12}}>
-            <div style={{fontSize:10,color:T.muted,letterSpacing:1.5,fontWeight:700,marginBottom:10}}>💰 CHECKS</div>
+            <div style={{fontSize:9,color:T.accent,letterSpacing:2,fontWeight:700,marginBottom:12,textTransform:"uppercase",opacity:0.85}}>💰 CHECKS</div>
             {monthPeriods.map((p,pi)=>{
               const gastos=getPGastos(p.id);
               const periodAmt=getPeriodAmount(p.id);
@@ -3079,7 +3096,7 @@ const hashPin=async(pin)=>{
               const sob=periodAmt-total;
               const assigned=total;
               const remaining=periodAmt-total;
-              return(<div key={p.id} style={{paddingBottom:pi<monthPeriods.length-1?12:0,marginBottom:pi<monthPeriods.length-1?12:0,
+              return(<div key={p.id} style={{paddingBottom:pi<monthPeriods.length-1?14:0,marginBottom:pi<monthPeriods.length-1?14:0,
                 ...(p.isCurrent?{background:`${T.accent}0d`,borderRadius:10,padding:"10px",border:`1px solid ${T.accent}40`,boxShadow:`0 4px 18px ${T.accent}1a, 0 1px 4px rgba(0,0,0,0.3)`}:{})
               }}>
                 <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:7}}>
@@ -3092,20 +3109,20 @@ const hashPin=async(pin)=>{
                       border:`1px solid ${p.isCurrent?"rgba(63,185,80,0.3)":p.isPast?"rgba(139,92,246,0.3)":"rgba(210,153,34,0.3)"}`
                     }}>{p.isCurrent?"ACTIVE":p.isPast?"CLEARED":"UPCOMING"}</span>
                   </div>
-                  <span style={{fontFamily:"monospace",fontWeight:800,fontSize:13,color:remaining>=0?"#3fb950":"#f85149"}}>{fmt(remaining)}<span style={{fontSize:9,color:T.muted,fontWeight:400}}> left</span></span>
+                  <span style={{fontFamily:"monospace",fontWeight:900,fontSize:16,color:remaining>=0?"#56d364":"#f85149",letterSpacing:-0.3}}>{fmt(remaining)}<span style={{fontSize:9,color:T.muted,fontWeight:400}}> left</span></span>
                 </div>
                 <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:6,marginBottom:8}}>
                   <div style={{background:T.surface2,borderRadius:8,padding:"6px 8px"}}>
                     <div style={{fontSize:9,color:T.muted,marginBottom:2}}>Assigned</div>
-                    <div style={{fontFamily:"monospace",fontWeight:700,fontSize:12,color:"#f85149"}}>{fmt(assigned)}</div>
+                    <div style={{fontFamily:"monospace",fontWeight:800,fontSize:14,color:"#f85149"}}>{fmt(assigned)}</div>
                   </div>
                   <div style={{background:T.surface2,borderRadius:8,padding:"6px 8px"}}>
                     <div style={{fontSize:9,color:T.muted,marginBottom:2}}>Reserved</div>
-                    <div style={{fontFamily:"monospace",fontWeight:700,fontSize:12,color:"#d29922"}}>{fmt(reserved)}</div>
+                    <div style={{fontFamily:"monospace",fontWeight:800,fontSize:14,color:"#d29922"}}>{fmt(reserved)}</div>
                   </div>
                   <div style={{background:T.surface2,borderRadius:8,padding:"6px 8px"}}>
                     <div style={{fontSize:9,color:T.muted,marginBottom:2}}>Remaining</div>
-                    <div style={{fontFamily:"monospace",fontWeight:700,fontSize:12,color:remaining>=0?"#3fb950":"#f85149"}}>{fmt(remaining)}</div>
+                    <div style={{fontFamily:"monospace",fontWeight:800,fontSize:14,color:remaining>=0?"#56d364":"#f85149"}}>{fmt(remaining)}</div>
                   </div>
                 </div>
                 <div style={{height:6,background:T.bg,borderRadius:8,overflow:"hidden",marginBottom:8,display:"flex"}}>
@@ -3120,22 +3137,22 @@ const hashPin=async(pin)=>{
           {(()=>{
             const totalCards=data.tarjetas.reduce((s,t)=>s+n(t.balance),0);
             const totalLoans=(data.loans||[]).reduce((s,l)=>s+n(l.balance),0);
-            return(<div style={{...CARD,padding:"13px 16px",marginBottom:12}}>
-              <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:10}}>
-                <div style={{fontSize:10,color:T.muted,letterSpacing:1.5,fontWeight:700}}>💳 DEBT OVERVIEW</div>
+            return(<div style={{...CARD,padding:"16px 18px",marginBottom:14}}>
+              <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:12}}>
+                <div style={{fontSize:9,color:T.accent,letterSpacing:2,fontWeight:700,textTransform:"uppercase",opacity:0.85}}>💳 DEBT OVERVIEW</div>
                 <button style={{...BTN,padding:"3px 9px",background:T.surface2,color:T.muted,fontSize:10,border:`1px solid ${T.border}`}} onClick={()=>setTab("debts")}>View all →</button>
               </div>
               <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"6px 0",borderBottom:`1px solid ${T.border}`}}>
                 <span style={{fontSize:12,color:"#94a3b8",fontWeight:600}}>💳 Cards</span>
-                <span style={{fontFamily:"monospace",fontWeight:700,fontSize:13,color:"#ec4899"}}>{fmt(totalCards)}</span>
+                <span style={{fontFamily:"monospace",fontWeight:800,fontSize:15,color:"#ec4899"}}>{fmt(totalCards)}</span>
               </div>
               <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"6px 0",borderBottom:`1px solid ${T.border}`}}>
                 <span style={{fontSize:12,color:"#94a3b8",fontWeight:600}}>🏦 Loans</span>
-                <span style={{fontFamily:"monospace",fontWeight:700,fontSize:13,color:"#f97316"}}>{fmt(totalLoans)}</span>
+                <span style={{fontFamily:"monospace",fontWeight:800,fontSize:15,color:"#f97316"}}>{fmt(totalLoans)}</span>
               </div>
               <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"7px 0"}}>
                 <span style={{fontSize:12,fontWeight:700,color:T.text}}>Total debt</span>
-                <span style={{fontFamily:"monospace",fontWeight:800,fontSize:14,color:"#f85149"}}>{fmt(totalCards+totalLoans)}</span>
+                <span style={{fontFamily:"monospace",fontWeight:900,fontSize:18,color:"#f85149",letterSpacing:-0.5}}>{fmt(totalCards+totalLoans)}</span>
               </div>
             </div>);
           })()}
@@ -3145,9 +3162,9 @@ const hashPin=async(pin)=>{
             // hidden=true means privacy mode ON: show •••• unless user tapped to reveal
             const hidden=data.potsHidden&&!potsRevealed;
             const totalPots=potsList.reduce((s,p)=>s+n(p.balance),0);
-            return(<div style={{...CARD,padding:"13px 16px",marginBottom:12}}>
-              <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:10}}>
-                <div style={{fontSize:10,color:T.muted,letterSpacing:1.5,fontWeight:700}}>🪣 POTS</div>
+            return(<div style={{...CARD,padding:"16px 18px",marginBottom:14}}>
+              <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:12}}>
+                <div style={{fontSize:9,color:T.accent,letterSpacing:2,fontWeight:700,textTransform:"uppercase",opacity:0.85}}>🪣 POTS</div>
                 <button style={{...BTN,padding:"3px 10px",fontSize:10,background:`${T.accent}14`,color:T.accent,border:`1px solid ${T.accent}33`,borderRadius:7}} onClick={()=>{setMoveTo(potsList[0]?.id||"");setEditingPotId(null);setMoveTransferTo("");setMoveMode("add");setMoveOpen(true);}}>Manage</button>
               </div>
               {potsList.length===0&&<div style={{fontSize:11,color:T.muted,textAlign:"center",padding:"8px 0"}}>No pots yet — tap Manage to add one</div>}
@@ -3173,7 +3190,7 @@ const hashPin=async(pin)=>{
               {potsList.length>0&&<div style={{marginTop:9,paddingTop:8,borderTop:`1px solid ${T.border}`,display:"flex",justifyContent:"space-between",alignItems:"center"}}>
                 <span style={{fontSize:10,color:T.muted}}>Total</span>
                 <button onClick={()=>{if(data.potsHidden)setPotsRevealed(r=>!r);}}
-                  style={{...BTN,fontFamily:"monospace",fontWeight:800,fontSize:13,color:T.accent,background:"transparent",border:"none",padding:"2px 0",width:52,textAlign:"right",transition:"opacity 0.12s",opacity:hidden?0.4:1,cursor:data.potsHidden?"pointer":"default"}}>
+                  style={{...BTN,fontFamily:"monospace",fontWeight:900,fontSize:15,color:T.accent,background:"transparent",border:"none",padding:"2px 0",width:60,textAlign:"right",letterSpacing:-0.3,transition:"opacity 0.12s",opacity:hidden?0.4:1,cursor:data.potsHidden?"pointer":"default"}}>
                   {hidden?"••••":fmt(totalPots)}
                 </button>
               </div>}
