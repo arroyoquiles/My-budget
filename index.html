@@ -11,27 +11,24 @@
   <script>
   (function(){
     const svg='<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><rect width="512" height="512" rx="100" fill="#0b1220"/><rect x="76" y="158" width="324" height="224" rx="30" fill="none" stroke="white" stroke-width="22"/><rect x="318" y="188" width="102" height="72" rx="18" fill="none" stroke="white" stroke-width="18"/><circle cx="371" cy="224" r="13" fill="white"/><line x1="156" y1="118" x2="206" y2="158" stroke="white" stroke-width="21" stroke-linecap="round"/><line x1="238" y1="106" x2="268" y2="158" stroke="white" stroke-width="21" stroke-linecap="round"/><text x="100" y="330" font-family="-apple-system,BlinkMacSystemFont,Helvetica,sans-serif" font-size="96" font-weight="700" fill="white">MB</text></svg>';
-    try{
-      const saved=JSON.parse(localStorage.getItem('mybudget_v17')||'{}');
-      const th=saved.theme||'dark';
-      const accents={dark:'#5ca8ff',violet:'#a78bfa',green:'#3fb950',pink:'#ec4899',orange:'#f97316',black:'#ffffff',copper:'#c2823a',teal:'#06b6d4',gold:'#d29922',light:'#0969da'};
-      const bgs={dark:'#05080f',violet:'#0a0814',green:'#08140c',pink:'#140810',orange:'#140e08',black:'#000000',copper:'#130f08',teal:'#08141a',gold:'#14110a',light:'#f0f4f8'};
-      const bg=bgs[th]||'#05080f';
-      const accent=accents[th]||'#5ca8ff';
-      window._splashBg=bg;window._splashAccent=accent;
-      // Patch body + html before first paint
-      document.documentElement.style.cssText='background:'+bg+';';
-      document.body&&(document.body.style.background=bg);
-      // Patch splash immediately — it's already in the DOM above this script
-      const splash=document.getElementById('splash');
-      if(splash){
-        splash.style.background=bg;
-        const title=splash.querySelector('.st');
-        if(title)title.style.backgroundImage='linear-gradient(120deg,white 0%,white 50%,'+accent+' 100%)';
-        const svgRect=splash.querySelector('svg rect');
-        if(svgRect)svgRect.setAttribute('fill',bg);
-      }
-    }catch(e){}
+    document.addEventListener('DOMContentLoaded',()=>{
+      try{
+        const saved=JSON.parse(localStorage.getItem('mybudget_v17')||'{}');
+        const th=saved.theme||'dark';
+        const accents={dark:'#5ca8ff',violet:'#a78bfa',green:'#3fb950',pink:'#ec4899',orange:'#f97316',black:'#ffffff',copper:'#c2823a',teal:'#06b6d4',gold:'#d29922',light:'#0969da'};
+        const bgs={dark:'#05080f',violet:'#0a0814',green:'#08140c',pink:'#140810',orange:'#140e08',black:'#000000',copper:'#130f08',teal:'#08141a',gold:'#14110a',light:'#f0f4f8'};
+        const accent=accents[th]||'#5ca8ff';
+        const bg=bgs[th]||'#05080f';
+        const splash=document.getElementById('splash');
+        if(splash){
+          splash.style.background=bg;
+          const title=splash.querySelector('.st');
+          if(title)title.style.backgroundImage='linear-gradient(120deg,white 0%,white 50%,'+accent+' 100%)';
+          const svgEl=splash.querySelector('svg rect');
+          if(svgEl)svgEl.setAttribute('fill',bg);
+        }
+      }catch(e){}
+    });
     const enc=encodeURIComponent(svg);
     const m={name:"My Budget",short_name:"My Budget",start_url:"/",display:"standalone",background_color:"#0b1220",theme_color:"#0b1220",icons:[{src:"data:image/svg+xml,"+enc,sizes:"512x512",type:"image/svg+xml"},{src:"data:image/svg+xml,"+enc,sizes:"192x192",type:"image/svg+xml"}]};
     const b=new Blob([JSON.stringify(m)],{type:"application/json"});
@@ -110,7 +107,7 @@
     }
   </style>
 <script>document.addEventListener("focusin",function(e){if(e.target.tagName==="INPUT"&&(e.target.type==="number"||e.target.inputMode==="decimal"||e.target.inputMode==="numeric")){var v=e.target.value;if(v){setTimeout(function(){try{e.target.type="text";e.target.setSelectionRange(v.length,v.length);e.target.type="number";}catch(x){e.target.setSelectionRange(v.length,v.length);}},0);}}});</script></head>
-<body class="dark" style="background:#05080f;">
+<body class="dark">
 <div id="splash">
   <svg width="90" height="90" viewBox="0 0 512 512" xmlns="http://www.w3.org/2000/svg">
     <rect width="512" height="512" rx="100" fill="#0f1724"/>
@@ -124,27 +121,6 @@
   <div class="st">My Budget</div>
   <div class="ss">PERSONAL FINANCE</div>
 </div>
-<script>
-(function(){
-  try{
-    const saved=JSON.parse(localStorage.getItem('mybudget_v17')||'{}');
-    const th=saved.theme||'dark';
-    const accents={dark:'#5ca8ff',violet:'#a78bfa',green:'#3fb950',pink:'#ec4899',orange:'#f97316',black:'#ffffff',copper:'#c2823a',teal:'#06b6d4',gold:'#d29922',light:'#0969da'};
-    const bgs={dark:'#05080f',violet:'#0a0814',green:'#08140c',pink:'#140810',orange:'#140e08',black:'#000000',copper:'#130f08',teal:'#08141a',gold:'#14110a',light:'#f0f4f8'};
-    const bg=bgs[th]||'#05080f';
-    const accent=accents[th]||'#5ca8ff';
-    document.body.style.background=bg;
-    const splash=document.getElementById('splash');
-    if(splash){
-      splash.style.background=bg;
-      const title=splash.querySelector('.st');
-      if(title)title.style.backgroundImage='linear-gradient(120deg,white 0%,white 50%,'+accent+' 100%)';
-      const svgRect=splash.querySelector('svg rect');
-      if(svgRect)svgRect.setAttribute('fill',bg);
-    }
-  }catch(e){}
-})();
-</script>
 <div id="root"></div>
 <script type="text/babel">
 const { useState, useEffect, useRef, useCallback, memo, useMemo } = React;
