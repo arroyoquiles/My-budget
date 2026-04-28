@@ -2175,7 +2175,7 @@ const hashPin=async(pin)=>{
         </div>
         <DragList items={items}
           renderItem={(item)=>(<GastoItem key={item.id} item={item} pid={pid} editId={editId} setEditId={(id)=>openEditId(id,gastos)} tarjetas={data.tarjetas} loans={data.loans||[]} potsList={potsList} globalEditingAmt={globalEditingAmt} checkIdx={monthPeriods.findIndex(p=>p.id===pid)} periodDate={periodDate} customLabels={data.customLabels||[]} onAddCustomLabel={(name,id,parent)=>{const lid=id||"label_"+Date.now();setData(p=>({...p,customLabels:[...(p.customLabels||[]),{id:lid,name,icon:"🏷️",parent:parent||null}]}));}}
-            onCycle={id=>cycleState(pid,id)} onLongPress={id=>setReserved(pid,id)}
+            onCycle={isFuture?()=>{}:id=>cycleState(pid,id)} onLongPress={isFuture?()=>{}:id=>setReserved(pid,id)}
             onUpdate={(id,f,v)=>updateGasto(pid,id,f,v)}
             onBatchUpdate={(id,fields)=>batchUpdateGasto(pid,id,fields)} onPropagate={(item)=>propagateToAllChecks(pid,item)}
             onRemove={id=>removeGasto(pid,id)} T={T}/>)}/>
@@ -2193,7 +2193,7 @@ const hashPin=async(pin)=>{
     return"#f85149";
   };
 
-  const renderCheckTabGrouped=(pid,gastos,periodDate)=>{
+  const renderCheckTabGrouped=(pid,gastos,periodDate,isFuture=false)=>{
     const groups={};
     gastos.forEach(g=>{
       let k;
@@ -2228,7 +2228,7 @@ const hashPin=async(pin)=>{
         </div>
         <DragList items={sortedItems}
           renderItem={(item,_,touch)=>(<GastoItem key={item.id} item={item} pid={pid} editId={editId} setEditId={(id)=>openEditId(id,gastos)} tarjetas={data.tarjetas} loans={data.loans||[]} potsList={potsList} globalEditingAmt={globalEditingAmt} checkIdx={monthPeriods.findIndex(p=>p.id===pid)} periodDate={periodDate} customLabels={data.customLabels||[]} onAddCustomLabel={(name,id,parent)=>{const lid=id||"label_"+Date.now();setData(p=>({...p,customLabels:[...(p.customLabels||[]),{id:lid,name,icon:"🏷️",parent:parent||null}]}));}}
-            onCycle={id=>cycleState(pid,id)} onLongPress={id=>setReserved(pid,id)}
+            onCycle={isFuture?()=>{}:id=>cycleState(pid,id)} onLongPress={isFuture?()=>{}:id=>setReserved(pid,id)}
             onUpdate={(id,f,v)=>updateGasto(pid,id,f,v)}
             onBatchUpdate={(id,fields)=>batchUpdateGasto(pid,id,fields)} onPropagate={(item)=>propagateToAllChecks(pid,item)}
             onRemove={id=>removeGasto(pid,id)} touch={touch} T={T}/>)}/>
@@ -2236,7 +2236,7 @@ const hashPin=async(pin)=>{
     })}</>);
   };
 
-  const renderCheckTab=(period)=>{
+  const renderCheckTab=(period,isFuture=false)=>{
     const{id:pid,label,isCurrent,payday}=period;
     const gastos=getPGastos(pid);
     const amt=getPeriodAmount(pid);
@@ -2478,7 +2478,7 @@ const hashPin=async(pin)=>{
                 </div>
               )}
               <div style={{overflowY:"auto",flex:1,padding:"14px 16px",paddingBottom:"max(20px,env(safe-area-inset-bottom,20px))"}}>
-                {renderCheckTab(period)}
+                {renderCheckTab(period,true)}
                 <div style={{marginTop:14,padding:"10px 14px",background:T.surface2,borderRadius:12,display:"flex",alignItems:"center",gap:8,border:`1px solid ${T.border}`}}>
                   <span style={{fontSize:14}}>💡</span>
                   <span style={{fontSize:10,color:T.muted,lineHeight:1.5}}>Activates automatically when {nmShort} starts. All changes are saved.</span>
