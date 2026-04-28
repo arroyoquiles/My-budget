@@ -1739,7 +1739,9 @@ const hashPin=async(pin)=>{
         setData(p=>({...p,tarjetas:p.tarjetas.map(t=>t.nombre!==item.tarjetaRef?t:{...t,balance:Math.max(0,n(t.balance)-m)})}));
         toast_(`↩️ Charge reversed from ${card.nombre}`);
       }
-      updPeriodGastos(pid,g=>g.map(x=>x.id!==id?x:{...x,_charged:false}));
+      // Merge into single update to avoid double render
+      updPeriodGastos(pid,g=>g.map(x=>x.id!==id?x:{...x,_charged:false,state:"pending",pagado:false}));
+      return;
     }
     updPeriodGastos(pid,g=>g.map(x=>x.id!==id?x:{...x,state:x.state==="paid"?"pending":"paid",pagado:x.state!=="paid"}));
     if(item&&markingPaid){
@@ -1881,7 +1883,6 @@ const hashPin=async(pin)=>{
     // Figure out which ones are already copied by matching nombre+monto+destino
     // Use a count-based approach so duplicates with same name are handled correctly
     const existingRecurring=curGastos.filter(x=>x._recurring);
-    const sourceKeys=recurring.map(x=>x.nombre.trim()+"||"+x.monto+"||"+x.destino+"||"+(x._recurringCheckOnly?"1":"0"));
     const existingKeys=existingRecurring.map(x=>x.nombre.trim()+"||"+x.monto+"||"+x.destino+"||"+(x._recurringCheckOnly?"1":"0"));
     // Remove already-present keys one by one (count-aware dedup)
     const remaining=[...existingKeys];
@@ -1892,7 +1893,7 @@ const hashPin=async(pin)=>{
       return true;
     });
     if(!toAdd.length)return;
-    const copies=toAdd.map((x)=>({...x,id:uid(),state:"pending",pagado:false,_potAdded:false}));
+    const copies=toAdd.map((x)=>({...x,id:uid(),state:"pending",pagado:false,_potAdded:false,_debtPaid:false,_charged:false}));
     setData(p=>({...p,periods:{...p.periods,[activeCheckPid]:{...(p.periods[activeCheckPid]||{}),gastos:[...(p.periods[activeCheckPid]?.gastos||[]),...copies]}}}));
     setTimeout(()=>toast_(`🔁 ${copies.length} recurring copied`),100);
   },[activeCheckPid,nextMonthPeriods]);
@@ -1946,7 +1947,7 @@ const hashPin=async(pin)=>{
   },[activeCheckPid,nextMonthPeriods]);
   const resetCheck=useCallback((pid,label)=>{
     updPeriodGastos(pid,g=>{
-      const kept=g.filter(x=>x._recurring||x.diaPago).map(x=>({...x,state:"pending",pagado:false,_potAdded:false}));
+      const kept=g.filter(x=>x._recurring||x.diaPago).map(x=>({...x,state:"pending",pagado:false,_potAdded:false,_debtPaid:false,_charged:false}));
       return kept;
     });
     toast_(`🔄 ${label} reset`);
