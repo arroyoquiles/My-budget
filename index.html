@@ -1895,11 +1895,12 @@ const hashPin=async(pin)=>{
     // Figure out which ones are already copied by matching nombre+monto+destino
     // Use a count-based approach so duplicates with same name are handled correctly
     const existingRecurring=curGastos.filter(x=>x._recurring);
-    const existingKeys=existingRecurring.map(x=>x.nombre.trim()+"||"+x.monto+"||"+x.destino+"||"+(x._recurringCheckOnly?"1":"0"));
+    // Dedup by nombre+destino only (ignore monto) so edited amounts aren't re-copied
+    const existingKeys=existingRecurring.map(x=>x.nombre.trim()+"||"+x.destino+"||"+(x._recurringCheckOnly?"1":"0"));
     // Remove already-present keys one by one (count-aware dedup)
     const remaining=[...existingKeys];
     const toAdd=recurring.filter(x=>{
-      const k=x.nombre.trim()+"||"+x.monto+"||"+x.destino+"||"+(x._recurringCheckOnly?"1":"0");
+      const k=x.nombre.trim()+"||"+x.destino+"||"+(x._recurringCheckOnly?"1":"0");
       const idx=remaining.indexOf(k);
       if(idx>=0){remaining.splice(idx,1);return false;}
       return true;
