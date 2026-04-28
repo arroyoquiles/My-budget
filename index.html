@@ -11,35 +11,27 @@
   <script>
   (function(){
     const svg='<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><rect width="512" height="512" rx="100" fill="#0b1220"/><rect x="76" y="158" width="324" height="224" rx="30" fill="none" stroke="white" stroke-width="22"/><rect x="318" y="188" width="102" height="72" rx="18" fill="none" stroke="white" stroke-width="18"/><circle cx="371" cy="224" r="13" fill="white"/><line x1="156" y1="118" x2="206" y2="158" stroke="white" stroke-width="21" stroke-linecap="round"/><line x1="238" y1="106" x2="268" y2="158" stroke="white" stroke-width="21" stroke-linecap="round"/><text x="100" y="330" font-family="-apple-system,BlinkMacSystemFont,Helvetica,sans-serif" font-size="96" font-weight="700" fill="white">MB</text></svg>';
-    // Read theme IMMEDIATELY (sync) so splash shows correct color from frame 1
     try{
       const saved=JSON.parse(localStorage.getItem('mybudget_v17')||'{}');
       const th=saved.theme||'dark';
       const accents={dark:'#5ca8ff',violet:'#a78bfa',green:'#3fb950',pink:'#ec4899',orange:'#f97316',black:'#ffffff',copper:'#c2823a',teal:'#06b6d4',gold:'#d29922',light:'#0969da'};
       const bgs={dark:'#05080f',violet:'#0a0814',green:'#08140c',pink:'#140810',orange:'#140e08',black:'#000000',copper:'#130f08',teal:'#08141a',gold:'#14110a',light:'#f0f4f8'};
-      const accent=accents[th]||'#5ca8ff';
       const bg=bgs[th]||'#05080f';
-      // Apply to body immediately — zero flash
-      document.documentElement.style.background=bg;
-      document.write('<style>body{background:'+bg+' !important;}#splash{background:'+bg+' !important;}</style>');
-      window._splashBg=bg;
-      window._splashAccent=accent;
+      const accent=accents[th]||'#5ca8ff';
+      window._splashBg=bg;window._splashAccent=accent;
+      // Patch body + html before first paint
+      document.documentElement.style.cssText='background:'+bg+';';
+      document.body&&(document.body.style.background=bg);
+      // Patch splash immediately — it's already in the DOM above this script
+      const splash=document.getElementById('splash');
+      if(splash){
+        splash.style.background=bg;
+        const title=splash.querySelector('.st');
+        if(title)title.style.backgroundImage='linear-gradient(120deg,white 0%,white 50%,'+accent+' 100%)';
+        const svgRect=splash.querySelector('svg rect');
+        if(svgRect)svgRect.setAttribute('fill',bg);
+      }
     }catch(e){}
-    // After DOM ready, apply accent color to splash text/icon
-    document.addEventListener('DOMContentLoaded',()=>{
-      try{
-        const bg=window._splashBg||'#05080f';
-        const accent=window._splashAccent||'#5ca8ff';
-        const splash=document.getElementById('splash');
-        if(splash){
-          splash.style.background=bg;
-          const title=splash.querySelector('.st');
-          if(title)title.style.backgroundImage='linear-gradient(120deg,white 0%,white 50%,'+accent+' 100%)';
-          const svgEl=splash.querySelector('svg rect');
-          if(svgEl)svgEl.setAttribute('fill',bg);
-        }
-      }catch(e){}
-    });
     const enc=encodeURIComponent(svg);
     const m={name:"My Budget",short_name:"My Budget",start_url:"/",display:"standalone",background_color:"#0b1220",theme_color:"#0b1220",icons:[{src:"data:image/svg+xml,"+enc,sizes:"512x512",type:"image/svg+xml"},{src:"data:image/svg+xml,"+enc,sizes:"192x192",type:"image/svg+xml"}]};
     const b=new Blob([JSON.stringify(m)],{type:"application/json"});
@@ -70,7 +62,7 @@
     body.copper{background:#130f08;color:#e6edf3;}
     body.teal{background:#08141a;color:#e6edf3;}
     body.gold{background:#14110a;color:#e6edf3;}
-    #splash{position:fixed;inset:0;z-index:9999;display:flex;align-items:center;justify-content:center;flex-direction:column;gap:16px;background:inherit;transition:opacity 0.5s ease;}
+    #splash{position:fixed;inset:0;z-index:9999;display:flex;align-items:center;justify-content:center;flex-direction:column;gap:16px;background:#05080f;transition:opacity 0.5s ease;}
     #splash.hide{opacity:0;pointer-events:none;}
     #splash svg{animation:splashPop 0.6s cubic-bezier(0.34,1.56,0.64,1) both;opacity:0;}
     #splash .st{font-family:'Inter',-apple-system,sans-serif;font-size:30px;font-weight:900;letter-spacing:-0.5px;background:linear-gradient(120deg,#e6edf3 0%,#e6edf3 50%,#58a6ff 100%);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;opacity:0;animation:splashFade 0.4s ease 0.4s forwards;}
@@ -132,6 +124,27 @@
   <div class="st">My Budget</div>
   <div class="ss">PERSONAL FINANCE</div>
 </div>
+<script>
+(function(){
+  try{
+    const saved=JSON.parse(localStorage.getItem('mybudget_v17')||'{}');
+    const th=saved.theme||'dark';
+    const accents={dark:'#5ca8ff',violet:'#a78bfa',green:'#3fb950',pink:'#ec4899',orange:'#f97316',black:'#ffffff',copper:'#c2823a',teal:'#06b6d4',gold:'#d29922',light:'#0969da'};
+    const bgs={dark:'#05080f',violet:'#0a0814',green:'#08140c',pink:'#140810',orange:'#140e08',black:'#000000',copper:'#130f08',teal:'#08141a',gold:'#14110a',light:'#f0f4f8'};
+    const bg=bgs[th]||'#05080f';
+    const accent=accents[th]||'#5ca8ff';
+    document.body.style.background=bg;
+    const splash=document.getElementById('splash');
+    if(splash){
+      splash.style.background=bg;
+      const title=splash.querySelector('.st');
+      if(title)title.style.backgroundImage='linear-gradient(120deg,white 0%,white 50%,'+accent+' 100%)';
+      const svgRect=splash.querySelector('svg rect');
+      if(svgRect)svgRect.setAttribute('fill',bg);
+    }
+  }catch(e){}
+})();
+</script>
 <div id="root"></div>
 <script type="text/babel">
 const { useState, useEffect, useRef, useCallback, memo, useMemo } = React;
