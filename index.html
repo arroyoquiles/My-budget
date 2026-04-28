@@ -1842,9 +1842,17 @@ const hashPin=async(pin)=>{
     const currentPids=new Set([...monthPeriods.map(p=>p.id),...nextMonthPeriods.map(p=>p.id)]);
     let sourcePid=null;
     if(isNextMonth){
-      // Use the corresponding Abril check (same index) as source
+      // Use the corresponding current month check (same index) as source
       const sortedCurrent=monthPeriods.map(p=>p.id).sort();
-      sourcePid=sortedCurrent[checkIdx]||null; // no fallback — if index doesn't exist, don't copy
+      sourcePid=sortedCurrent[checkIdx]||null;
+      // If no matching index, still need a source for "All checks" recurrents
+      // Use any check that has recurrents
+      if(!sourcePid){
+        for(const p of monthPeriods){
+          const g=(data.periods[p.id]?.gastos)||[];
+          if(g.some(x=>x._recurring&&!x._recurringCheckOnly)){sourcePid=p.id;break;}
+        }
+      }
     } else {
       const byMonth={};
       Object.keys(data.periods).filter(pid=>!currentPids.has(pid)).forEach(pid=>{
@@ -1867,9 +1875,13 @@ const hashPin=async(pin)=>{
       }
     }
     if(!sourcePid)return;
+    const sortedCurrentForIdx=isNextMonth?monthPeriods.map(p=>p.id).sort():null;
+    const sourceMatchesIdx=!isNextMonth||(sortedCurrentForIdx&&sortedCurrentForIdx[checkIdx]===sourcePid);
     const recurring=((data.periods[sourcePid]?.gastos)||[]).filter(x=>{
       if(!x._recurring)return false;
       if(x._recurringCheckOnly){
+        // If source doesn't match index (fallback source), skip check-only items
+        if(!sourceMatchesIdx)return false;
         // For next month source is current month — index already matches by construction
         if(isNextMonth)return true;
         const srcIdx=Object.keys(data.periods).filter(p=>!currentPids.has(p))
