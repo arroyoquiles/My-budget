@@ -1854,6 +1854,39 @@ const hashPin=async(pin)=>{
     setData(p=>({...p,periods:{...p.periods,[activeCheckPid]:{...(p.periods[activeCheckPid]||{}),gastos:[...(p.periods[activeCheckPid]?.gastos||[]),...copies]}}}));
     setTimeout(()=>toast_(`🔁 ${copies.length} recurring copied`),100);
   },[activeCheckPid,nextMonthPeriods]);
+
+  // Auto-copy due-day expenses to new periods
+  useEffect(()=>{
+    if(!activeCheckPid)return;
+    const curGastos=(data.periods[activeCheckPid]?.gastos)||[];
+    // Skip if already has due-day items
+    if(curGastos.some(x=>x.diaPago))return;
+    const isNextMonth=nextMonthPeriods.some(p=>p.id===activeCheckPid);
+    const allPeriods=isNextMonth?nextMonthPeriods:monthPeriods;
+    const checkIdx=allPeriods.findIndex(p=>p.id===activeCheckPid);
+    if(checkIdx<0)return;
+    // Find most recent past period with due-day items
+    const currentPids=new Set([...monthPeriods.map(p=>p.id),...nextMonthPeriods.map(p=>p.id)]);
+    const byMonth={};
+    Object.keys(data.periods).filter(pid=>!currentPids.has(pid)).forEach(pid=>{
+      const m=pid.replace("period_","").slice(0,7);
+      if(!byMonth[m])byMonth[m]=[];
+      byMonth[m].push(pid);
+    });
+    const months=Object.keys(byMonth).sort().reverse();
+    let sourcePid=null;
+    for(const mo of months){
+      const pids=byMonth[mo].sort();
+      if(pids[checkIdx]){sourcePid=pids[checkIdx];break;}
+      if(!sourcePid&&pids.length>0)sourcePid=pids[0];
+    }
+    if(!sourcePid)return;
+    const dueDayItems=((data.periods[sourcePid]?.gastos)||[]).filter(x=>x.diaPago&&!x._recurring);
+    if(!dueDayItems.length)return;
+    const copies=dueDayItems.map(x=>({...x,id:uid(),state:"pending",pagado:false,_potAdded:false,_debtPaid:false}));
+    setData(p=>({...p,periods:{...p.periods,[activeCheckPid]:{...(p.periods[activeCheckPid]||{}),gastos:[...(p.periods[activeCheckPid]?.gastos||[]),...copies]}}}));
+    setTimeout(()=>toast_(`📅 ${copies.length} due-day expense${copies.length>1?"s":""} copied`),150);
+  },[activeCheckPid,nextMonthPeriods]);
   const resetCheck=useCallback((pid,label)=>{
     updPeriodGastos(pid,g=>{
       const kept=g.filter(x=>x._recurring||x.diaPago).map(x=>({...x,state:"pending",pagado:false,_potAdded:false}));
@@ -2508,6 +2541,7 @@ const hashPin=async(pin)=>{
           updPeriodGastos(debtPayConfirm.pid,g=>g.map(x=>x.id!==item.id?x:{...x,state:"pending",pagado:false}));
           setDebtPayConfirm(null);
         };
+        const skipCharge=()=>setDebtPayConfirm(null); // keep paid, skip charge
         return(
             <div style={{position:"fixed",inset:0,zIndex:450,background:"rgba(0,0,0,0.6)",display:"flex",alignItems:"flex-end",justifyContent:"center"}}
               onClick={e=>{if(e.target===e.currentTarget)revertPaid();}}>
@@ -2519,7 +2553,7 @@ const hashPin=async(pin)=>{
                 </div>
                 <div style={{display:"flex",gap:10}}>
                   <button style={{...BTN,flex:1,padding:"13px",background:"#ec4899",color:"#fff",fontSize:14,fontWeight:700,borderRadius:11}} onClick={doCharge}>💳 Yes, charge</button>
-                  <button style={{...BTN,flex:1,padding:"13px",background:T.surface2,color:T.muted,fontSize:14,borderRadius:11,border:`1px solid ${T.border}`}} onClick={revertPaid}>Skip</button>
+                  <button style={{...BTN,flex:1,padding:"13px",background:T.surface2,color:T.muted,fontSize:14,borderRadius:11,border:`1px solid ${T.border}`}} onClick={skipCharge}>Skip</button>
                 </div>
               </div>
             </div>
