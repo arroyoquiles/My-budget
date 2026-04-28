@@ -59,10 +59,10 @@
     body.gold{background:#14110a;color:#e6edf3;}
     #splash{position:fixed;inset:0;z-index:9999;display:flex;align-items:center;justify-content:center;flex-direction:column;gap:16px;background:#080c14;transition:opacity 0.5s ease;}
     #splash.hide{opacity:0;pointer-events:none;}
-    #splash svg{animation:splashPop 0.6s cubic-bezier(0.34,1.56,0.64,1) forwards;}
+    #splash svg{animation:splashPop 0.6s cubic-bezier(0.34,1.56,0.64,1) both;opacity:0;}
     #splash .st{font-family:-apple-system,sans-serif;font-size:28px;font-weight:800;background:linear-gradient(120deg,#e6edf3 0%,#e6edf3 50%,#58a6ff 100%);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;opacity:0;animation:splashFade 0.4s ease 0.4s forwards;}
     #splash .ss{font-family:-apple-system,sans-serif;font-size:11px;color:#8b949e;letter-spacing:2px;opacity:0;animation:splashFade 0.4s ease 0.6s forwards;}
-    @keyframes splashPop{0%{transform:scale(0.4);opacity:0;}100%{transform:scale(1);opacity:1;}}
+    @keyframes splashPop{0%{transform:scale(0.5);opacity:0;}100%{transform:scale(1);opacity:1;}}
     @keyframes splashFade{0%{opacity:0;transform:translateY(6px);}100%{opacity:1;transform:translateY(0);}}
     @keyframes dropIn{0%{opacity:0;transform:translateY(-24px) scale(0.96);}60%{transform:translateY(4px) scale(1.01);}100%{opacity:1;transform:translateY(0) scale(1);}}
     .drop-item{opacity:0;}
@@ -1001,7 +1001,7 @@ const GastoItem=memo(({item,pid,editId,setEditId,tarjetas,loans,potsList,periodD
   };
   const saveEditing=()=>{setEditing(false);setSavedSnapshot(null);setDebtSwipe(0);setShowColorPicker(false);setShowColorPicker(false);};
   return(
-    <div style={{position:"relative",marginBottom:9,borderRadius:14,overflow:"hidden",...(clipH!=null?{height:clipH,maxHeight:clipH,minHeight:clipH}:{})}}>
+    <div style={{position:"relative",marginBottom:9,borderRadius:14,overflow:"hidden",...(clipH!=null?{height:clipH,maxHeight:clipH,minHeight:clipH,clipPath:"inset(0 round 14px)"}:{})}}>
       {/* Swipe actions behind — only when expanded and not collapsed in stack */}
       {!showEdit&&!isAdding&&clipH==null&&<div style={{position:"absolute",inset:0,display:"flex",borderRadius:14}}>
         <div style={{width:70,background:`${T.accent}ee`,display:"flex",alignItems:"center",justifyContent:"center",fontSize:20,cursor:"pointer",borderRadius:"14px 0 0 14px"}}
