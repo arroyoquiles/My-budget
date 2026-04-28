@@ -1712,6 +1712,7 @@ const hashPin=async(pin)=>{
     return{...p,periods:{...p.periods,[pid]:{...(p.periods[pid]||{}),gastos:fn(cur)}}};
   });
   const cycleState=useCallback((pid,id)=>{
+    if(nextMonthPeriods.some(p=>p.id===pid))return; // block future periods
     haptic(20);
     const gastos=(data.periods[pid]?.gastos)||[];
     const item=gastos.find(x=>x.id===id);
@@ -1752,7 +1753,7 @@ const hashPin=async(pin)=>{
       }
     }
   },[data.periods]);
-  const setReserved=useCallback((pid,id)=>updPeriodGastos(pid,g=>g.map(x=>x.id!==id?x:{...x,state:x.state==="reserved"?"pending":"reserved",pagado:false})),[]);
+  const setReserved=useCallback((pid,id)=>{if(nextMonthPeriods.some(p=>p.id===pid))return;updPeriodGastos(pid,g=>g.map(x=>x.id!==id?x:{...x,state:x.state==="reserved"?"pending":"reserved",pagado:false}));},[nextMonthPeriods]);
   const updateGasto=useCallback((pid,id,f,v)=>updPeriodGastos(pid,g=>g.map(x=>x.id===id?{...x,[f]:v}:x)),[]);
   const batchUpdateGasto=useCallback((pid,id,fields)=>updPeriodGastos(pid,g=>g.map(x=>x.id===id?{...x,...fields}:x)),[]);
   const propagateToAllChecks=useCallback((pid,item)=>{
@@ -2250,8 +2251,9 @@ const hashPin=async(pin)=>{
     const done=gastos.length>0&&gastos.every(g=>g.state==="paid");
     const pdDays=Math.ceil((payday-today)/86400000);
     const remColor=getRemainingColor(sob);
-    if(done&&!lastDoneRef.current[pid]){lastDoneRef.current[pid]=true;setTimeout(launchConfetti,300);}
-    if(!done&&lastDoneRef.current[pid])lastDoneRef.current[pid]=false;
+    if(isFuture&&lastDoneRef.current[pid])lastDoneRef.current[pid]=false;
+    if(done&&!isFuture&&!lastDoneRef.current[pid]){lastDoneRef.current[pid]=true;setTimeout(launchConfetti,300);}
+    if(!done&&!isFuture&&lastDoneRef.current[pid])lastDoneRef.current[pid]=false;
     return(<div className="anim">
       {/* Compact header: Active badge + Payday inline */}
       {(isCurrent||payday)&&<div style={{display:"flex",alignItems:"center",gap:8,marginBottom:12,padding:"8px 12px",background:`${T.accent}0f`,borderRadius:10,border:`1px solid ${T.accent}28`}}>
@@ -2322,7 +2324,7 @@ const hashPin=async(pin)=>{
           <div style={{fontSize:10,color:done?"#3fb950":T.muted}}>{done?"✅ All paid!":`${fmt(paid)} paid · ${fmt(reserved)} reserved`}</div>
           <span style={{fontSize:10,color:T.muted}}>{amt>0?Math.min(100,Math.round((total/amt)*100)):0}% used</span>
         </div>
-        <div style={{fontSize:10,color:T.muted,marginTop:4}}>Tap ● = paid · Double tap ◑ = reserved</div>
+        {!isFuture&&<div style={{fontSize:10,color:T.muted,marginTop:4}}>Tap ● = paid · Double tap ◑ = reserved</div>}
       </div>
       <DestinoSummary gastos={gastos} potsList={potsList} customLabels={data.customLabels||[]} T={T}/>
       {gastos.length>3&&<div style={{marginBottom:10,position:"relative"}}>
@@ -2330,7 +2332,7 @@ const hashPin=async(pin)=>{
         <input style={{...INP,paddingLeft:30,fontSize:13,padding:"8px 10px 8px 30px"}} placeholder="Search expenses..." value={expenseSearch} onChange={e=>setExpenseSearch(e.target.value)}/>
         {expenseSearch&&<button style={{...BTN,position:"absolute",right:8,top:"50%",transform:"translateY(-50%)",background:"transparent",color:T.muted,fontSize:14,padding:"2px 6px",border:"none"}} onClick={()=>setExpenseSearch("")}>✕</button>}
       </div>}
-      {(()=>{const filtered=expenseSearch?gastos.filter(g=>(g.nombre||"").toLowerCase().includes(expenseSearch.toLowerCase())):gastos;return renderCheckTabGrouped(pid,filtered,payday);})()} 
+      {(()=>{const filtered=expenseSearch?gastos.filter(g=>(g.nombre||"").toLowerCase().includes(expenseSearch.toLowerCase())):gastos;return renderCheckTabGrouped(pid,filtered,payday,isFuture);})()} 
       {gastos.length===0&&(<div className="anim" style={{textAlign:"center",padding:"28px 20px 20px"}}>
         <svg width="52" height="52" viewBox="0 0 52 52" fill="none" xmlns="http://www.w3.org/2000/svg" style={{margin:"0 auto 12px",display:"block",opacity:0.35}}>
           <rect x="6" y="14" width="40" height="28" rx="6" stroke={T.muted} strokeWidth="2" fill="none"/>
