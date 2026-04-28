@@ -1721,11 +1721,21 @@ const hashPin=async(pin)=>{
       toast_("Payment already registered in Debts","err");
       return;
     }
+    // If unmarking a charged card expense, reverse the charge
+    if(item&&item._charged&&!markingPaid){
+      const card=data.tarjetas.find(t=>t.nombre===item.tarjetaRef);
+      if(card){
+        const m=n(item.monto);
+        setData(p=>({...p,tarjetas:p.tarjetas.map(t=>t.nombre!==item.tarjetaRef?t:{...t,balance:Math.max(0,n(t.balance)-m)})}));
+        toast_(`↩️ Charge reversed from ${card.nombre}`);
+      }
+      updPeriodGastos(pid,g=>g.map(x=>x.id!==id?x:{...x,_charged:false}));
+    }
     updPeriodGastos(pid,g=>g.map(x=>x.id!==id?x:{...x,state:x.state==="paid"?"pending":"paid",pagado:x.state!=="paid"}));
     if(item&&markingPaid){
       if(item.debtRef&&!item._debtPaid){
         setTimeout(()=>setDebtPayConfirm({item,pid}),200);
-      } else if(item.tarjetaRef&&!item.debtRef&&!item._debtPaid){
+      } else if(item.tarjetaRef&&!item.debtRef&&!item._debtPaid&&!item._charged){
         setTimeout(()=>setDebtPayConfirm({item,pid,isCharge:true}),200);
       }
     }
@@ -2533,7 +2543,7 @@ const hashPin=async(pin)=>{
           const doCharge=()=>{
             const entry={fecha:new Date().toLocaleDateString("en-US",{month:"short",day:"numeric"}),tipo:"gasto",monto:m};
             setData(p=>({...p,tarjetas:p.tarjetas.map(t=>t.nombre!==item.tarjetaRef?t:{...t,balance:n(t.balance)+m,historial:[entry,...(t.historial||[])].slice(0,10)})}));
-            updPeriodGastos(debtPayConfirm.pid,g=>g.map(x=>x.id!==item.id?x:{...x,_debtPaid:true}));
+            updPeriodGastos(debtPayConfirm.pid,g=>g.map(x=>x.id!==item.id?x:{...x,_charged:true}));
             toast_(`💳 ${fmt(m)} charged to ${card.nombre}`);
             setDebtPayConfirm(null);
           };
