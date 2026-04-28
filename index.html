@@ -1844,7 +1844,7 @@ const hashPin=async(pin)=>{
     if(isNextMonth){
       // Use the corresponding Abril check (same index) as source
       const sortedCurrent=monthPeriods.map(p=>p.id).sort();
-      sourcePid=sortedCurrent[checkIdx]||sortedCurrent[0]||null;
+      sourcePid=sortedCurrent[checkIdx]||null; // no fallback — if index doesn't exist, don't copy
     } else {
       const byMonth={};
       Object.keys(data.periods).filter(pid=>!currentPids.has(pid)).forEach(pid=>{
@@ -1932,7 +1932,7 @@ const hashPin=async(pin)=>{
     // This ensures if user deleted due-day items last month, they stay deleted
     if(months.length>0){
       const pids=byMonth[months[0]].sort();
-      sourcePid=pids[checkIdx]||pids[0]||null;
+      sourcePid=pids[checkIdx]||null; // no fallback — respect check count difference
     }
     if(!sourcePid)return;
     const dueDayItems=((data.periods[sourcePid]?.gastos)||[]).filter(x=>x.diaPago&&!x._recurring);
