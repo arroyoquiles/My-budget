@@ -632,7 +632,7 @@ const GastoItem=memo(({item,pid,editId,setEditId,tarjetas,loans,potsList,periodD
   const isCardPayment=localDestino==="credit_card"&&!localCat;
   if(editId===item.id)return(
     <>{ReactDOM.createPortal(
-      <div style={{position:"fixed",inset:0,zIndex:700,background:"rgba(0,0,0,0.72)",backdropFilter:"blur(6px)",WebkitBackdropFilter:"blur(6px)",display:"flex",alignItems:"flex-end",justifyContent:"center",animation:"fadeIn 0.22s ease both"}}
+      <div style={{position:"fixed",inset:0,zIndex:600,background:"rgba(0,0,0,0.72)",backdropFilter:"blur(6px)",WebkitBackdropFilter:"blur(6px)",display:"flex",alignItems:"flex-end",justifyContent:"center",animation:"fadeIn 0.22s ease both"}}
         onMouseDown={e=>{if(e.target===e.currentTarget)setEditId(null);}}
         onTouchEnd={e=>{if(e.target===e.currentTarget)setEditId(null);}}>
         <div style={{width:"100%",maxWidth:500,background:T.surface,borderRadius:"20px 20px 0 0",border:`1px solid ${T.accent}55`,padding:"20px",paddingBottom:"max(32px,env(safe-area-inset-bottom,32px))",maxHeight:"90vh",overflowY:"auto",animation:"slideInUp 0.38s cubic-bezier(0.25,0.46,0.45,0.94) both",willChange:"transform",WebkitBackfaceVisibility:"hidden",transform:"translateZ(0)"}}
@@ -2448,7 +2448,7 @@ const hashPin=async(pin)=>{
         const period=nextMonthPeriods.find(p=>p.id===pid)||nextMonthPeriods[0];
         const close=()=>{setPreviewNextMonth(false);setActiveCheckPid(null);};
         return(
-          <div style={{position:"fixed",inset:0,zIndex:600,background:"rgba(0,0,0,0.65)",backdropFilter:"blur(6px)",WebkitBackdropFilter:"blur(6px)",display:"flex",alignItems:"flex-end",justifyContent:"center",animation:"fadeIn 0.22s ease both"}}
+          <div style={{position:"fixed",inset:0,zIndex:550,background:"rgba(0,0,0,0.65)",backdropFilter:"blur(6px)",WebkitBackdropFilter:"blur(6px)",display:"flex",alignItems:"flex-end",justifyContent:"center",animation:"fadeIn 0.22s ease both"}}
             onClick={e=>{if(e.target===e.currentTarget)close();}}>
             <div style={{width:"100%",maxWidth:500,background:T.surface,borderRadius:"20px 20px 0 0",border:"1.5px solid #d2992255",borderBottom:"none",maxHeight:"88vh",display:"flex",flexDirection:"column",animation:"slideInUp 0.38s cubic-bezier(0.25,0.46,0.45,0.94) both"}}>
               <div style={{display:"flex",justifyContent:"center",paddingTop:10,paddingBottom:4,flexShrink:0}}>
