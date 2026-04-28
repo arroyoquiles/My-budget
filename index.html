@@ -1928,10 +1928,11 @@ const hashPin=async(pin)=>{
     });
     const months=Object.keys(byMonth).sort().reverse();
     let sourcePid=null;
-    for(const mo of months){
-      const pids=byMonth[mo].sort();
-      if(pids[checkIdx]){sourcePid=pids[checkIdx];break;}
-      if(!sourcePid&&pids.length>0)sourcePid=pids[0];
+    // Take ONLY the most recent month — don't fall back to older months
+    // This ensures if user deleted due-day items last month, they stay deleted
+    if(months.length>0){
+      const pids=byMonth[months[0]].sort();
+      sourcePid=pids[checkIdx]||pids[0]||null;
     }
     if(!sourcePid)return;
     const dueDayItems=((data.periods[sourcePid]?.gastos)||[]).filter(x=>x.diaPago&&!x._recurring);
