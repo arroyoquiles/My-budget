@@ -596,7 +596,7 @@ const GastoItem=({item,pid,editId,setEditId,tarjetas,loans,potsList,periodDate,c
       },300);
     }
   };
-  const startSwipe=(x,y)=>{swipeRef.current={startX:x,startY:y,dir:null,active:false};};
+  const startSwipe=(x,y)=>{swipeRef.current={startX:x,startY:y,dir:null,active:false,itemId:item.id};};
   const moveSwipe=(x,y,prevent)=>{
     const s=swipeRef.current;if(!s.startX&&!s.startY)return;
     const dx=x-s.startX,dy=y-s.startY;
@@ -612,7 +612,7 @@ const GastoItem=({item,pid,editId,setEditId,tarjetas,loans,potsList,periodDate,c
     if(!s.active){swipeRef.current={startX:0,startY:0,dir:null,active:false};return;}
     const finalX=x!=null?x-s.startX:swipeX;
     if(finalX<-60)setSwipeX(-88);
-    else if(finalX>40){setSwipeX(0);setEditId(item.id);}
+    else if(finalX>40){setSwipeX(0);setEditId(swipeRef.current.itemId||item.id);}
     else setSwipeX(0);
     swipeRef.current={startX:0,startY:0,dir:null,active:false};
   };
@@ -708,6 +708,21 @@ const GastoItem=({item,pid,editId,setEditId,tarjetas,loans,potsList,periodDate,c
                 </div>
               </div>
             ))}
+            {/* Temporary — same size as group buttons */}
+            {(()=>{
+              const isSel=localDestino==="temp";
+              const d=DEST["temp"];
+              return(<div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:5,marginBottom:5}}>
+                <button style={{cursor:"pointer",border:"none",borderRadius:10,fontFamily:"inherit",fontWeight:600,WebkitTapHighlightColor:"transparent",
+                  padding:"7px 8px",fontSize:11,textAlign:"left",
+                  background:isSel?d.bg:"#21262d",color:isSel?d.color:T.muted,
+                  border:`1px solid ${isSel?d.border:T.border}`,transition:"all 0.1s",
+                  display:"flex",alignItems:"center",justifyContent:"space-between",gap:4}}
+                  onMouseDown={e=>{e.preventDefault();setLocalCat("temp");setLocalDestino("temp");setLocalTarjetaRef("");setOpenCatGroup(null);}}>
+                  <span style={{overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{d.icon} {d.label}</span>
+                </button>
+              </div>);
+            })()}
             {/* Custom labels + new — 3 cols */}
             <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:5}}>
               {(customLabels||[]).map(cl=>{
@@ -2626,7 +2641,7 @@ const hashPin=async(pin)=>{
         </div>
       )}
       {gastoTypePicker?.step==="debt"&&(
-        <div style={{position:"fixed",inset:0,zIndex:401,background:"rgba(0,0,0,0.55)",backdropFilter:"blur(8px)",WebkitBackdropFilter:"blur(8px)",display:"flex",alignItems:"flex-end",justifyContent:"center"}}
+        <div style={{position:"fixed",inset:0,zIndex:710,background:"rgba(0,0,0,0.55)",backdropFilter:"blur(8px)",WebkitBackdropFilter:"blur(8px)",display:"flex",alignItems:"flex-end",justifyContent:"center"}}
           onTouchEnd={e=>{if(e.target===e.currentTarget)setGastoTypePicker(null);}}
           onClick={e=>{if(e.target===e.currentTarget)setGastoTypePicker(null);}}>
           <div style={{width:"100%",maxWidth:500,background:T.surface,borderRadius:"20px 20px 0 0",border:`1px solid ${T.border}`,padding:"20px",paddingBottom:"max(28px,env(safe-area-inset-bottom,28px))",animation:"slideInUp 0.28s cubic-bezier(0.4,0,0.2,1) both"}}
