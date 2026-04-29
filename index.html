@@ -537,7 +537,7 @@ const DragList=memo(({items,renderItem,editId})=>{
   return(<div>{items.map((item,i)=>(<div key={item.id}>{renderItem(item,i,{})}</div>))}</div>);
 });
 const getCatIcon=(cat)=>CICONS[cat]||"📌";
-const GastoItem=({item,pid,editId,setEditId,tarjetas,loans,potsList,periodDate,customLabels,onAddCustomLabel,globalEditingAmt,checkIdx,onCycle,onLongPress,onUpdate,onBatchUpdate,onPropagate,onRemove,T})=>{
+const GastoItem=({item,pid,editId,setEditId,tarjetas,loans,potsList,periodDate,customLabels,onAddCustomLabel,globalEditingAmt,checkIdx,onCycle,onLongPress,onUpdate,onBatchUpdate,onPropagate,onRemove,T,isFuture=false})=>{
   const dest=gds(item.destino,item.tarjetaRef,null,potsList,customLabels);
   const INP=mkINP(T),BTN=mkBTN(),CARD=mkCARD(T);
   const [swipeX,setSwipeX]=useState(0);
@@ -614,11 +614,12 @@ const GastoItem=({item,pid,editId,setEditId,tarjetas,loans,potsList,periodDate,c
     if(finalX<-60)setSwipeX(-88);
     else if(finalX>40){setSwipeX(0);setEditId(swipeRef.current.itemId||item.id);}
     else setSwipeX(0);
-    swipeRef.current={startX:0,startY:0,dir:null,active:false};
+    swipeRef.current={startX:0,startY:0,dir:null,active:false,justSwiped:true};
+    setTimeout(()=>{if(swipeRef.current)swipeRef.current.justSwiped=false;},300);
   };
-  const onRowTS=(e)=>{e.stopPropagation();startSwipe(e.touches[0].clientX,e.touches[0].clientY);};
-  const onRowTM=(e)=>moveSwipe(e.touches[0].clientX,e.touches[0].clientY,e);
-  const onRowTE=(e)=>{e.stopPropagation();endSwipe(e.changedTouches[0].clientX);};
+  const onRowTS=(e)=>{if(isFuture)return;e.stopPropagation();startSwipe(e.touches[0].clientX,e.touches[0].clientY);};
+  const onRowTM=(e)=>{if(isFuture)return;moveSwipe(e.touches[0].clientX,e.touches[0].clientY,e);};
+  const onRowTE=(e)=>{if(isFuture)return;e.stopPropagation();endSwipe(e.changedTouches[0].clientX);};
   const onRowMS=(e)=>{if(e.button!==0)return;startSwipe(e.clientX,e.clientY);
     const onMM=(ev)=>moveSwipe(ev.clientX,ev.clientY,null);
     const onMU=(ev)=>{endSwipe(ev.clientX);window.removeEventListener('mousemove',onMM);window.removeEventListener('mouseup',onMU);};
@@ -860,7 +861,7 @@ const GastoItem=({item,pid,editId,setEditId,tarjetas,loans,potsList,periodDate,c
       {/* Action buttons — only visible when swiped */}
       {swipeX!==0&&<div style={{position:"absolute",inset:0,display:"flex",borderRadius:11}}>
         <div style={{width:70,background:`${T.accent}ee`,display:"flex",alignItems:"center",justifyContent:"center",fontSize:18,cursor:"pointer",flexShrink:0,borderRadius:"11px 0 0 11px"}}
-          onClick={()=>{setSwipeX(0);setEditId(item.id);}}>✏️</div>
+          onTouchEnd={e=>{e.preventDefault();e.stopPropagation();if(!swipeRef.current?.justSwiped){setSwipeX(0);setEditId(item.id);}}} onClick={e=>{e.stopPropagation();if(!swipeRef.current?.justSwiped){setSwipeX(0);setEditId(item.id);}}}>✏️</div>
         <div style={{flex:1}}/>
         <div style={{width:88,background:"rgba(248,81,73,0.92)",display:"flex",alignItems:"center",justifyContent:"center",gap:6,cursor:"pointer",flexShrink:0,borderRadius:"0 11px 11px 0"}}
           onClick={e=>{if(navigator.vibrate)navigator.vibrate([20,40,20]);const row=e.currentTarget.closest(".expense-row");if(row){row.classList.add("expense-row-exit");setTimeout(()=>onRemove(item.id),260);}else onRemove(item.id);}}>
@@ -1808,10 +1809,11 @@ const hashPin=async(pin)=>{
     updPeriodGastos(pid,g=>[...g,{id:nid,nombre:"",monto:0,cat:"",state:"pending",pagado:false,destino:"__new__",tarjetaRef:"",diaPago:null,_quick:false}]);
     editGroupKeyRef.current="__new__";
     setTimeout(()=>{
-      window.scrollTo({top:scrollY,behavior:"instant"});
+      const isInSheet=nextMonthPeriods.some(p=>p.id===pid);
+      if(!isInSheet)window.scrollTo({top:scrollY,behavior:"instant"});
       setEditId(nid);
     },80);
-  },[]);
+  },[nextMonthPeriods]);
   const addGastoDebt=useCallback((pid,debtRef,debt,tipo)=>{
     const nid=uid();
     const isCard=tipo==="card";
@@ -1833,10 +1835,12 @@ const hashPin=async(pin)=>{
       debtRef
     }]);
     setTimeout(()=>{
-      window.scrollTo({top:scrollY,behavior:"instant"});
+      // Only restore scroll position on main page, not inside bottom sheet
+      const isInSheet=nextMonthPeriods.some(p=>p.id===pid);
+      if(!isInSheet)window.scrollTo({top:scrollY,behavior:"instant"});
       setEditId(nid);
     },80);
-  },[]);
+  },[nextMonthPeriods]);
   // Auto-archive previous month's checks when entering Check 1 of new month
   useEffect(()=>{
     if(!activeCheckPid)return;
@@ -2276,7 +2280,7 @@ const hashPin=async(pin)=>{
             onCycle={isFuture?()=>{}:id=>cycleState(pid,id)} onLongPress={isFuture?()=>{}:id=>setReserved(pid,id)}
             onUpdate={(id,f,v)=>updateGasto(pid,id,f,v)}
             onBatchUpdate={(id,fields)=>batchUpdateGasto(pid,id,fields)} onPropagate={(item)=>propagateToAllChecks(pid,item)}
-            onRemove={id=>removeGasto(pid,id)} touch={touch} T={T}/>)}/>
+            onRemove={id=>removeGasto(pid,id)} touch={touch} T={T} isFuture={isFuture}/>)}/>
       </div>);
     })}</>);
   };
