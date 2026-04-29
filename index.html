@@ -601,9 +601,10 @@ const GastoItem=memo(({item,pid,editId,setEditId,tarjetas,loans,potsList,periodD
     const s=swipeRef.current;if(!s.startX&&!s.startY)return;
     const dx=x-s.startX,dy=y-s.startY;
     if(!s.dir){if(Math.abs(dx)<6&&Math.abs(dy)<6)return;s.dir=Math.abs(dx)>Math.abs(dy)*1.2?"h":"v";}
-    if(s.dir!=="h")return;
+    if(s.dir==="v"){swipeRef.current={startX:0,startY:0,dir:null,active:false};return;}
     s.active=true;longPressed.current=true;
-    if(prevent&&prevent.cancelable)prevent.preventDefault();
+    // Lock ALL scrollable parents during horizontal swipe
+    if(prevent&&prevent.cancelable){prevent.preventDefault();prevent.stopPropagation();}
     setSwipeX(Math.max(-88,Math.min(70,dx)));
   };
   const endSwipe=(x)=>{
