@@ -533,7 +533,7 @@ const LimitBar=memo(({balance,limite,T})=>{
     </div>
   </div>);
 });
-const DragList=memo(({items,renderItem})=>{
+const DragList=memo(({items,renderItem,editId})=>{
   return(<div>{items.map((item,i)=>(<div key={item.id}>{renderItem(item,i,{})}</div>))}</div>);
 });
 const getCatIcon=(cat)=>CICONS[cat]||"📌";
@@ -2215,16 +2215,27 @@ const hashPin=async(pin)=>{
 
   const renderCheckTabGrouped=(pid,gastos,periodDate,isFuture=false)=>{
     const groups={};
+    // Build groups preserving original array order
     gastos.forEach(g=>{
-      let k;
-      if(editId===g.id&&editGroupKeyRef.current!==null){k=editGroupKeyRef.current;}
-      else{
-        const isCustomLabel=g.destino&&(g.destino.startsWith("label_")||(data.customLabels||[]).some(cl=>cl.id===g.destino));
-        k=g.destino==="credit_card"&&!isCustomLabel?(g.tarjetaRef||"Credit Card"):g.destino;
-      }
+      const isCustomLabel=g.destino&&(g.destino.startsWith("label_")||(data.customLabels||[]).some(cl=>cl.id===g.destino));
+      const k=g.destino==="credit_card"&&!isCustomLabel?(g.tarjetaRef||"Credit Card"):g.destino;
       if(!groups[k])groups[k]={d:g.destino,r:g.tarjetaRef,items:[]};
       groups[k].items.push(g);
     });
+    // Apply editGroupKeyRef after groups are built — move item to its edit group
+    if(editId&&editGroupKeyRef.current!==null){
+      const editItem=gastos.find(g=>g.id===editId);
+      if(editItem){
+        const isCustomLabel=editItem.destino&&(editItem.destino.startsWith("label_")||(data.customLabels||[]).some(cl=>cl.id===editItem.destino));
+        const origKey=editItem.destino==="credit_card"&&!isCustomLabel?(editItem.tarjetaRef||"Credit Card"):editItem.destino;
+        const newKey=editGroupKeyRef.current;
+        if(origKey!==newKey&&groups[origKey]){
+          groups[origKey].items=groups[origKey].items.filter(g=>g.id!==editId);
+          if(!groups[newKey])groups[newKey]={d:editItem.destino,r:editItem.tarjetaRef,items:[]};
+          groups[newKey].items.push(editItem);
+        }
+      }
+    }
     if(editId!==null&&editGroupKeyRef.current!==null){
       const k=editGroupKeyRef.current;
       if(groups[k]){
