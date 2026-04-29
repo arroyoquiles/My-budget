@@ -533,9 +533,9 @@ const LimitBar=memo(({balance,limite,T})=>{
     </div>
   </div>);
 });
-const DragList=memo(({items,renderItem,editId})=>{
+const DragList=({items,renderItem,editId})=>{
   return(<div>{items.map((item,i)=>(<div key={item.id}>{renderItem(item,i,{})}</div>))}</div>);
-});
+};
 const getCatIcon=(cat)=>CICONS[cat]||"📌";
 const GastoItem=({item,pid,editId,setEditId,tarjetas,loans,potsList,periodDate,customLabels,onAddCustomLabel,globalEditingAmt,checkIdx,onCycle,onLongPress,onUpdate,onBatchUpdate,onPropagate,onRemove,T,isFuture=false})=>{
   const dest=gds(item.destino,item.tarjetaRef,null,potsList,customLabels);
