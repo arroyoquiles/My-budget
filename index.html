@@ -921,7 +921,7 @@ const GastoItem=({item,pid,editId,setEditId,tarjetas,loans,potsList,periodDate,c
             </div>
         }
         {/* Edit button for future checks */}
-        {isFuture&&<div onClick={e=>{e.stopPropagation();setEditId(item.id);}}
+        {isFuture&&<div onClick={e=>{e.stopPropagation();toast_(item.nombre+"|"+item.id.slice(-4));setEditId(item.id);}}
           style={{width:28,height:28,borderRadius:8,background:T.surface2,border:`1px solid ${T.border}`,
             display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0,cursor:"pointer",
             fontSize:13,color:T.muted,WebkitTapHighlightColor:"transparent",marginLeft:4}}>✏️</div>}
