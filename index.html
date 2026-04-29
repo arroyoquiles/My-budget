@@ -615,9 +615,9 @@ const GastoItem=memo(({item,pid,editId,setEditId,tarjetas,loans,potsList,periodD
     else setSwipeX(0);
     swipeRef.current={startX:0,startY:0,dir:null,active:false};
   };
-  const onRowTS=(e)=>startSwipe(e.touches[0].clientX,e.touches[0].clientY);
+  const onRowTS=(e)=>{e.stopPropagation();startSwipe(e.touches[0].clientX,e.touches[0].clientY);};
   const onRowTM=(e)=>moveSwipe(e.touches[0].clientX,e.touches[0].clientY,e);
-  const onRowTE=(e)=>endSwipe(e.changedTouches[0].clientX);
+  const onRowTE=(e)=>{e.stopPropagation();endSwipe(e.changedTouches[0].clientX);};
   const onRowMS=(e)=>{if(e.button!==0)return;startSwipe(e.clientX,e.clientY);
     const onMM=(ev)=>moveSwipe(ev.clientX,ev.clientY,null);
     const onMU=(ev)=>{endSwipe(ev.clientX);window.removeEventListener('mousemove',onMM);window.removeEventListener('mouseup',onMU);};
