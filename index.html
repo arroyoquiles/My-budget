@@ -600,7 +600,7 @@ const GastoItem=memo(({item,pid,editId,setEditId,tarjetas,loans,potsList,periodD
   const moveSwipe=(x,y,prevent)=>{
     const s=swipeRef.current;if(!s.startX&&!s.startY)return;
     const dx=x-s.startX,dy=y-s.startY;
-    if(!s.dir){if(Math.abs(dx)<5&&Math.abs(dy)<5)return;s.dir=Math.abs(dx)>Math.abs(dy)*0.7?"h":"v";}
+    if(!s.dir){if(Math.abs(dx)<6&&Math.abs(dy)<6)return;s.dir=Math.abs(dx)>Math.abs(dy)*1.2?"h":"v";}
     if(s.dir!=="h")return;
     s.active=true;longPressed.current=true;
     if(prevent&&prevent.cancelable)prevent.preventDefault();
