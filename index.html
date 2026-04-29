@@ -412,7 +412,7 @@ const buildMonthPeriods=(anchor,freq)=>{
 };
 const migrate=raw=>{
   if(!raw)return null;
-  const dm={savings:"savings_acct",directo:"rent",temporal:"temp",ninguno:"other",tarjeta:"credit_card",savings_acct:"savings_acct",credit_card:"credit_card",rent:"rent",utilities:"utilities",auto:"auto",insurance:"insurance",groceries:"groceries",subscription:"subscription",gas:"gas",emergency:"emergency",investment:"investment",temp:"temp",dining:"dining",entertainment:"entertainment",medical:"medical",other:"other",personal:"personal",lifestyle:"lifestyle",travel:"travel",education:"education"};
+  const dm={savings:"savings_acct",directo:"rent",temporal:"temp",ninguno:"other",tarjeta:"credit_card",savings_acct:"savings_acct",credit_card:"credit_card",rent:"rent",utilities:"utilities",auto:"auto",insurance:"insurance",groceries:"groceries",subscription:"subscription",gas:"gas",emergency:"emergency",investment:"investment",temp:"temp",temporary:"temp",dining:"dining",entertainment:"entertainment",medical:"medical",other:"other",personal:"personal",lifestyle:"lifestyle",travel:"travel",education:"education"};
   const cm={carro:"auto",vivienda:"rent",servicios:"subscription",gas:"gas",tarjeta:"credit_card",comida:"groceries",otro:"other",auto:"auto",rent:"rent",subscription:"subscription",credit_card:"credit_card",groceries:"groceries",other:"other",insurance:"insurance",utilities:"utilities",dining:"dining",entertainment:"entertainment",medical:"medical",lifestyle:"lifestyle",travel:"travel",education:"education",personal:"personal"};
   const mg=g=>({...g,cat:cm[g.cat]||cm[g.categoria]||"other",destino:dm[g.destino]||(g.destino&&(g.destino.startsWith("label_")||g.destino.startsWith("pot_"))?g.destino:"other"),diaPago:g.diaPago||null,tarjetaRef:g.tarjetaRef||"",state:g.state||(g.pagado?"paid":"pending"),_quick:g._quick||false});
   const anchor=raw.proximoCobro||"";
@@ -2189,7 +2189,7 @@ const hashPin=async(pin)=>{
       const{d,r,items}=groups[k];
       const dst=k==="__cards__"?DEST.credit_card:k==="__new__"?{icon:"✦",label:"New · pick a category",bg:"rgba(88,166,255,0.06)",border:"rgba(88,166,255,0.18)",color:"#58a6ff"}:gds(d,r,null,potsList||[],data.customLabels||[]);
       const sub=items.reduce((s,g)=>s+n(g.monto),0);
-      return(<div key={k} style={{marginBottom:14}}>
+      return(<div key={`${pid}-${k}`} style={{marginBottom:14}}>
         <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"6px 10px",marginBottom:5,background:dst.bg,borderRadius:9,border:`1px solid ${dst.border}`}}>
           <span style={{fontSize:12,fontWeight:700,color:dst.color}}>{dst.icon} {dst.label}</span>
           <span style={{fontFamily:"monospace",fontSize:13,fontWeight:800,color:dst.color}}>{fmt(sub)}</span>
@@ -2248,7 +2248,7 @@ const hashPin=async(pin)=>{
     return(<>{Object.keys(groups).sort((a,b)=>((groups[a].d==="other"||groups[a].d==="temp"||a==="__temp__"||a==="__other__")?999:DORDER.indexOf(groups[a].d)+1||50)-((groups[b].d==="other"||groups[b].d==="temp"||b==="__temp__"||b==="__other__")?999:DORDER.indexOf(groups[b].d)+1||50)).map(k=>{
       const{d,r,items}=groups[k];const dst=gds(d,r,null,potsList||[],data.customLabels||[]);const sub=items.reduce((s,g)=>s+n(g.monto),0);
       const sortedItems=items; // preserve insertion order — sorting caused swipe-to-wrong-item bug
-      return(<div key={k} style={{marginBottom:14}}>
+      return(<div key={`${pid}-${k}`} style={{marginBottom:14}}>
         <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"6px 10px",marginBottom:5,background:dst.bg,borderRadius:9,border:`1px solid ${dst.border}`}}>
           <span style={{fontSize:12,fontWeight:700,color:dst.color}}>{dst.icon} {dst.label}</span>
           <span style={{fontFamily:"monospace",fontSize:13,fontWeight:800,color:dst.color}}>{fmt(sub)}</span>
