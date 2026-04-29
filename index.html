@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="en" style="background:#0f1724;">
+<html lang="en" style="background:#0b1220;">
 <head>
   <meta charset="UTF-8"/>
   <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no"/>
@@ -17,7 +17,7 @@
         const saved=JSON.parse(localStorage.getItem('mybudget_v17')||'{}');
         const th=saved.theme||'dark';
         const accents={dark:'#58a6ff',violet:'#a78bfa',green:'#3fb950',pink:'#ec4899',orange:'#f97316',black:'#ffffff',copper:'#c2823a',teal:'#06b6d4',gold:'#d29922',light:'#0969da'};
-        const bgs={dark:'#080c14',violet:'#0a0814',green:'#08140c',pink:'#140810',orange:'#140e08',black:'#000000',copper:'#130f08',teal:'#08141a',gold:'#14110a',light:'#f0f4f8'};
+        const bgs={dark:'#0b1220',violet:'#0a0814',green:'#08140c',pink:'#140810',orange:'#140e08',black:'#000000',copper:'#130f08',teal:'#08141a',gold:'#14110a',light:'#f0f4f8'};
         const accent=accents[th]||'#58a6ff';
         const bg=bgs[th]||'#080c14';
         const splash=document.getElementById('splash');
@@ -50,7 +50,7 @@
     *{-webkit-tap-highlight-color:transparent;}
     div,span{-webkit-user-select:none;user-select:none;}
     input,textarea,select{-webkit-user-select:text;user-select:text;}
-    body.dark{background:#080c14;color:#e6edf3;}
+    body.dark{background:#0b1220;color:#e6edf3;}
     body.light{background:#f0f4f8;color:#1c2128;}
     body.violet{background:#0a0814;color:#e6edf3;}
     body.green{background:#08140c;color:#e6edf3;}
@@ -60,7 +60,7 @@
     body.copper{background:#130f08;color:#e6edf3;}
     body.teal{background:#08141a;color:#e6edf3;}
     body.gold{background:#14110a;color:#e6edf3;}
-    #splash{position:fixed;inset:0;z-index:9999;display:flex;align-items:center;justify-content:center;flex-direction:column;gap:16px;background:#0f1724;transition:opacity 0.5s ease;}
+    #splash{position:fixed;inset:0;z-index:9999;display:flex;align-items:center;justify-content:center;flex-direction:column;gap:16px;background:#0b1220;transition:opacity 0.5s ease;}
     #splash.hide{opacity:0;pointer-events:none;}
     #splash svg{animation:splashPop 0.6s cubic-bezier(0.34,1.56,0.64,1) forwards;}
     #splash .st{font-family:-apple-system,sans-serif;font-size:28px;font-weight:800;background:linear-gradient(120deg,#e6edf3 0%,#e6edf3 50%,#58a6ff 100%);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;opacity:0;animation:splashFade 0.4s ease 0.4s forwards;}
@@ -903,24 +903,7 @@ const GastoItem=memo(({item,pid,editId,setEditId,tarjetas,loans,potsList,periodD
               {fmt(item.monto)}
             </div>
         }
-        {(item.destino==="savings_acct"||item.destino==="emergency"||item.destino==="investment"||(item.destino&&item.destino.startsWith("pot_"))||((potsList||[]).some(p=>p.id===item.destino)))&&item.monto>0&&(
-          <button
-            style={{...mkBTN(),
-              background:item._potAdded?"rgba(63,185,80,0.15)":"transparent",
-              color:item._potAdded?"#3fb950":T.muted,
-              padding:"3px 6px",fontSize:10,flexShrink:0,
-              border:item._potAdded?"1px solid rgba(63,185,80,0.4)":`1px solid ${T.border}`,
-              borderRadius:6,lineHeight:1.2,
-              opacity:item._potAdded?1:0.7,
-              transition:"all 0.2s"}}
-            onClick={e=>{
-              e.stopPropagation();
-              if(item._potAdded)return;
-              if(window._addToPot)window._addToPot(item.destino,item.monto,item.id);
-            }}>
-            {item._potAdded?"✓🪣":"→🪣"}
-          </button>
-        )}
+
       </div>
     </div>
   );
@@ -1377,6 +1360,7 @@ const hashPin=async(pin)=>{
   const [activeCheckPid,setActiveCheckPid]=useState("");
   const globalEditingAmt=useRef(false);
   const [debtPayConfirm,setDebtPayConfirm]=useState(null);
+  const [potDepConfirm,setPotDepConfirm]=useState(null);
   const [gastoTypePicker,setGastoTypePicker]=useState(null); // {pid} // {item, pid}
   const [amtInputVal,setAmtInputVal]=useState({});
   const [toast,setToast]=useState(null);
@@ -1654,21 +1638,8 @@ const hashPin=async(pin)=>{
   const potsList=data.potsList||[];
   // Global pot handler for GastoItem → Pot button
   React.useEffect(()=>{
-    window._addToPot=(potId,amount,itemId)=>{
-      setData(p=>{
-        const pl=p.potsList||[];
-        const pot=pl.find(pt=>pt.id===potId)||getPotInfo(null,potId);
-        const newPotsList=pl.map(pt=>pt.id===potId?{...pt,balance:(n(pt.balance)||0)+n(amount)}:pt);
-        const newPeriods={};
-        Object.entries(p.periods||{}).forEach(([pid,per])=>{
-          newPeriods[pid]={...per,gastos:(per.gastos||[]).map(g=>g.id===itemId?{...g,_potAdded:true}:g)};
-        });
-        const name=pot?.name||pot?.label||potId;
-        setTimeout(()=>toast_(`✓ +${fmt(amount)} → ${pot?.icon||"🪣"} ${name}`),0);
-        return{...p,potsList:newPotsList,periods:newPeriods};
-      });
-      haptic(20);
-    };
+    // window._addToPot kept for legacy compatibility but now delegates to addToPot
+    window._addToPot=(potId,amount,itemId)=>addToPot(potId,amount,itemId);
     return()=>{delete window._addToPot;};
   },[]);
   useEffect(()=>{
@@ -1711,12 +1682,41 @@ const hashPin=async(pin)=>{
     const cur=(p.periods[pid]||{}).gastos||[];
     return{...p,periods:{...p.periods,[pid]:{...(p.periods[pid]||{}),gastos:fn(cur)}}};
   });
+  const addToPot=useCallback((potId,amount,itemId)=>{
+    if(!potId||!amount)return;
+    setData(p=>{
+      const pl=p.potsList||[];
+      const pot=pl.find(pt=>pt.id===potId)||getPotInfo(pl,potId);
+      const newPotsList=pl.map(pt=>pt.id===potId?{...pt,balance:(n(pt.balance)||0)+n(amount)}:pt);
+      const newPeriods={...p.periods};
+      Object.entries(p.periods||{}).forEach(([pid,per])=>{
+        if((per.gastos||[]).some(g=>g.id===itemId)){
+          newPeriods[pid]={...per,gastos:(per.gastos||[]).map(g=>g.id===itemId?{...g,_potAdded:true}:g)};
+        }
+      });
+      const name=pot?.name||pot?.label||potId;
+      setTimeout(()=>toast_(`✓ +${fmt(amount)} → ${pot?.icon||"🪣"} ${name}`),0);
+      return{...p,potsList:newPotsList,periods:newPeriods};
+    });
+    haptic(20);
+  },[]);
+
   const cycleState=useCallback((pid,id)=>{
     if(nextMonthPeriods.some(p=>p.id===pid))return; // block future periods
     haptic(20);
     const gastos=(data.periods[pid]?.gastos)||[];
     const item=gastos.find(x=>x.id===id);
     const markingPaid=item&&item.state!=="paid";
+    // If unmarking a pot deposit — reverse it
+    if(item&&item._potAdded&&!markingPaid){
+      const potId=item.destino;
+      const m=n(item.monto);
+      setData(p=>({...p,potsList:(p.potsList||[]).map(pt=>pt.id===potId?{...pt,balance:Math.max(0,(n(pt.balance)||0)-m)}:pt)}));
+      updPeriodGastos(pid,g=>g.map(x=>x.id!==id?x:{...x,_potAdded:false,state:"pending",pagado:false}));
+      const pot=(data.potsList||[]).find(pt=>pt.id===potId);
+      toast_(`↩️ $${fmt(m)} removed from ${pot?.icon||"🪣"} ${pot?.name||potId}`);
+      return;
+    }
     // If unmarking a registered debt payment — reverse it
     if(item&&item._debtPaid&&!markingPaid){
       const[tipo,idStr]=(item.debtRef||"").split(":");
@@ -1750,9 +1750,18 @@ const hashPin=async(pin)=>{
         setTimeout(()=>setDebtPayConfirm({item,pid}),200);
       } else if(item.tarjetaRef&&!item.debtRef&&!item._debtPaid&&!item._charged){
         setTimeout(()=>setDebtPayConfirm({item,pid,isCharge:true}),200);
+      } else {
+        // Check if this goes to a pot — deposit immediately, show undo option
+        const isPot=item.destino&&(item.destino.startsWith("pot_")||item.destino==="savings_acct"||item.destino==="emergency"||item.destino==="investment");
+        if(isPot&&!item._potAdded&&item.monto>0){
+          setTimeout(()=>{
+            addToPot(item.destino,item.monto,item.id);
+            setPotDepConfirm({item,pid,undoMode:true});
+          },200);
+        }
       }
     }
-  },[data.periods]);
+  },[data.periods,data.potsList]);
   const setReserved=useCallback((pid,id)=>{if(nextMonthPeriods.some(p=>p.id===pid))return;updPeriodGastos(pid,g=>g.map(x=>x.id!==id?x:{...x,state:x.state==="reserved"?"pending":"reserved",pagado:false}));},[nextMonthPeriods]);
   const updateGasto=useCallback((pid,id,f,v)=>updPeriodGastos(pid,g=>g.map(x=>x.id===id?{...x,[f]:v}:x)),[]);
   const batchUpdateGasto=useCallback((pid,id,fields)=>updPeriodGastos(pid,g=>g.map(x=>x.id===id?{...x,...fields}:x)),[]);
@@ -2259,7 +2268,7 @@ const hashPin=async(pin)=>{
       {(isCurrent||payday)&&<div style={{display:"flex",alignItems:"center",gap:8,marginBottom:12,padding:"8px 12px",background:`${T.accent}0f`,borderRadius:10,border:`1px solid ${T.accent}28`}}>
         {isCurrent&&<span style={{fontSize:11,color:T.accent,fontWeight:700}}>✓ Active</span>}
         {isCurrent&&payday&&<span style={{color:`${T.accent}55`,fontSize:12}}>·</span>}
-        {payday&&<span style={{fontSize:11,color:pdDays===0?"#58a6ff":"#3fb950",fontWeight:600}}>📅 {fmd(payday)}{pdDays===0?" 🎉":`  ${pdDays}d away`}</span>}
+        {payday&&<span style={{fontSize:11,color:pdDays===0?"#58a6ff":"#3fb950",fontWeight:600}}>📅 {fmd(payday)}{pdDays===0?" 🎉":<span style={{opacity:0.6}}> · {pdDays}d away</span>}</span>}
       </div>}
 
       {/* Amount card */}
@@ -2442,6 +2451,41 @@ const hashPin=async(pin)=>{
         @keyframes potsSlideUp{from{opacity:0;transform:translateY(100%);}to{opacity:1;transform:translateY(0);}}
         .pots-modal{animation:potsSlideUp 0.32s cubic-bezier(0.4,0,0.2,1) both;}
       `}</style>
+      {/* ── POT DEPOSIT CONFIRM (undo mode) ── */}
+      {potDepConfirm&&(()=>{
+        const {item,pid}=potDepConfirm;
+        const pot=(data.potsList||[]).find(pt=>pt.id===item.destino)||getPotInfo(data.potsList||[],item.destino);
+        const potName=pot?.name||pot?.label||item.destino;
+        const potIcon=pot?.icon||"🪣";
+        const m=n(item.monto);
+        const undo=()=>{
+          // Reverse deposit and unmark paid
+          setData(p=>({...p,potsList:(p.potsList||[]).map(pt=>pt.id===item.destino?{...pt,balance:Math.max(0,(n(pt.balance)||0)-m)}:pt)}));
+          updPeriodGastos(pid,g=>g.map(x=>x.id!==item.id?x:{...x,_potAdded:false,state:"pending",pagado:false}));
+          setPotDepConfirm(null);
+          toast_(`↩️ Deposit undone`);
+        };
+        const ok=()=>setPotDepConfirm(null);
+        return(
+          <div style={{position:"fixed",inset:0,zIndex:450,background:"rgba(0,0,0,0.55)",backdropFilter:"blur(6px)",WebkitBackdropFilter:"blur(6px)",display:"flex",alignItems:"flex-end",justifyContent:"center",animation:"fadeIn 0.2s ease both"}}
+            onClick={e=>{if(e.target===e.currentTarget)ok();}}>
+            <div style={{width:"100%",maxWidth:500,background:T.surface,borderRadius:"20px 20px 0 0",border:`1px solid ${T.border}`,padding:"20px",paddingBottom:"max(28px,env(safe-area-inset-bottom,28px))",animation:"slideInUp 0.32s cubic-bezier(0.25,0.46,0.45,0.94) both"}}>
+              <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:16}}>
+                <div>
+                  <div style={{fontSize:16,fontWeight:800,color:"#3fb950",marginBottom:4}}>{potIcon} Deposited to {potName}</div>
+                  <div style={{fontSize:13,color:T.muted}}>{item.nombre} · <span style={{color:"#3fb950",fontWeight:700}}>{fmt(m)}</span></div>
+                </div>
+                <button style={{...BTN,width:30,height:30,borderRadius:"50%",background:T.surface2,color:T.muted,fontSize:14,display:"flex",alignItems:"center",justifyContent:"center",border:`1px solid ${T.border}`}} onClick={ok}>✕</button>
+              </div>
+              <div style={{display:"flex",gap:10}}>
+                <button style={{...BTN,flex:1,padding:"13px",background:"rgba(63,185,80,0.15)",color:"#3fb950",fontSize:14,fontWeight:700,borderRadius:11,border:"1px solid rgba(63,185,80,0.3)"}} onClick={ok}>✓ OK</button>
+                <button style={{...BTN,flex:1,padding:"13px",background:T.surface2,color:T.muted,fontSize:14,fontWeight:600,borderRadius:11,border:`1px solid ${T.border}`}} onClick={undo}>↩️ Undo</button>
+              </div>
+            </div>
+          </div>
+        );
+      })()}
+
       {/* ── NEXT MONTH BOTTOM SHEET ── */}
       {previewNextMonth&&nextMonthPeriods.length>0&&(()=>{
         const nmLabel=nextMonthPeriods[0].payday.toLocaleDateString("en-US",{month:"long",year:"numeric"});
@@ -2472,9 +2516,9 @@ const hashPin=async(pin)=>{
                     const isActive=p.id===pid;
                     const pgastos=(data.periods[p.id]||{}).gastos||[];
                     const ptotal=pgastos.reduce((s,g)=>s+n(g.monto),0);
-                    return(<button key={p.id} style={{...BTN,flex:1,padding:"8px 6px",fontSize:11,borderRadius:9,background:isActive?"#d2992222":"transparent",color:isActive?"#d29922":T.muted,border:isActive?"1px solid #d2992255":"1px solid transparent",display:"flex",flexDirection:"column",alignItems:"center",gap:1}} onClick={()=>setActiveCheckPid(p.id)}>
+                    return(<button key={p.id} style={{...BTN,flex:1,padding:"8px 6px",fontSize:11,borderRadius:9,background:isActive?"#d2992222":"transparent",color:isActive?"#d29922":T.muted,border:isActive?"1.5px solid "+(isActive?"#d2992255":T.border):"1px solid transparent",display:"flex",flexDirection:"column",alignItems:"center",gap:1}} onClick={()=>setActiveCheckPid(p.id)}>
                       <span style={{fontWeight:isActive?700:500}}>{p.label}</span>
-                      <span style={{fontSize:8,color:T.muted}}>{ptotal>0?"$"+ptotal.toFixed(0):"Empty"}</span>
+                      <span style={{fontSize:8,fontWeight:600,color:isActive?"#d29922":T.muted,letterSpacing:0.5}}>{ptotal>0?fmt(ptotal):"—"}</span>
                     </button>);
                   })}
                 </div>
@@ -3399,7 +3443,7 @@ const hashPin=async(pin)=>{
             <div style={{fontSize:12,color:T.muted,marginBottom:18,lineHeight:1.6}}>Go to <strong style={{color:T.accent}}>Settings</strong> and configure your anchor date and pay frequency.</div>
             <button style={{...BTN,padding:"10px 24px",background:`${T.accent}18`,color:T.accent,fontSize:13,fontWeight:700,border:`1px solid ${T.accent}44`,borderRadius:12}} onClick={()=>setTab("settings")}>⚙️ Go to Settings</button>
           </div>)}
-          {data.proximoCobro&&monthPeriods.length>1&&(<div style={{display:"flex",gap:5,marginBottom:14,background:T.surface2,borderRadius:11,padding:3}}>
+          {data.proximoCobro&&monthPeriods.length>1&&(<div style={{display:"flex",gap:5,marginBottom:14,padding:3}}>
             {monthPeriods.map(p=>{
               const isActive=activeCheckPid===p.id||((!activeCheckPid)&&p.isCurrent);
               const pgastos=(data.periods[p.id]||{}).gastos||[];
@@ -3407,14 +3451,15 @@ const hashPin=async(pin)=>{
               const ptotal=pgastos.reduce((s,g)=>s+n(g.monto),0);
               const pusedPct=pamt>0?Math.min(100,Math.round((ptotal/pamt)*100)):0;
               const isCur=p.isCurrent;
+              const statusColor=p.statusLabel==="Current"?"#3fb950":p.statusLabel==="Cleared"?"#a78bfa":"#d29922";
               return(<button key={p.id} style={{...BTN,flex:1,padding:"8px 6px",fontSize:11,borderRadius:9,
-                background:isActive?T.bg:"transparent",
+                background:isActive?`${T.accent}18`:`${T.surface2}`,
                 color:isActive?T.accent:T.muted,
-                border:isActive?(isCur?`2px solid ${T.accent}`:`1px solid ${T.accent}`):(isCur?`1px solid ${T.accent}59`:"1px solid transparent"),
-                boxShadow:isActive&&isCur?`0 0 0 2px ${T.accent}2e`:"none",
+                border:`1px solid ${isActive?T.accent+"55":T.border}`,
+                boxShadow:isActive?`0 0 12px ${T.accent}40, 0 0 4px ${T.accent}30`:"none",
                 transition:"all 0.15s",display:"flex",flexDirection:"column",alignItems:"center",gap:1}} onClick={()=>setActiveCheckPid(p.id)}>
                 <span style={{fontWeight:isActive?700:500}}>{p.label}</span>
-                {p.statusLabel&&<span style={{fontSize:8,fontWeight:700,letterSpacing:0.5,color:isActive?T.accent:p.statusLabel==="Current"?"#3fb950":p.statusLabel==="Cleared"?"#a78bfa":"#d29922",lineHeight:1}}>{p.statusLabel.toUpperCase()}<span style={{fontWeight:400,letterSpacing:0,color:T.muted,marginLeft:3}}>· {pusedPct}%</span></span>}
+                {p.statusLabel&&<span style={{fontSize:8,fontWeight:600,letterSpacing:0.5,color:isActive?T.accent:statusColor,lineHeight:1}}>{p.statusLabel.toUpperCase()}<span style={{fontWeight:400,letterSpacing:0,color:T.muted,marginLeft:3}}>· {pusedPct}%</span></span>}
               </button>);
             })}
           </div>)}
