@@ -2192,7 +2192,7 @@ const hashPin=async(pin)=>{
           <span style={{fontFamily:"monospace",fontSize:13,fontWeight:800,color:dst.color}}>{fmt(sub)}</span>
         </div>
         <DragList items={items}
-          renderItem={(item)=>(<GastoItem key={item.id} item={item} pid={pid} editId={editId} setEditId={(id)=>openEditId(id,gastos)} tarjetas={data.tarjetas} loans={data.loans||[]} potsList={potsList} globalEditingAmt={globalEditingAmt} checkIdx={monthPeriods.findIndex(p=>p.id===pid)} periodDate={periodDate} customLabels={data.customLabels||[]} onAddCustomLabel={(name,id,parent)=>{if(!id)return;setData(p=>({...p,customLabels:(p.customLabels||[]).some(l=>l.id===id)?p.customLabels:[...(p.customLabels||[]),{id,name,icon:"🏷️",parent:parent||null}]}));}}
+          renderItem={(item)=>(<GastoItem key={item.id} item={item} pid={pid} editId={editId} setEditId={(id)=>openEditId(id,gastos)} tarjetas={data.tarjetas} loans={data.loans||[]} potsList={potsList} globalEditingAmt={globalEditingAmt} checkIdx={(()=>{const i=monthPeriods.findIndex(p=>p.id===pid);return i>=0?i:nextMonthPeriods.findIndex(p=>p.id===pid);})()}  periodDate={periodDate} customLabels={data.customLabels||[]} onAddCustomLabel={(name,id,parent)=>{if(!id)return;setData(p=>({...p,customLabels:(p.customLabels||[]).some(l=>l.id===id)?p.customLabels:[...(p.customLabels||[]),{id,name,icon:"🏷️",parent:parent||null}]}));}}
             onCycle={isFuture?()=>{}:id=>cycleState(pid,id)} onLongPress={isFuture?()=>{}:id=>setReserved(pid,id)}
             onUpdate={(id,f,v)=>updateGasto(pid,id,f,v)}
             onBatchUpdate={(id,fields)=>batchUpdateGasto(pid,id,fields)} onPropagate={(item)=>propagateToAllChecks(pid,item)}
@@ -2245,7 +2245,7 @@ const hashPin=async(pin)=>{
           <span style={{fontFamily:"monospace",fontSize:13,fontWeight:800,color:dst.color}}>{fmt(sub)}</span>
         </div>
         <DragList items={sortedItems}
-          renderItem={(item,_,touch)=>(<GastoItem key={item.id} item={item} pid={pid} editId={editId} setEditId={(id)=>openEditId(id,gastos)} tarjetas={data.tarjetas} loans={data.loans||[]} potsList={potsList} globalEditingAmt={globalEditingAmt} checkIdx={monthPeriods.findIndex(p=>p.id===pid)} periodDate={periodDate} customLabels={data.customLabels||[]} onAddCustomLabel={(name,id,parent)=>{if(!id)return;setData(p=>({...p,customLabels:(p.customLabels||[]).some(l=>l.id===id)?p.customLabels:[...(p.customLabels||[]),{id,name,icon:"🏷️",parent:parent||null}]}));}}
+          renderItem={(item,_,touch)=>(<GastoItem key={item.id} item={item} pid={pid} editId={editId} setEditId={(id)=>openEditId(id,gastos)} tarjetas={data.tarjetas} loans={data.loans||[]} potsList={potsList} globalEditingAmt={globalEditingAmt} checkIdx={(()=>{const i=monthPeriods.findIndex(p=>p.id===pid);return i>=0?i:nextMonthPeriods.findIndex(p=>p.id===pid);})()}  periodDate={periodDate} customLabels={data.customLabels||[]} onAddCustomLabel={(name,id,parent)=>{if(!id)return;setData(p=>({...p,customLabels:(p.customLabels||[]).some(l=>l.id===id)?p.customLabels:[...(p.customLabels||[]),{id,name,icon:"🏷️",parent:parent||null}]}));}}
             onCycle={isFuture?()=>{}:id=>cycleState(pid,id)} onLongPress={isFuture?()=>{}:id=>setReserved(pid,id)}
             onUpdate={(id,f,v)=>updateGasto(pid,id,f,v)}
             onBatchUpdate={(id,fields)=>batchUpdateGasto(pid,id,fields)} onPropagate={(item)=>propagateToAllChecks(pid,item)}
