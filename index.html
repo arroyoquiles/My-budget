@@ -1988,22 +1988,8 @@ const hashPin=async(pin)=>{
         editGroupKeyRef.current=item.destino==="credit_card"?"__cards__":item.destino;
       }
       setEditId(id);
-      setTimeout(()=>{
-        const el=document.getElementById(`edit-form-${id}`);
-        if(!el)return;
-        // If inside a bottom sheet (overflowY:auto parent), scroll within it
-        let container=el.parentElement;
-        while(container&&container!==document.body){
-          const style=window.getComputedStyle(container);
-          if(style.overflowY==="auto"||style.overflowY==="scroll"){
-            const top=el.getBoundingClientRect().top-container.getBoundingClientRect().top+container.scrollTop-container.clientHeight/2+el.clientHeight/2;
-            container.scrollTo({top,behavior:"smooth"});
-            return;
-          }
-          container=container.parentElement;
-        }
-        el.scrollIntoView({behavior:"smooth",block:"center"});
-      },80);
+      // Don't auto-scroll — let the form render in place without moving the view
+      // scrollIntoView was causing wrong item to appear focused
     }
   },[]);
   const updateTarjeta=useCallback((id,f,v)=>setData(p=>({...p,tarjetas:p.tarjetas.map(t=>t.id===id?{...t,[f]:v}:t)})),[]);
