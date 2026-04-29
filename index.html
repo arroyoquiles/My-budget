@@ -2249,7 +2249,9 @@ const hashPin=async(pin)=>{
     }
     return(<>{Object.keys(groups).sort((a,b)=>((groups[a].d==="other"||groups[a].d==="temp"||a==="__temp__"||a==="__other__")?999:DORDER.indexOf(groups[a].d)+1||50)-((groups[b].d==="other"||groups[b].d==="temp"||b==="__temp__"||b==="__other__")?999:DORDER.indexOf(groups[b].d)+1||50)).map(k=>{
       const{d,r,items}=groups[k];const dst=gds(d,r,null,potsList||[],data.customLabels||[]);const sub=items.reduce((s,g)=>s+n(g.monto),0);
-      const sortedItems=[...items].sort((a,b)=>{
+      // Don't re-sort while editing an item in this group — prevents items jumping position
+      const groupHasEdit=editId&&items.some(x=>x.id===editId);
+      const sortedItems=groupHasEdit?items:[...items].sort((a,b)=>{
         const hasA=a.diaPago!=null&&a.diaPago!=="";
         const hasB=b.diaPago!=null&&b.diaPago!=="";
         if(!hasA&&!hasB)return 0;if(!hasA)return 1;if(!hasB)return -1;
