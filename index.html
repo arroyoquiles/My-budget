@@ -1426,6 +1426,7 @@ const hashPin=async(pin)=>{
   },[moveOpen]);
   const [snapDetail,setSnapDetail]=useState(null);
   const [calOffset,setCalOffset]=useState(0);
+  const [selectedCalDay,setSelectedCalDay]=useState(null);
   const [expenseSearch,setExpenseSearch]=useState("");
   const [potsRevealed,setPotsRevealed]=useState(false);
   const [resetConfirm,setResetConfirm]=useState(null);
@@ -1652,7 +1653,7 @@ const hashPin=async(pin)=>{
   useEffect(()=>{
     if(tab==="paychecks"&&!activeCheckPid&&monthPeriods.length>0){const cur=monthPeriods.find(p=>p.isCurrent)||monthPeriods[0];setActiveCheckPid(cur.id);}
     if(tab!=="overview")setPotsRevealed(false);
-    if(tab!=="calendar")setCalOffset(0);
+    if(tab!=="calendar"){setCalOffset(0);setSelectedCalDay(null);}
   },[tab]);
   useEffect(()=>{if(quickOpen){setQuickCardId("");setQuickCardMode("budget");}},[quickOpen]);
   const TABS_ORDER=useMemo(()=>["overview","paychecks","debts","calendar","history","settings"],[]);
@@ -3913,8 +3914,13 @@ const hashPin=async(pin)=>{
                   if(!d)return<div key={i} style={{aspectRatio:"1"}}/>;
                   const isToday=isCurrentMonth&&d===hoy.getDate();const evts=monthEvents[d]||[];
                   const dotColors=[...new Set(evts.map(e=>e.dotColor))].slice(0,3);
-                  return(<div key={i} style={{aspectRatio:"1",display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"flex-start",borderRadius:7,padding:"3px 1px 2px",background:isToday?`${T.accent}2e`:evts.length?"rgba(255,255,255,0.02)":"transparent",border:isToday?`1px solid ${T.accent}72`:"1px solid transparent"}}>
-                    <span style={{fontSize:10,fontWeight:isToday?800:evts.length?600:400,color:isToday?T.accent:evts.length?T.text:T.muted,lineHeight:1.3}}>{d}</span>
+                  const isSel=selectedCalDay===d&&evts.length>0;
+                  return(<div key={i} onClick={()=>evts.length&&setSelectedCalDay(isSel?null:d)} style={{aspectRatio:"1",display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"flex-start",borderRadius:7,padding:"3px 1px 2px",cursor:evts.length?"pointer":"default",
+                    background:isSel?`${T.accent}30`:isToday?`${T.accent}2e`:evts.length?"rgba(255,255,255,0.02)":"transparent",
+                    border:isSel?`1px solid ${T.accent}88`:isToday?`1px solid ${T.accent}72`:"1px solid transparent",
+                    boxShadow:isSel?`0 0 8px ${T.accent}44`:"none",
+                    transition:"all 0.15s"}}>
+                    <span style={{fontSize:10,fontWeight:isSel||isToday?800:evts.length?600:400,color:isSel||isToday?T.accent:evts.length?T.text:T.muted,lineHeight:1.3}}>{d}</span>
                     {dotColors.length>0&&(<div style={{display:"flex",gap:1.5,marginTop:1.5,justifyContent:"center",flexWrap:"wrap"}}>{dotColors.map((c,ci)=><div key={ci} style={{width:3.5,height:3.5,borderRadius:"50%",background:c}}/>)}</div>)}
                   </div>);
                 })}
@@ -3922,14 +3928,18 @@ const hashPin=async(pin)=>{
               {Object.keys(monthEvents).length>0&&(<>
                 <div style={{height:1,background:T.border,margin:"14px 0 10px"}}/>
                 <div style={{fontSize:9,color:T.muted,fontWeight:700,letterSpacing:1,marginBottom:8}}>THIS MONTH</div>
-                {Object.entries(monthEvents).sort(([a],[b])=>+a-+b).map(([day,evts])=>(
-                  <div key={day} style={{display:"flex",alignItems:"flex-start",gap:8,marginBottom:6}}>
-                    <div style={{minWidth:22,fontSize:10,fontWeight:700,color:+day===hoy.getDate()?T.accent:T.muted,flexShrink:0,paddingTop:1}}>{day}</div>
+                {Object.entries(monthEvents).sort(([a],[b])=>+a-+b).map(([day,evts])=>{
+                  const isDaySelected=selectedCalDay===+day;
+                  return(<div key={day} style={{display:"flex",alignItems:"flex-start",gap:8,marginBottom:6}}>
+                    <div style={{minWidth:22,fontSize:10,fontWeight:700,color:isDaySelected?T.accent:+day===hoy.getDate()?T.accent:T.muted,flexShrink:0,paddingTop:1}}>{day}</div>
                     <div style={{flex:1,display:"flex",flexDirection:"column",gap:2}}>
-                      {evts.map((ev,i)=>(<div key={i} style={{display:"flex",alignItems:"center",gap:5}}><div style={{width:4,height:4,borderRadius:"50%",background:ev.dotColor,flexShrink:0}}/><span style={{fontSize:10,color:T.muted,fontWeight:400}}>{ev.label}</span></div>))}
+                      {evts.map((ev,i)=>(<div key={i} style={{display:"flex",alignItems:"center",gap:5}}>
+                        <div style={{width:isDaySelected?6:4,height:isDaySelected?6:4,borderRadius:"50%",background:ev.dotColor,flexShrink:0,boxShadow:isDaySelected?`0 0 5px ${ev.dotColor}`:"none",transition:"all 0.2s"}}/>
+                        <span style={{fontSize:isDaySelected?11:10,fontWeight:isDaySelected?700:400,color:isDaySelected?T.text:T.muted,transition:"all 0.2s"}}>{ev.label}</span>
+                      </div>))}
                     </div>
-                  </div>
-                ))}
+                  </div>);
+                })}
               </>)}
             </div>
             <div style={{display:"flex",flexWrap:"wrap",gap:10,padding:"10px 4px 0"}}>
