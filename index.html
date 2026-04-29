@@ -2135,9 +2135,17 @@ const hashPin=async(pin)=>{
     setMoveAmt("");
     toast_(isUse?"💳 "+fmt(m)+" used from "+(pot?.name||moveTo):"💸 "+fmt(m)+" added to "+(pot?.name||moveTo));
   };
-  const exportData=useCallback(()=>{
+  const exportData=useCallback((fname)=>{
     const b=new Blob([JSON.stringify(data,null,2)],{type:"application/json"});
-    const u=URL.createObjectURL(b);const a=document.createElement("a");a.href=u;a.download="mybudget_backup.json";a.click();toast_("📥 Backup exported");
+    const u=URL.createObjectURL(b);
+    const a=document.createElement("a");
+    a.href=u;
+    a.download=fname||"mybudget_backup.json";
+    a.style.display="none";
+    document.body.appendChild(a);
+    a.click();
+    setTimeout(()=>{document.body.removeChild(a);URL.revokeObjectURL(u);},1000);
+    toast_("📥 Backup exported");
   },[data]);
   const importData=useCallback(e=>{
     const f=e.target.files[0];if(!f)return;
@@ -2717,24 +2725,26 @@ const hashPin=async(pin)=>{
         );
       })()}
       {backupPrompt&&(
-        <div style={{position:"fixed",inset:0,zIndex:500,background:"rgba(0,0,0,0.7)",display:"flex",alignItems:"center",justifyContent:"center",padding:24}}>
-          <div style={{...CARD,padding:24,maxWidth:320,width:"100%",textAlign:"center"}}>
-            <div style={{fontSize:32,marginBottom:12}}>💾</div>
-            <div style={{fontSize:16,fontWeight:700,color:T.text,marginBottom:8}}>Monthly Backup</div>
-            <div style={{fontSize:13,color:T.muted,marginBottom:20}}>Your snapshot was saved. Do you want to back up your data now?</div>
+        <div style={{position:"fixed",inset:0,zIndex:500,background:"rgba(0,0,0,0.7)",backdropFilter:"blur(6px)",WebkitBackdropFilter:"blur(6px)",display:"flex",alignItems:"flex-end",justifyContent:"center",animation:"fadeIn 0.2s ease both"}}>
+          <div style={{...CARD,padding:20,paddingBottom:"max(24px,env(safe-area-inset-bottom,24px))",width:"100%",maxWidth:500,borderRadius:"20px 20px 0 0",borderBottom:"none",animation:"slideInUp 0.32s cubic-bezier(0.25,0.46,0.45,0.94) both"}}>
+            <div style={{display:"flex",justifyContent:"center",marginBottom:12}}>
+              <div style={{width:36,height:4,borderRadius:2,background:T.border}}/>
+            </div>
+            <div style={{display:"flex",alignItems:"center",gap:12,marginBottom:16}}>
+              <span style={{fontSize:28}}>💾</span>
+              <div>
+                <div style={{fontSize:15,fontWeight:800,color:T.text}}>Monthly Backup Ready</div>
+                <div style={{fontSize:11,color:T.muted,marginTop:2}}>Snapshot saved · Tap to download your backup</div>
+              </div>
+            </div>
             <div style={{display:"flex",gap:10}}>
-              <button style={{...BTN,flex:1,padding:"12px",background:"#238636",color:"#fff",fontSize:13,fontWeight:700,borderRadius:11}}
+              <button style={{...BTN,flex:2,padding:"13px",background:"#238636",color:"#fff",fontSize:14,fontWeight:700,borderRadius:12}}
                 onClick={()=>{
                   setBackupPrompt(false);
-                  const b=new Blob([JSON.stringify(data,null,2)],{type:"application/json"});
-                  const u=URL.createObjectURL(b);
-                  const a=document.createElement("a");
-                  a.href=u;
-                  a.download=`mybudget_${new Date().toLocaleDateString("en-US",{month:"short",year:"numeric"}).replace(" ","_")}.json`;
-                  a.click();
-                  toast_("📥 Backup saved");
-                }}>💾 Save Backup</button>
-              <button style={{...BTN,flex:1,padding:"12px",background:"transparent",color:T.muted,fontSize:13,borderRadius:11,border:`1px solid ${T.border}`}}
+                  const fname=`mybudget_${new Date().toLocaleDateString("en-US",{month:"short",year:"numeric"}).replace(" ","_")}.json`;
+                  exportData(fname);
+                }}>💾 Download Backup</button>
+              <button style={{...BTN,flex:1,padding:"13px",background:T.surface2,color:T.muted,fontSize:13,fontWeight:600,borderRadius:12,border:`1px solid ${T.border}`}}
                 onClick={()=>setBackupPrompt(false)}>Later</button>
             </div>
           </div>
@@ -2919,9 +2929,9 @@ const hashPin=async(pin)=>{
                   };
 
                   return(
-                  <div key={pot.id} className="expense-row" style={{marginBottom:6,position:"relative",borderRadius:12,overflow:"hidden",border:`1.5px solid ${isSelected?color+"88":T.border}`,transition:"border-color 0.2s"}}>
+                  <div key={pot.id} className="expense-row" style={{marginBottom:6,position:"relative",borderRadius:12,overflow:"hidden",clipPath:"inset(0 round 12px)",border:`1.5px solid ${isSelected?color+"88":T.border}`,transition:"border-color 0.2s"}}>
                     {/* Hints — fixed height 44px = row only, never bleeds into edit panel */}
-                    <div style={{position:"absolute",top:0,left:0,right:0,height:44,display:"flex",pointerEvents:isEditing?"none":"auto",opacity:isEditing?0:1}}>
+                    <div style={{position:"absolute",top:0,left:0,right:0,bottom:0,display:"flex",pointerEvents:isEditing?"none":"auto",opacity:isEditing?0:1}}>
                       <div style={{width:70,background:`${T.accent}dd`,display:"flex",alignItems:"center",justifyContent:"center",fontSize:18,cursor:"pointer",flexShrink:0}}
                         onClick={()=>{setEditingPotId(isEditing?null:pot.id);setMoveTo(pot.id);}}>✏️</div>
                       <div style={{flex:1,background:T.surface2}}/>
