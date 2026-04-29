@@ -1979,20 +1979,23 @@ const hashPin=async(pin)=>{
     toast_(`🔄 ${label} reset`);
   },[]);
 
-  const openEditId=useCallback((id, gastos)=>{
+  const openEditId=useCallback((id)=>{
     if(id===null){
       editGroupKeyRef.current=null;
       setEditId(null);
     } else {
-      const item=(gastos||[]).find(g=>g.id===id);
-      if(item){
-        editGroupKeyRef.current=item.destino==="credit_card"?"__cards__":item.destino;
+      // Search all periods for the item — stable, no stale closure
+      let found=null;
+      for(const pid of Object.keys(data.periods||{})){
+        const g=(data.periods[pid]?.gastos||[]).find(x=>x.id===id);
+        if(g){found=g;break;}
+      }
+      if(found){
+        editGroupKeyRef.current=found.destino==="credit_card"?"__cards__":found.destino;
       }
       setEditId(id);
-      // Don't auto-scroll — let the form render in place without moving the view
-      // scrollIntoView was causing wrong item to appear focused
     }
-  },[]);
+  },[data.periods]);
   const updateTarjeta=useCallback((id,f,v)=>setData(p=>({...p,tarjetas:p.tarjetas.map(t=>t.id===id?{...t,[f]:v}:t)})),[]);
   const updateLoan=useCallback((id,f,v)=>setData(p=>({...p,loans:(p.loans||[]).map(l=>l.id===id?{...l,[f]:v}:l)})),[]);
   const removeTarjeta=useCallback(id=>{setData(p=>({...p,tarjetas:p.tarjetas.filter(t=>t.id!==id)}));toast_("🗑 Removed");},[]);
@@ -2678,7 +2681,7 @@ const hashPin=async(pin)=>{
         };
         const skipCharge=()=>setDebtPayConfirm(null); // keep paid, skip charge
         return(
-            <div style={{position:"fixed",inset:0,zIndex:450,background:"rgba(0,0,0,0.6)",display:"flex",alignItems:"flex-end",justifyContent:"center"}}
+            <div style={{position:"fixed",inset:0,zIndex:660,background:"rgba(0,0,0,0.6)",display:"flex",alignItems:"flex-end",justifyContent:"center"}}
               onClick={e=>{if(e.target===e.currentTarget)revertPaid();}}>
               <div style={{width:"100%",maxWidth:500,background:T.surface,borderRadius:"20px 20px 0 0",border:`1px solid ${T.border}`,padding:"20px",paddingBottom:"max(28px,env(safe-area-inset-bottom,28px))",animation:"slideInUp 0.28s cubic-bezier(0.4,0,0.2,1) both",position:"relative"}}>
                 <button style={{...BTN,position:"absolute",top:14,right:14,background:"transparent",color:T.muted,fontSize:18,padding:"2px 8px",border:"none"}} onClick={revertPaid}>✕</button>
@@ -2717,7 +2720,7 @@ const hashPin=async(pin)=>{
           setDebtPayConfirm(null);
         };
         return(
-          <div style={{position:"fixed",inset:0,zIndex:450,background:"rgba(0,0,0,0.6)",display:"flex",alignItems:"flex-end",justifyContent:"center"}}
+          <div style={{position:"fixed",inset:0,zIndex:660,background:"rgba(0,0,0,0.6)",display:"flex",alignItems:"flex-end",justifyContent:"center"}}
             onClick={e=>{if(e.target===e.currentTarget)revertPaid();}}>
             <div style={{width:"100%",maxWidth:500,background:T.surface,borderRadius:"20px 20px 0 0",border:`1px solid ${T.border}`,padding:"20px",paddingBottom:"max(28px,env(safe-area-inset-bottom,28px))",animation:"slideInUp 0.28s cubic-bezier(0.4,0,0.2,1) both",position:"relative"}}>
               <button style={{...BTN,position:"absolute",top:14,right:14,background:"transparent",color:T.muted,fontSize:18,padding:"2px 8px",border:"none"}} onClick={revertPaid}>✕</button>
