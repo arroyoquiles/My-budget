@@ -5577,29 +5577,46 @@ function App() {
     setMoveAmt("");
     toast_(isUse ? "💳 " + fmt(m) + " used from " + (pot?.name || moveTo) : "💸 " + fmt(m) + " added to " + (pot?.name || moveTo));
   };
-  const exportData = useCallback(fname => {
+  const exportData = useCallback(async fname => {
+    const mo = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+    const now = new Date();
+    const autoName = fname || `mybudget_${mo[now.getMonth()]}_${now.getFullYear()}.json`;
     const json = JSON.stringify(data, null, 2);
     const b = new Blob([json], {
       type: "application/json"
     });
-    const u = URL.createObjectURL(b);
-    // iOS Safari doesn't support anchor download — open in new tab so user can share/save
-    const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream;
-    if (isIOS) {
-      window.open(u, "_blank");
-      setTimeout(() => URL.revokeObjectURL(u), 5000);
-    } else {
-      const a = document.createElement("a");
-      a.href = u;
-      a.download = fname || "mybudget_backup.json";
-      a.style.display = "none";
-      document.body.appendChild(a);
-      a.click();
-      setTimeout(() => {
-        document.body.removeChild(a);
-        URL.revokeObjectURL(u);
-      }, 1000);
+    // Use Web Share API on iOS — shows native share sheet with Files as option
+    if (navigator.share && navigator.canShare) {
+      const file = new File([b], autoName, {
+        type: "application/json"
+      });
+      if (navigator.canShare({
+        files: [file]
+      })) {
+        try {
+          await navigator.share({
+            files: [file],
+            title: "MyBudget Backup"
+          });
+          toast_("📥 Backup shared");
+          return;
+        } catch (e) {
+          if (e.name === "AbortError") return;
+        } // user cancelled share
+      }
     }
+    // Fallback for desktop
+    const u = URL.createObjectURL(b);
+    const a = document.createElement("a");
+    a.href = u;
+    a.download = autoName;
+    a.style.display = "none";
+    document.body.appendChild(a);
+    a.click();
+    setTimeout(() => {
+      document.body.removeChild(a);
+      URL.revokeObjectURL(u);
+    }, 1000);
     toast_("📥 Backup exported");
   }, [data]);
   const importData = useCallback(e => {
