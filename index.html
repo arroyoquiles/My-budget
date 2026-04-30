@@ -125,7 +125,7 @@
 <div id="root"></div>
 <script type="text/babel">
 const { useState, useEffect, useRef, useCallback, memo, useMemo } = React;
-const SK = "mybudget_v17";
+const SK = "mybudget_v18";
 let _uidSeq=0;
 const uid=()=>Date.now()*10000+(++_uidSeq%10000);
 const THEMES = {
@@ -512,7 +512,9 @@ const loadData=()=>{
   try{
     const s=localStorage.getItem(SK);
     if(s)return migrate(JSON.parse(s));
-    
+    // Migrate from previous key version
+    const old=localStorage.getItem("mybudget_v17");
+    if(old){const d=migrate(JSON.parse(old));return d;}
     return migrate(DD);
   }catch{return migrate(DD);}
 };
