@@ -3885,7 +3885,8 @@ const DestinoSummary = memo(({
   gastos,
   potsList,
   customLabels,
-  T
+  T,
+  pid
 }) => {
   const bd = {};
   gastos.forEach(g => {
@@ -3899,6 +3900,13 @@ const DestinoSummary = memo(({
   });
   const entries = Object.entries(bd).filter(([, v]) => v.total > 0 && v.d !== "other");
   if (!entries.length) return null;
+  const scrollToGroup = k => {
+    const el = document.getElementById(`group-${pid}-${k}`);
+    if (el) el.scrollIntoView({
+      behavior: "smooth",
+      block: "start"
+    });
+  };
   return /*#__PURE__*/React.createElement("div", {
     style: {
       marginBottom: 14
@@ -3921,13 +3929,16 @@ const DestinoSummary = memo(({
     const d = gds(v.d, v.r, null, potsList || [], customLabels || []);
     return /*#__PURE__*/React.createElement("div", {
       key: k,
+      onClick: () => scrollToGroup(k),
       style: {
         display: "flex",
         justifyContent: "space-between",
         alignItems: "center",
         padding: "9px 12px",
         background: i % 2 === 0 ? T.surface : T.bg,
-        borderBottom: i < entries.length - 1 ? `1px solid ${T.border}` : "none"
+        borderBottom: i < entries.length - 1 ? `1px solid ${T.border}` : "none",
+        cursor: "pointer",
+        WebkitTapHighlightColor: "transparent"
       }
     }, /*#__PURE__*/React.createElement("span", {
       style: {
@@ -3935,14 +3946,26 @@ const DestinoSummary = memo(({
         color: d.color,
         fontWeight: 600
       }
-    }, d.icon, " ", d.label), /*#__PURE__*/React.createElement("span", {
+    }, d.icon, " ", d.label), /*#__PURE__*/React.createElement("div", {
+      style: {
+        display: "flex",
+        alignItems: "center",
+        gap: 6
+      }
+    }, /*#__PURE__*/React.createElement("span", {
       style: {
         fontFamily: "monospace",
         fontWeight: 800,
         color: d.color,
         fontSize: 13
       }
-    }, fmt(v.total)));
+    }, fmt(v.total)), /*#__PURE__*/React.createElement("span", {
+      style: {
+        fontSize: 10,
+        color: T.muted,
+        opacity: 0.5
+      }
+    }, "\u2193")));
   })));
 });
 const getSnapshotReminder = (today, snapshots) => {
@@ -4199,7 +4222,6 @@ function App() {
   const [snapDetail, setSnapDetail] = useState(null);
   const [calOffset, setCalOffset] = useState(0);
   const [selectedCalDay, setSelectedCalDay] = useState(null);
-  const [expenseSearch, setExpenseSearch] = useState("");
   const [potsRevealed, setPotsRevealed] = useState(false);
   const [resetConfirm, setResetConfirm] = useState(null);
   const [themePicker, setThemePicker] = useState(false);
@@ -5635,8 +5657,10 @@ function App() {
       const sub = items.reduce((s, g) => s + n(g.monto), 0);
       return /*#__PURE__*/React.createElement("div", {
         key: `${pid}-${k}`,
+        id: `group-${pid}-${k}`,
         style: {
-          marginBottom: 14
+          marginBottom: 14,
+          scrollMarginTop: 12
         }
       }, /*#__PURE__*/React.createElement("div", {
         style: {
@@ -5770,8 +5794,10 @@ function App() {
       const sub = items.reduce((s, g) => s + n(g.monto), 0);
       return /*#__PURE__*/React.createElement("div", {
         key: `${pid}-${k}`,
+        id: `group-${pid}-${k}`,
         style: {
-          marginBottom: 14
+          marginBottom: 14,
+          scrollMarginTop: 12
         }
       }, /*#__PURE__*/React.createElement("div", {
         style: {
@@ -6206,49 +6232,25 @@ function App() {
       gastos: gastos,
       potsList: potsList,
       customLabels: data.customLabels || [],
-      T: T
-    }), gastos.length > 3 && /*#__PURE__*/React.createElement("div", {
-      style: {
-        marginBottom: 10,
-        position: "relative"
-      }
-    }, /*#__PURE__*/React.createElement("span", {
-      style: {
-        position: "absolute",
-        left: 10,
-        top: "50%",
-        transform: "translateY(-50%)",
-        fontSize: 13,
-        pointerEvents: "none",
-        opacity: 0.4
-      }
-    }, "\uD83D\uDD0D"), /*#__PURE__*/React.createElement("input", {
-      style: {
-        ...INP,
-        paddingLeft: 30,
-        fontSize: 13,
-        padding: "8px 10px 8px 30px"
-      },
-      placeholder: "Search expenses...",
-      value: expenseSearch,
-      onChange: e => setExpenseSearch(e.target.value)
-    }), expenseSearch && /*#__PURE__*/React.createElement("button", {
+      T: T,
+      pid: pid
+    }), /*#__PURE__*/React.createElement("button", {
       style: {
         ...BTN,
-        position: "absolute",
-        right: 8,
-        top: "50%",
-        transform: "translateY(-50%)",
-        background: "transparent",
-        color: T.muted,
-        fontSize: 14,
-        padding: "2px 6px",
-        border: "none"
+        width: "100%",
+        marginBottom: 10,
+        padding: "11px",
+        background: `${T.accent}20`,
+        color: T.accent,
+        fontSize: 13,
+        fontWeight: 700,
+        border: `1px solid ${T.accent}55`,
+        borderRadius: 12,
+        boxShadow: `0 0 20px ${T.accent}1a`
       },
-      onClick: () => setExpenseSearch("")
-    }, "\u2715")), (() => {
-      const filtered = expenseSearch ? gastos.filter(g => (g.nombre || "").toLowerCase().includes(expenseSearch.toLowerCase())) : gastos;
-      return renderCheckTabGrouped(pid, filtered, payday);
+      onClick: () => addGasto(pid)
+    }, "+ Add Expense"), (() => {
+      return renderCheckTabGrouped(pid, gastos, payday);
     })(), gastos.length === 0 && /*#__PURE__*/React.createElement("div", {
       className: "anim",
       style: {
@@ -6335,23 +6337,7 @@ function App() {
         marginBottom: 16,
         lineHeight: 1.5
       }
-    }, "Add your bills, subscriptions", /*#__PURE__*/React.createElement("br", null), "and recurring expenses")), /*#__PURE__*/React.createElement("button", {
-      style: {
-        ...BTN,
-        width: "100%",
-        marginTop: 2,
-        marginBottom: 8,
-        padding: "11px",
-        background: `${T.accent}20`,
-        color: T.accent,
-        fontSize: 13,
-        fontWeight: 700,
-        border: `1px solid ${T.accent}55`,
-        borderRadius: 12,
-        boxShadow: `0 0 20px ${T.accent}1a`
-      },
-      onClick: () => addGasto(pid)
-    }, "+ Add Expense"));
+    }, "Add your bills, subscriptions", /*#__PURE__*/React.createElement("br", null), "and recurring expenses")));
   };
   const hasActiveCheck = monthPeriods.some(p => p.isCurrent);
   const TABS = [{
