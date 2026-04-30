@@ -537,7 +537,7 @@ const DragList=({items,renderItem,editId})=>{
   return(<div>{items.map((item,i)=>(<div key={item.id}>{renderItem(item,i,{})}</div>))}</div>);
 };
 const getCatIcon=(cat)=>CICONS[cat]||"📌";
-const GastoItem=({item,pid,editId,editPid,setEditId,tarjetas,loans,potsList,periodDate,customLabels,onAddCustomLabel,globalEditingAmt,checkIdx,onCycle,onLongPress,onUpdate,onBatchUpdate,onPropagate,onRemove,T,isFuture=false})=>{
+const GastoItem=({item,pid,editId,editPid,setEditId,tarjetas,loans,potsList,periodDate,customLabels,onAddCustomLabel,globalEditingAmt,checkIdx,onCycle,onLongPress,onUpdate,onBatchUpdate,onPropagate,onRemove,T})=>{
   const dest=gds(item.destino,item.tarjetaRef,null,potsList,customLabels);
   const INP=mkINP(T),BTN=mkBTN(),CARD=mkCARD(T);
   const [swipeX,setSwipeX]=useState(0);
@@ -1287,7 +1287,6 @@ function App(){
   const [data,setData]=useState(loadData);
   const [tab,setTab]=useState("overview");
   const [splashDone,setSplashDone]=useState(false);
-  const [previewNextMonth,setPreviewNextMonth]=useState(false);
   useEffect(()=>{
     if(!splashDone)return;
     const el=document.getElementById("overview-drop");
@@ -1387,8 +1386,6 @@ const hashPin=async(pin)=>{
   const [locked,setLocked]=useState(true);
   const [editId,setEditId]=useState(null);
   const [editPid,setEditPid]=useState(null);
-  const [futureEditId,setFutureEditId]=useState(null);
-  const futureEditGroupKeyRef=useRef(null);
   const [accion,setAccion]=useState(null);
   const [montoAccion,setMontoAccion]=useState("");
   const [alertDim,setAlertDim]=useState(()=>{
@@ -1596,23 +1593,6 @@ const hashPin=async(pin)=>{
   const today=useMemo(()=>{const d=new Date();d.setHours(0,0,0,0);return d;},[]);
   const monthPeriods=useMemo(()=>buildMonthPeriods(anchor,freq),[anchor,freq,today]);
   const currentPeriod=monthPeriods.find(p=>p.isCurrent)||monthPeriods[0];
-  const nextMonthPeriods=useMemo(()=>{
-    if(!anchor)return[];
-    const today=new Date();
-    const nyr=today.getMonth()===11?today.getFullYear()+1:today.getFullYear();
-    const nmth=today.getMonth()===11?0:today.getMonth()+1;
-    const paydays=getPaydaysInMonth(anchor,freq,nyr,nmth);
-    return paydays.map((pd,i)=>({
-      id:"period_"+dateStr(pd),
-      payday:pd,
-      label:`Check ${i+1}`,
-      num:i+1,
-      isCurrent:false,
-      isUpcoming:true,
-      isPast:false,
-      statusLabel:"Next Month",
-    }));
-  },[anchor,freq]);
   const currentPid=currentPeriod?.id||"";
   const upcomingPaydays=useMemo(()=>getUpcomingPaydays(anchor,8,freq),[anchor,freq,today]);
   const nextPayday=useMemo(()=>getNextPayday(anchor,freq),[anchor,freq,today]);
@@ -1724,7 +1704,6 @@ const hashPin=async(pin)=>{
   },[]);
 
   const cycleState=useCallback((pid,id)=>{
-    if(nextMonthPeriods.some(p=>p.id===pid))return; // block future periods
     haptic(20);
     const gastos=(data.periods[pid]?.gastos)||[];
     const item=gastos.find(x=>x.id===id);
@@ -1784,7 +1763,7 @@ const hashPin=async(pin)=>{
       }
     }
   },[data.periods,data.potsList]);
-  const setReserved=useCallback((pid,id)=>{if(nextMonthPeriods.some(p=>p.id===pid))return;updPeriodGastos(pid,g=>g.map(x=>x.id!==id?x:{...x,state:x.state==="reserved"?"pending":"reserved",pagado:false}));},[nextMonthPeriods]);
+  const setReserved=useCallback((pid,id)=>{updPeriodGastos(pid,g=>g.map(x=>x.id!==id?x:{...x,state:x.state==="reserved"?"pending":"reserved",pagado:false}));},[]);
   const updateGasto=useCallback((pid,id,f,v)=>updPeriodGastos(pid,g=>g.map(x=>x.id===id?{...x,[f]:v}:x)),[]);
   const batchUpdateGasto=useCallback((pid,id,fields)=>updPeriodGastos(pid,g=>g.map(x=>x.id===id?{...x,...fields}:x)),[]);
   const propagateToAllChecks=useCallback((pid,item)=>{
@@ -1811,22 +1790,17 @@ const hashPin=async(pin)=>{
     const nid=uid();
     const scrollY=window.scrollY;
     updPeriodGastos(pid,g=>[...g,{id:nid,nombre:"",monto:0,cat:"",state:"pending",pagado:false,destino:"__new__",tarjetaRef:"",diaPago:null,_quick:false}]);
-    const isInSheet=nextMonthPeriods.some(p=>p.id===pid);
-    if(isInSheet){futureEditGroupKeyRef.current="__new__";}
-    else{editGroupKeyRef.current="__new__";}
+    editGroupKeyRef.current="__new__";
     setTimeout(()=>{
-      if(!isInSheet)window.scrollTo({top:scrollY,behavior:"instant"});
-      if(isInSheet){setFutureEditId(nid);}
-      else{setEditPid(pid);setEditId(nid);}
+      window.scrollTo({top:scrollY,behavior:"instant"});
+      setEditPid(pid);setEditId(nid);
     },80);
-  },[nextMonthPeriods]);
+  },[]);
   const addGastoDebt=useCallback((pid,debtRef,debt,tipo)=>{
     const nid=uid();
     const isCard=tipo==="card";
     const realCat=isCard?"credit_card":"auto";
-    const isInSheet=nextMonthPeriods.some(p=>p.id===pid);
-    if(isInSheet){futureEditGroupKeyRef.current=isCard?"__cards__":realCat;}
-    else{editGroupKeyRef.current=isCard?"__cards__":realCat;}
+    editGroupKeyRef.current=isCard?"__cards__":realCat;
     const scrollY=window.scrollY;
     updPeriodGastos(pid,g=>[...g,{
       id:nid,
@@ -1843,11 +1817,10 @@ const hashPin=async(pin)=>{
       debtRef
     }]);
     setTimeout(()=>{
-      if(!isInSheet)window.scrollTo({top:scrollY,behavior:"instant"});
-      if(isInSheet){setFutureEditId(nid);}
-      else{setEditPid(pid);setEditId(nid);}
+      window.scrollTo({top:scrollY,behavior:"instant"});
+      setEditPid(pid);setEditId(nid);
     },80);
-  },[nextMonthPeriods]);
+  },[]);
   // Auto-archive previous month's checks when entering Check 1 of new month
   useEffect(()=>{
     if(!activeCheckPid)return;
@@ -1868,50 +1841,34 @@ const hashPin=async(pin)=>{
   },[activeCheckPid]);
   useEffect(()=>{
     if(!activeCheckPid)return;
-    const isNextMonth=nextMonthPeriods.some(p=>p.id===activeCheckPid);
-    const allPeriods=isNextMonth?nextMonthPeriods:monthPeriods;
+    const allPeriods=monthPeriods;
     const checkIdx=allPeriods.findIndex(p=>p.id===activeCheckPid);
     if(checkIdx<0)return;
-    const currentPids=new Set([...monthPeriods.map(p=>p.id),...nextMonthPeriods.map(p=>p.id)]);
+    const currentPids=new Set(monthPeriods.map(p=>p.id));
     let sourcePid=null;
-    if(isNextMonth){
-      const sortedCurrent=monthPeriods.map(p=>p.id).sort();
-      sourcePid=sortedCurrent[checkIdx]||null;
-      if(!sourcePid){
-        for(const p of monthPeriods){
-          const g=(data.periods[p.id]?.gastos)||[];
-          if(g.some(x=>x._recurring&&!x._recurringCheckOnly)){sourcePid=p.id;break;}
-        }
-      }
-    } else {
-      const byMonth={};
-      Object.keys(data.periods).filter(pid=>!currentPids.has(pid)).forEach(pid=>{
-        const m=pid.replace("period_","").slice(0,7);
-        if(!byMonth[m])byMonth[m]=[];
-        byMonth[m].push(pid);
-      });
-      const months=Object.keys(byMonth).sort().reverse();
-      for(const mo of months){
-        const pids=byMonth[mo].sort();
-        if(pids[checkIdx]){sourcePid=pids[checkIdx];break;}
-        if(!sourcePid&&pids.length>0)sourcePid=pids[0];
-      }
-      if(!sourcePid){
-        const otherChecks=monthPeriods.filter(p=>p.id!==activeCheckPid);
-        for(const p of otherChecks){
-          const g=(data.periods[p.id]?.gastos)||[];
-          if(g.some(x=>x._recurring)){sourcePid=p.id;break;}
-        }
+    const byMonth={};
+    Object.keys(data.periods).filter(pid=>!currentPids.has(pid)).forEach(pid=>{
+      const m=pid.replace("period_","").slice(0,7);
+      if(!byMonth[m])byMonth[m]=[];
+      byMonth[m].push(pid);
+    });
+    const months=Object.keys(byMonth).sort().reverse();
+    for(const mo of months){
+      const pids=byMonth[mo].sort();
+      if(pids[checkIdx]){sourcePid=pids[checkIdx];break;}
+      if(!sourcePid&&pids.length>0)sourcePid=pids[0];
+    }
+    if(!sourcePid){
+      const otherChecks=monthPeriods.filter(p=>p.id!==activeCheckPid);
+      for(const p of otherChecks){
+        const g=(data.periods[p.id]?.gastos)||[];
+        if(g.some(x=>x._recurring)){sourcePid=p.id;break;}
       }
     }
     if(!sourcePid)return;
-    const sortedCurrentForIdx=isNextMonth?monthPeriods.map(p=>p.id).sort():null;
-    const sourceMatchesIdx=!isNextMonth||(sortedCurrentForIdx&&sortedCurrentForIdx[checkIdx]===sourcePid);
     const recurring=((data.periods[sourcePid]?.gastos)||[]).filter(x=>{
       if(!x._recurring)return false;
       if(x._recurringCheckOnly){
-        if(!sourceMatchesIdx)return false;
-        if(isNextMonth)return true;
         const srcIdx=Object.keys(data.periods).filter(p=>!currentPids.has(p))
           .filter(p=>p.replace("period_","").slice(0,7)===sourcePid.replace("period_","").slice(0,7))
           .sort().indexOf(sourcePid);
@@ -1937,26 +1894,16 @@ const hashPin=async(pin)=>{
       setTimeout(()=>toast_(`🔁 ${copies.length} recurring copied`),100);
       return{...p,periods:{...p.periods,[activeCheckPid]:{...(p.periods[activeCheckPid]||{}),gastos:[...curGastos,...copies]}}};
     });
-  },[activeCheckPid,nextMonthPeriods]);
+  },[activeCheckPid]);
 
   // Auto-copy due-day expenses to new periods
   useEffect(()=>{
     if(!activeCheckPid)return;
-    const isNextMonth=nextMonthPeriods.some(p=>p.id===activeCheckPid);
-    const allPeriods=isNextMonth?nextMonthPeriods:monthPeriods;
-    const checkIdx=allPeriods.findIndex(p=>p.id===activeCheckPid);
+    const checkIdx=monthPeriods.findIndex(p=>p.id===activeCheckPid);
     if(checkIdx<0)return;
-    const nextMonthPids=new Set(nextMonthPeriods.map(p=>p.id));
     const currentPids=new Set(monthPeriods.map(p=>p.id));
     const byMonth={};
-    if(isNextMonth){
-      monthPeriods.forEach(p=>{
-        const m=p.id.replace("period_","").slice(0,7);
-        if(!byMonth[m])byMonth[m]=[];
-        byMonth[m].push(p.id);
-      });
-    }
-    Object.keys(data.periods).filter(pid=>!currentPids.has(pid)&&!nextMonthPids.has(pid)).forEach(pid=>{
+    Object.keys(data.periods).filter(pid=>!currentPids.has(pid)).forEach(pid=>{
       const m=pid.replace("period_","").slice(0,7);
       if(!byMonth[m])byMonth[m]=[];
       byMonth[m].push(pid);
@@ -1970,7 +1917,6 @@ const hashPin=async(pin)=>{
     if(!sourcePid)return;
     const dueDayItems=((data.periods[sourcePid]?.gastos)||[]).filter(x=>x.diaPago&&!x._recurring);
     if(!dueDayItems.length)return;
-    // Use setData updater to read freshest state — avoids overwriting recurring copies added in same batch
     setData(p=>{
       const curGastos=(p.periods[activeCheckPid]?.gastos)||[];
       if(curGastos.some(x=>x.diaPago&&!x._recurring))return p;
@@ -1981,7 +1927,7 @@ const hashPin=async(pin)=>{
       setTimeout(()=>toast_(`📅 ${copies.length} due-day expense${copies.length>1?"s":""} copied`),150);
       return{...p,periods:{...p.periods,[activeCheckPid]:{...(p.periods[activeCheckPid]||{}),gastos:[...curGastos,...copies]}}};
     });
-  },[activeCheckPid,nextMonthPeriods]);
+  },[activeCheckPid]);
   const resetCheck=useCallback((pid,label)=>{
     updPeriodGastos(pid,g=>{
       const kept=g.filter(x=>x._recurring||x.diaPago).map(x=>({...x,state:"pending",pagado:false,_potAdded:false,_debtPaid:false,_charged:false}));
@@ -2008,19 +1954,6 @@ const hashPin=async(pin)=>{
       }
       setEditPid(foundPid);
       setEditId(id);
-    }
-  },[data.periods]);
-  const openFutureEditId=useCallback((id)=>{
-    if(id===null){futureEditGroupKeyRef.current=null;setFutureEditId(null);}
-    else{
-      // Search all future periods fresh — never stale
-      let found=null;
-      for(const pid of Object.keys(data.periods||{})){
-        const g=(data.periods[pid]?.gastos||[]).find(x=>x.id===id);
-        if(g){found=g;break;}
-      }
-      if(found){futureEditGroupKeyRef.current=found.destino==="credit_card"?"__cards__":found.destino;}
-      setFutureEditId(id);
     }
   },[data.periods]);
   const updateTarjeta=useCallback((id,f,v)=>setData(p=>({...p,tarjetas:p.tarjetas.map(t=>t.id===id?{...t,[f]:v}:t)})),[]);
@@ -2225,8 +2158,8 @@ const hashPin=async(pin)=>{
           <span style={{fontFamily:"monospace",fontSize:13,fontWeight:800,color:dst.color}}>{fmt(sub)}</span>
         </div>
         <DragList items={items}
-          renderItem={(item)=>(<GastoItem key={item.id} item={item} pid={pid} editId={editId} editPid={editPid} setEditId={(id)=>openEditId(id)} tarjetas={data.tarjetas} loans={data.loans||[]} potsList={potsList} globalEditingAmt={globalEditingAmt} checkIdx={(()=>{const i=monthPeriods.findIndex(p=>p.id===pid);return i>=0?i:nextMonthPeriods.findIndex(p=>p.id===pid);})()}  periodDate={periodDate} customLabels={data.customLabels||[]} onAddCustomLabel={(name,id,parent)=>{if(!id)return;setData(p=>({...p,customLabels:(p.customLabels||[]).some(l=>l.id===id)?p.customLabels:[...(p.customLabels||[]),{id,name,icon:"🏷️",parent:parent||null}]}));}}
-            onCycle={isFuture?()=>{}:id=>cycleState(pid,id)} onLongPress={isFuture?()=>{}:id=>setReserved(pid,id)}
+          renderItem={(item)=>(<GastoItem key={item.id} item={item} pid={pid} editId={editId} editPid={editPid} setEditId={(id)=>openEditId(id)} tarjetas={data.tarjetas} loans={data.loans||[]} potsList={potsList} globalEditingAmt={globalEditingAmt} checkIdx={(()=>{const i=monthPeriods.findIndex(p=>p.id===pid);return i;})()}  periodDate={periodDate} customLabels={data.customLabels||[]} onAddCustomLabel={(name,id,parent)=>{if(!id)return;setData(p=>({...p,customLabels:(p.customLabels||[]).some(l=>l.id===id)?p.customLabels:[...(p.customLabels||[]),{id,name,icon:"🏷️",parent:parent||null}]}));}}
+            onCycle={id=>cycleState(pid,id)} onLongPress={id=>setReserved(pid,id)}
             onUpdate={(id,f,v)=>updateGasto(pid,id,f,v)}
             onBatchUpdate={(id,fields)=>batchUpdateGasto(pid,id,fields)} onPropagate={(item)=>propagateToAllChecks(pid,item)}
             onRemove={id=>removeGasto(pid,id)} T={T}/>)}/>
@@ -2244,10 +2177,10 @@ const hashPin=async(pin)=>{
     return"#f85149";
   };
 
-  const renderCheckTabGrouped=(pid,gastos,periodDate,isFuture=false)=>{
-    const activeEditId=isFuture?futureEditId:editId;
-    const activeEditGroupKeyRef=isFuture?futureEditGroupKeyRef:editGroupKeyRef;
-    const activeSetEditId=isFuture?(id)=>openFutureEditId(id):(id)=>openEditId(id);
+  const renderCheckTabGrouped=(pid,gastos,periodDate)=>{
+    const activeEditId=editId;
+    const activeEditGroupKeyRef=editGroupKeyRef;
+    const activeSetEditId=(id)=>openEditId(id);
     const groups={};
     gastos.forEach(g=>{
       const isCustomLabel=g.destino&&(g.destino.startsWith("label_")||(data.customLabels||[]).some(cl=>cl.id===g.destino));
@@ -2255,28 +2188,26 @@ const hashPin=async(pin)=>{
       if(!groups[k])groups[k]={d:g.destino,r:g.tarjetaRef,items:[]};
       groups[k].items.push(g);
     });
-    // Only apply editGroupKeyRef logic for non-future checks (moving items between groups while editing)
-    if(!isFuture){
-      if(activeEditId&&activeEditGroupKeyRef.current!==null){
-        const editItem=gastos.find(g=>g.id===activeEditId);
-        if(editItem){
-          const isCustomLabel=editItem.destino&&(editItem.destino.startsWith("label_")||(data.customLabels||[]).some(cl=>cl.id===editItem.destino));
-          const origKey=editItem.destino==="credit_card"&&!isCustomLabel?(editItem.tarjetaRef||"Credit Card"):editItem.destino;
-          const newKey=activeEditGroupKeyRef.current;
-          if(origKey!==newKey&&groups[origKey]){
-            groups[origKey].items=groups[origKey].items.filter(g=>g.id!==activeEditId);
-            if(!groups[newKey])groups[newKey]={d:editItem.destino,r:editItem.tarjetaRef,items:[]};
-            groups[newKey].items.push(editItem);
-          }
+
+    if(activeEditId&&activeEditGroupKeyRef.current!==null){
+      const editItem=gastos.find(g=>g.id===activeEditId);
+      if(editItem){
+        const isCustomLabel=editItem.destino&&(editItem.destino.startsWith("label_")||(data.customLabels||[]).some(cl=>cl.id===editItem.destino));
+        const origKey=editItem.destino==="credit_card"&&!isCustomLabel?(editItem.tarjetaRef||"Credit Card"):editItem.destino;
+        const newKey=activeEditGroupKeyRef.current;
+        if(origKey!==newKey&&groups[origKey]){
+          groups[origKey].items=groups[origKey].items.filter(g=>g.id!==activeEditId);
+          if(!groups[newKey])groups[newKey]={d:editItem.destino,r:editItem.tarjetaRef,items:[]};
+          groups[newKey].items.push(editItem);
         }
       }
-      if(activeEditId!==null&&activeEditGroupKeyRef.current!==null){
-        const k=activeEditGroupKeyRef.current;
-        if(groups[k]){
-          const isCardRef=!DEST[k];
-          if(isCardRef){groups[k].d="credit_card";groups[k].r=k;}
-          else{groups[k].d=k;groups[k].r="";}
-        }
+    }
+    if(activeEditId!==null&&activeEditGroupKeyRef.current!==null){
+      const k=activeEditGroupKeyRef.current;
+      if(groups[k]){
+        const isCardRef=!DEST[k];
+        if(isCardRef){groups[k].d="credit_card";groups[k].r=k;}
+        else{groups[k].d=k;groups[k].r="";}
       }
     }
     return(<>{Object.keys(groups).sort((a,b)=>((groups[a].d==="other"||groups[a].d==="temp"||a==="__temp__"||a==="__other__")?999:DORDER.indexOf(groups[a].d)+1||50)-((groups[b].d==="other"||groups[b].d==="temp"||b==="__temp__"||b==="__other__")?999:DORDER.indexOf(groups[b].d)+1||50)).map(k=>{
@@ -2286,16 +2217,16 @@ const hashPin=async(pin)=>{
           <span style={{fontSize:12,fontWeight:700,color:dst.color}}>{dst.icon} {dst.label}</span>
           <span style={{fontFamily:"monospace",fontSize:13,fontWeight:800,color:dst.color}}>{fmt(sub)}</span>
         </div>
-        <div>{items.map(gi=>(<GastoItem key={gi.id} item={gi} pid={pid} editId={activeEditId} editPid={isFuture?pid:editPid} setEditId={activeSetEditId} tarjetas={data.tarjetas} loans={data.loans||[]} potsList={potsList} globalEditingAmt={globalEditingAmt} checkIdx={(()=>{const i=monthPeriods.findIndex(p=>p.id===pid);return i>=0?i:nextMonthPeriods.findIndex(p=>p.id===pid);})()}  periodDate={periodDate} customLabels={data.customLabels||[]} onAddCustomLabel={(name,id,parent)=>{if(!id)return;setData(p=>({...p,customLabels:(p.customLabels||[]).some(l=>l.id===id)?p.customLabels:[...(p.customLabels||[]),{id,name,icon:"🏷️",parent:parent||null}]}));}}
-            onCycle={()=>{}} onLongPress={()=>{}}
+        <div>{items.map(gi=>(<GastoItem key={gi.id} item={gi} pid={pid} editId={activeEditId} editPid={editPid} setEditId={activeSetEditId} tarjetas={data.tarjetas} loans={data.loans||[]} potsList={potsList} globalEditingAmt={globalEditingAmt} checkIdx={(()=>{const i=monthPeriods.findIndex(p=>p.id===pid);return i;})()}  periodDate={periodDate} customLabels={data.customLabels||[]} onAddCustomLabel={(name,id,parent)=>{if(!id)return;setData(p=>({...p,customLabels:(p.customLabels||[]).some(l=>l.id===id)?p.customLabels:[...(p.customLabels||[]),{id,name,icon:"🏷️",parent:parent||null}]}));}}
+            onCycle={id=>cycleState(pid,id)} onLongPress={id=>setReserved(pid,id)}
             onUpdate={(id,f,v)=>updateGasto(pid,id,f,v)}
             onBatchUpdate={(id,fields)=>batchUpdateGasto(pid,id,fields)} onPropagate={(gi)=>propagateToAllChecks(pid,gi)}
-            onRemove={id=>removeGasto(pid,id)} touch={{}} T={T} isFuture={true}/>))}</div>
+            onRemove={id=>removeGasto(pid,id)} touch={{}} T={T}/>))}</div>
       </div>);
     })}</>);
   };
 
-  const renderCheckTab=(period,isFuture=false)=>{
+  const renderCheckTab=(period)=>{
     const{id:pid,label,isCurrent,payday}=period;
     const gastos=getPGastos(pid);
     const amt=getPeriodAmount(pid);
@@ -2309,9 +2240,8 @@ const hashPin=async(pin)=>{
     const done=gastos.length>0&&gastos.every(g=>g.state==="paid");
     const pdDays=Math.ceil((payday-today)/86400000);
     const remColor=getRemainingColor(sob);
-    if(isFuture&&lastDoneRef.current[pid])lastDoneRef.current[pid]=false;
-    if(done&&!isFuture&&!lastDoneRef.current[pid]){lastDoneRef.current[pid]=true;setTimeout(launchConfetti,300);}
-    if(!done&&!isFuture&&lastDoneRef.current[pid])lastDoneRef.current[pid]=false;
+    if(done&&!lastDoneRef.current[pid]){lastDoneRef.current[pid]=true;setTimeout(launchConfetti,300);}
+    if(!done&&lastDoneRef.current[pid])lastDoneRef.current[pid]=false;
     return(<div className="anim">
       {/* Compact header: Active badge + Payday inline */}
       {(isCurrent||payday)&&<div style={{display:"flex",alignItems:"center",gap:8,marginBottom:12,padding:"8px 12px",background:`${T.accent}0f`,borderRadius:10,border:`1px solid ${T.accent}28`}}>
@@ -2382,7 +2312,7 @@ const hashPin=async(pin)=>{
           <div style={{fontSize:10,color:done?"#3fb950":T.muted}}>{done?"✅ All paid!":`${fmt(paid)} paid · ${fmt(reserved)} reserved`}</div>
           <span style={{fontSize:10,color:T.muted}}>{amt>0?Math.min(100,Math.round((total/amt)*100)):0}% used</span>
         </div>
-        {!isFuture&&<div style={{fontSize:10,color:T.muted,marginTop:4}}>Tap ● = paid · Double tap ◑ = reserved</div>}
+        <div style={{fontSize:10,color:T.muted,marginTop:4}}>Tap ● = paid · Double tap ◑ = reserved</div>
       </div>
       <DestinoSummary gastos={gastos} potsList={potsList} customLabels={data.customLabels||[]} T={T}/>
       {gastos.length>3&&<div style={{marginBottom:10,position:"relative"}}>
@@ -2390,7 +2320,7 @@ const hashPin=async(pin)=>{
         <input style={{...INP,paddingLeft:30,fontSize:13,padding:"8px 10px 8px 30px"}} placeholder="Search expenses..." value={expenseSearch} onChange={e=>setExpenseSearch(e.target.value)}/>
         {expenseSearch&&<button style={{...BTN,position:"absolute",right:8,top:"50%",transform:"translateY(-50%)",background:"transparent",color:T.muted,fontSize:14,padding:"2px 6px",border:"none"}} onClick={()=>setExpenseSearch("")}>✕</button>}
       </div>}
-      {(()=>{const filtered=expenseSearch?gastos.filter(g=>(g.nombre||"").toLowerCase().includes(expenseSearch.toLowerCase())):gastos;return renderCheckTabGrouped(pid,filtered,payday,isFuture);})()} 
+      {(()=>{const filtered=expenseSearch?gastos.filter(g=>(g.nombre||"").toLowerCase().includes(expenseSearch.toLowerCase())):gastos;return renderCheckTabGrouped(pid,filtered,payday);})()} 
       {gastos.length===0&&(<div className="anim" style={{textAlign:"center",padding:"28px 20px 20px"}}>
         <svg width="52" height="52" viewBox="0 0 52 52" fill="none" xmlns="http://www.w3.org/2000/svg" style={{margin:"0 auto 12px",display:"block",opacity:0.35}}>
           <rect x="6" y="14" width="40" height="28" rx="6" stroke={T.muted} strokeWidth="2" fill="none"/>
@@ -2529,56 +2459,6 @@ const hashPin=async(pin)=>{
               <div style={{display:"flex",gap:10}}>
                 <button style={{...BTN,flex:1,padding:"13px",background:"rgba(63,185,80,0.15)",color:"#3fb950",fontSize:14,fontWeight:700,borderRadius:11,border:"1px solid rgba(63,185,80,0.3)"}} onClick={ok}>✓ OK</button>
                 <button style={{...BTN,flex:1,padding:"13px",background:T.surface2,color:T.muted,fontSize:14,fontWeight:600,borderRadius:11,border:`1px solid ${T.border}`}} onClick={undo}>↩️ Undo</button>
-              </div>
-            </div>
-          </div>
-        );
-      })()}
-
-      {/* ── NEXT MONTH BOTTOM SHEET ── */}
-      {previewNextMonth&&nextMonthPeriods.length>0&&(()=>{
-        const nmLabel=nextMonthPeriods[0].payday.toLocaleDateString("en-US",{month:"long",year:"numeric"});
-        const nmShort=nextMonthPeriods[0].payday.toLocaleDateString("en-US",{month:"short"});
-        const pid=nextMonthPeriods.find(p=>p.id===activeCheckPid)?.id||nextMonthPeriods[0].id;
-        const period=nextMonthPeriods.find(p=>p.id===pid)||nextMonthPeriods[0];
-        const close=()=>{setPreviewNextMonth(false);setActiveCheckPid(null);setEditId(null);setEditPid(null);setFutureEditId(null);futureEditGroupKeyRef.current=null;};
-        return(
-          <div style={{position:"fixed",inset:0,zIndex:550,background:"rgba(0,0,0,0.65)",backdropFilter:"blur(6px)",WebkitBackdropFilter:"blur(6px)",display:"flex",alignItems:"flex-end",justifyContent:"center",animation:"fadeIn 0.22s ease both"}}
-            onClick={e=>{if(e.target===e.currentTarget)close();}}>
-            <div style={{width:"100%",maxWidth:500,background:T.surface,borderRadius:"20px 20px 0 0",border:"1.5px solid #d2992255",borderBottom:"none",maxHeight:"88vh",display:"flex",flexDirection:"column",animation:"slideInUp 0.38s cubic-bezier(0.25,0.46,0.45,0.94) both"}}>
-              <div style={{display:"flex",justifyContent:"center",paddingTop:10,paddingBottom:4,flexShrink:0}}>
-                <div style={{width:36,height:4,borderRadius:2,background:"#d2992255"}}/>
-              </div>
-              <div style={{padding:"10px 20px 14px",borderBottom:`1px solid ${T.border}`,flexShrink:0,display:"flex",alignItems:"center",justifyContent:"space-between"}}>
-                <div style={{display:"flex",alignItems:"center",gap:10}}>
-                  <span style={{fontSize:24}}>🗓️</span>
-                  <div>
-                    <div style={{fontSize:16,fontWeight:800,color:"#d29922",letterSpacing:-0.5}}>{nmLabel}</div>
-                    <div style={{fontSize:10,color:T.muted,marginTop:2}}>Future cycle · not yet active</div>
-
-                  </div>
-                </div>
-                <button style={{...BTN,width:32,height:32,borderRadius:"50%",background:T.surface2,color:T.muted,fontSize:16,display:"flex",alignItems:"center",justifyContent:"center",border:`1px solid ${T.border}`}} onClick={close}>✕</button>
-              </div>
-              {nextMonthPeriods.length>1&&(
-                <div style={{display:"flex",gap:5,padding:"10px 16px 0",flexShrink:0}}>
-                  {nextMonthPeriods.map(p=>{
-                    const isActive=p.id===pid;
-                    const pgastos=(data.periods[p.id]||{}).gastos||[];
-                    const ptotal=pgastos.reduce((s,g)=>s+n(g.monto),0);
-                    return(<button key={p.id} style={{...BTN,flex:1,padding:"8px 6px",fontSize:11,borderRadius:9,background:isActive?"#d2992222":"transparent",color:isActive?"#d29922":T.muted,border:isActive?"1.5px solid "+(isActive?"#d2992255":T.border):"1px solid transparent",display:"flex",flexDirection:"column",alignItems:"center",gap:1}} onClick={()=>setActiveCheckPid(p.id)}>
-                      <span style={{fontWeight:isActive?700:500}}>{p.label}</span>
-                      <span style={{fontSize:8,fontWeight:600,color:isActive?"#d29922":T.muted,letterSpacing:0.5}}>{ptotal>0?fmt(ptotal):"—"}</span>
-                    </button>);
-                  })}
-                </div>
-              )}
-              <div style={{overflowY:"auto",flex:1,padding:"14px 16px",paddingBottom:"max(20px,env(safe-area-inset-bottom,20px))"}}>
-                {renderCheckTab(period,true)}
-                <div style={{marginTop:14,padding:"10px 14px",background:T.surface2,borderRadius:12,display:"flex",alignItems:"center",gap:8,border:`1px solid ${T.border}`}}>
-                  <span style={{fontSize:14}}>💡</span>
-                  <span style={{fontSize:10,color:T.muted,lineHeight:1.5}}>Activates automatically when {nmShort} starts. All changes are saved.</span>
-                </div>
               </div>
             </div>
           </div>
@@ -3220,8 +3100,6 @@ const hashPin=async(pin)=>{
             <div style={{fontSize:10,color:T.muted,letterSpacing:1.5,fontWeight:600,marginTop:3,textTransform:"uppercase"}}>{new Date().toLocaleDateString("en-US",{month:"long",year:"numeric"})}</div>
           </div>
           {diasProx!==null&&(()=>{
-            const nmFirst=nextMonthPeriods.length>0?nextMonthPeriods[0]:null;
-            const isNextMonth=nmFirst&&nextPayday&&nextPayday.getMonth()!==new Date().getMonth();
             return(
               <div style={{background:"rgba(63,185,80,0.08)",border:"1px solid rgba(63,185,80,0.22)",borderRadius:12,padding:"6px 12px",textAlign:"center",cursor:"pointer",boxShadow:"0 2px 8px rgba(63,185,80,0.1)"}}>
                 <div style={{fontSize:9,color:T.muted}}>NEXT CHECK</div>
@@ -3229,10 +3107,6 @@ const hashPin=async(pin)=>{
                   onClick={()=>{if(currentPeriod){setActiveCheckPid(currentPeriod.id);setTab("paychecks");}}}>{diasProx===0?"TODAY 🎉":`${diasProx}d`}</div>
                 <div style={{fontSize:9,color:T.muted}}
                   onClick={()=>{if(currentPeriod){setActiveCheckPid(currentPeriod.id);setTab("paychecks");}}}>{nextPayday?fmd(nextPayday):""}</div>
-                {isNextMonth&&<div style={{marginTop:6,paddingTop:6,borderTop:"1px solid rgba(63,185,80,0.2)",fontSize:9,color:"#d29922",fontWeight:600,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",gap:4}}
-                  onClick={()=>{setActiveCheckPid(nmFirst.id);setPreviewNextMonth(true);setTab("paychecks");}}>
-                  🗓️ Plan {nmFirst.payday.toLocaleDateString("en-US",{month:"short"})} →
-                </div>}
               </div>
             );
           })()}
