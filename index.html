@@ -2280,12 +2280,11 @@ const hashPin=async(pin)=>{
           <span style={{fontSize:12,fontWeight:700,color:dst.color}}>{dst.icon} {dst.label}</span>
           <span style={{fontFamily:"monospace",fontSize:13,fontWeight:800,color:dst.color}}>{fmt(sub)}</span>
         </div>
-        <DragList items={sortedItems}
-          renderItem={(item,_,touch)=>(<GastoItem key={item.id} item={item} pid={pid} editId={editId} setEditId={(id)=>{if(id===null){editGroupKeyRef.current=null;setEditId(null);}else{const g=(data.periods[pid]?.gastos||[]).find(x=>x.id===id);if(g)editGroupKeyRef.current=g.destino==="credit_card"?"__cards__":g.destino;setEditId(id);}}} tarjetas={data.tarjetas} loans={data.loans||[]} potsList={potsList} globalEditingAmt={globalEditingAmt} checkIdx={(()=>{const i=monthPeriods.findIndex(p=>p.id===pid);return i>=0?i:nextMonthPeriods.findIndex(p=>p.id===pid);})()}  periodDate={periodDate} customLabels={data.customLabels||[]} onAddCustomLabel={(name,id,parent)=>{if(!id)return;setData(p=>({...p,customLabels:(p.customLabels||[]).some(l=>l.id===id)?p.customLabels:[...(p.customLabels||[]),{id,name,icon:"🏷️",parent:parent||null}]}));}}
-            onCycle={isFuture?()=>{}:id=>cycleState(pid,id)} onLongPress={isFuture?()=>{}:id=>setReserved(pid,id)}
+        <div>{sortedItems.map(gi=>(<GastoItem key={gi.id} item={gi} pid={pid} editId={editId} setEditId={(id)=>{if(id===null){editGroupKeyRef.current=null;setEditId(null);}else{const g=(data.periods[pid]?.gastos||[]).find(x=>x.id===id);if(g)editGroupKeyRef.current=g.destino==="credit_card"?"__cards__":g.destino;setEditId(id);}}} tarjetas={data.tarjetas} loans={data.loans||[]} potsList={potsList} globalEditingAmt={globalEditingAmt} checkIdx={(()=>{const i=monthPeriods.findIndex(p=>p.id===pid);return i>=0?i:nextMonthPeriods.findIndex(p=>p.id===pid);})()}  periodDate={periodDate} customLabels={data.customLabels||[]} onAddCustomLabel={(name,id,parent)=>{if(!id)return;setData(p=>({...p,customLabels:(p.customLabels||[]).some(l=>l.id===id)?p.customLabels:[...(p.customLabels||[]),{id,name,icon:"🏷️",parent:parent||null}]}));}}
+            onCycle={()=>{}} onLongPress={()=>{}}
             onUpdate={(id,f,v)=>updateGasto(pid,id,f,v)}
-            onBatchUpdate={(id,fields)=>batchUpdateGasto(pid,id,fields)} onPropagate={(item)=>propagateToAllChecks(pid,item)}
-            onRemove={id=>removeGasto(pid,id)} touch={touch} T={T} isFuture={isFuture}/>)}/>
+            onBatchUpdate={(id,fields)=>batchUpdateGasto(pid,id,fields)} onPropagate={(gi)=>propagateToAllChecks(pid,gi)}
+            onRemove={id=>removeGasto(pid,id)} touch={{}} T={T} isFuture={true}/>))}</div>
       </div>);
     })}</>);
   };
