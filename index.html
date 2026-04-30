@@ -2245,49 +2245,48 @@ const hashPin=async(pin)=>{
   };
 
   const renderCheckTabGrouped=(pid,gastos,periodDate,isFuture=false)=>{
-    // Use isolated edit state for future checks to prevent cross-contamination with current checks
     const activeEditId=isFuture?futureEditId:editId;
     const activeEditGroupKeyRef=isFuture?futureEditGroupKeyRef:editGroupKeyRef;
     const activeSetEditId=isFuture?(id)=>openFutureEditId(id):(id)=>openEditId(id);
     const groups={};
-    // Build groups preserving original array order
     gastos.forEach(g=>{
       const isCustomLabel=g.destino&&(g.destino.startsWith("label_")||(data.customLabels||[]).some(cl=>cl.id===g.destino));
       const k=g.destino==="credit_card"&&!isCustomLabel?(g.tarjetaRef||"Credit Card"):g.destino;
       if(!groups[k])groups[k]={d:g.destino,r:g.tarjetaRef,items:[]};
       groups[k].items.push(g);
     });
-    // Apply editGroupKeyRef after groups are built — move item to its edit group
-    if(activeEditId&&activeEditGroupKeyRef.current!==null){
-      const editItem=gastos.find(g=>g.id===activeEditId);
-      if(editItem){
-        const isCustomLabel=editItem.destino&&(editItem.destino.startsWith("label_")||(data.customLabels||[]).some(cl=>cl.id===editItem.destino));
-        const origKey=editItem.destino==="credit_card"&&!isCustomLabel?(editItem.tarjetaRef||"Credit Card"):editItem.destino;
-        const newKey=activeEditGroupKeyRef.current;
-        if(origKey!==newKey&&groups[origKey]){
-          groups[origKey].items=groups[origKey].items.filter(g=>g.id!==activeEditId);
-          if(!groups[newKey])groups[newKey]={d:editItem.destino,r:editItem.tarjetaRef,items:[]};
-          groups[newKey].items.push(editItem);
+    // Only apply editGroupKeyRef logic for non-future checks (moving items between groups while editing)
+    if(!isFuture){
+      if(activeEditId&&activeEditGroupKeyRef.current!==null){
+        const editItem=gastos.find(g=>g.id===activeEditId);
+        if(editItem){
+          const isCustomLabel=editItem.destino&&(editItem.destino.startsWith("label_")||(data.customLabels||[]).some(cl=>cl.id===editItem.destino));
+          const origKey=editItem.destino==="credit_card"&&!isCustomLabel?(editItem.tarjetaRef||"Credit Card"):editItem.destino;
+          const newKey=activeEditGroupKeyRef.current;
+          if(origKey!==newKey&&groups[origKey]){
+            groups[origKey].items=groups[origKey].items.filter(g=>g.id!==activeEditId);
+            if(!groups[newKey])groups[newKey]={d:editItem.destino,r:editItem.tarjetaRef,items:[]};
+            groups[newKey].items.push(editItem);
+          }
         }
       }
-    }
-    if(activeEditId!==null&&activeEditGroupKeyRef.current!==null){
-      const k=activeEditGroupKeyRef.current;
-      if(groups[k]){
-        const isCardRef=!DEST[k];
-        if(isCardRef){groups[k].d="credit_card";groups[k].r=k;}
-        else{groups[k].d=k;groups[k].r="";}
+      if(activeEditId!==null&&activeEditGroupKeyRef.current!==null){
+        const k=activeEditGroupKeyRef.current;
+        if(groups[k]){
+          const isCardRef=!DEST[k];
+          if(isCardRef){groups[k].d="credit_card";groups[k].r=k;}
+          else{groups[k].d=k;groups[k].r="";}
+        }
       }
     }
     return(<>{Object.keys(groups).sort((a,b)=>((groups[a].d==="other"||groups[a].d==="temp"||a==="__temp__"||a==="__other__")?999:DORDER.indexOf(groups[a].d)+1||50)-((groups[b].d==="other"||groups[b].d==="temp"||b==="__temp__"||b==="__other__")?999:DORDER.indexOf(groups[b].d)+1||50)).map(k=>{
       const{d,r,items}=groups[k];const dst=gds(d,r,null,potsList||[],data.customLabels||[]);const sub=items.reduce((s,g)=>s+n(g.monto),0);
-      const sortedItems=items; // preserve insertion order
       return(<div key={`${pid}-${k}`} style={{marginBottom:14}}>
         <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"6px 10px",marginBottom:5,background:dst.bg,borderRadius:9,border:`1px solid ${dst.border}`}}>
           <span style={{fontSize:12,fontWeight:700,color:dst.color}}>{dst.icon} {dst.label}</span>
           <span style={{fontFamily:"monospace",fontSize:13,fontWeight:800,color:dst.color}}>{fmt(sub)}</span>
         </div>
-        <div>{sortedItems.map(gi=>(<GastoItem key={gi.id} item={gi} pid={pid} editId={activeEditId} editPid={isFuture?pid:editPid} setEditId={activeSetEditId} tarjetas={data.tarjetas} loans={data.loans||[]} potsList={potsList} globalEditingAmt={globalEditingAmt} checkIdx={(()=>{const i=monthPeriods.findIndex(p=>p.id===pid);return i>=0?i:nextMonthPeriods.findIndex(p=>p.id===pid);})()}  periodDate={periodDate} customLabels={data.customLabels||[]} onAddCustomLabel={(name,id,parent)=>{if(!id)return;setData(p=>({...p,customLabels:(p.customLabels||[]).some(l=>l.id===id)?p.customLabels:[...(p.customLabels||[]),{id,name,icon:"🏷️",parent:parent||null}]}));}}
+        <div>{items.map(gi=>(<GastoItem key={gi.id} item={gi} pid={pid} editId={activeEditId} editPid={isFuture?pid:editPid} setEditId={activeSetEditId} tarjetas={data.tarjetas} loans={data.loans||[]} potsList={potsList} globalEditingAmt={globalEditingAmt} checkIdx={(()=>{const i=monthPeriods.findIndex(p=>p.id===pid);return i>=0?i:nextMonthPeriods.findIndex(p=>p.id===pid);})()}  periodDate={periodDate} customLabels={data.customLabels||[]} onAddCustomLabel={(name,id,parent)=>{if(!id)return;setData(p=>({...p,customLabels:(p.customLabels||[]).some(l=>l.id===id)?p.customLabels:[...(p.customLabels||[]),{id,name,icon:"🏷️",parent:parent||null}]}));}}
             onCycle={()=>{}} onLongPress={()=>{}}
             onUpdate={(id,f,v)=>updateGasto(pid,id,f,v)}
             onBatchUpdate={(id,fields)=>batchUpdateGasto(pid,id,fields)} onPropagate={(gi)=>propagateToAllChecks(pid,gi)}
