@@ -106,7 +106,18 @@
       padding-bottom:max(120px, env(safe-area-inset-bottom, 32px));
     }
   </style>
-<script>document.addEventListener("focusin",function(e){if(e.target.tagName==="INPUT"&&(e.target.type==="number"||e.target.inputMode==="decimal"||e.target.inputMode==="numeric")){var v=e.target.value;if(v){setTimeout(function(){try{e.target.type="text";e.target.setSelectionRange(v.length,v.length);e.target.type="number";}catch(x){e.target.setSelectionRange(v.length,v.length);}},0);}}});</script></head>
+<script>
+window.onerror=function(msg,src,line,col,err){
+  document.body.innerHTML='<div style="background:#000;color:#f85149;padding:20px;font-family:monospace;font-size:13px;word-break:break-all;white-space:pre-wrap;position:fixed;inset:0;overflow:auto;z-index:99999">'
+    +'<b>ERROR</b>\n'+msg+'\n\nFile: '+src+'\nLine: '+line+' Col: '+col
+    +'\n\nStack:\n'+(err&&err.stack||'none')+'</div>';
+  return false;
+};
+window.addEventListener('unhandledrejection',function(e){
+  document.body.innerHTML='<div style="background:#000;color:#f97316;padding:20px;font-family:monospace;font-size:13px;word-break:break-all;white-space:pre-wrap;position:fixed;inset:0;overflow:auto;z-index:99999">'
+    +'<b>UNHANDLED PROMISE</b>\n'+(e.reason&&e.reason.stack||e.reason||'unknown')+'</div>';
+});
+</script></head>
 <body class="dark">
 <div id="splash">
   <svg width="90" height="90" viewBox="0 0 512 512" xmlns="http://www.w3.org/2000/svg">
