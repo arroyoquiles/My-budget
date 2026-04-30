@@ -948,12 +948,16 @@ const GastoItem=({item,pid,editId,editPid,setEditId,tarjetas,loans,potsList,peri
 };
 
 // ── FutureSheet ──────────────────────────────────────────────────────────────
-// Completely self-contained bottom sheet for planning next month's checks.
-// Uses its own local editId state — never touches App's global editId.
-const FutureSheet=({periods,data,setData,onClose,T})=>{
+// Self-contained sheet. editId lives HERE only — never shared with App.
+// Modal renders OUTSIDE the list in FutureSheet itself, so reordering/regrouping
+// of items never causes the wrong modal to open.
+const FutureSheet=({periods,data,setData,onClose,T,monthPeriods})=>{
   const [activePid,setActivePid]=useState(periods[0]?.id||"");
-  const [editId,setEditId]=useState(null); // LOCAL — isolated from App
+  const [editId,setEditId]=useState(null);
+  const [editItem,setEditItem]=useState(null); // snapshot of item being edited
+  const [addMode,setAddMode]=useState(null); // null | "regular" | "debt"
   const INP=mkINP(T),BTN=mkBTN(),CARD=mkCARD(T);
+
   const pid=periods.find(p=>p.id===activePid)?.id||periods[0]?.id||"";
   const period=periods.find(p=>p.id===pid)||periods[0];
   const gastos=(data.periods[pid]||{}).gastos||[];
@@ -961,20 +965,58 @@ const FutureSheet=({periods,data,setData,onClose,T})=>{
   const customLabels=data.customLabels||[];
   const tarjetas=data.tarjetas||[];
 
+  // Keep editItem in sync with live data while modal is open
+  useEffect(()=>{
+    if(!editId)return;
+    const live=gastos.find(x=>x.id===editId);
+    if(live)setEditItem({...live});
+  },[editId,gastos]);
+
   const updGastos=(fn)=>setData(p=>{
     const cur=(p.periods[pid]||{}).gastos||[];
     return{...p,periods:{...p.periods,[pid]:{...(p.periods[pid]||{}),gastos:fn(cur)}}};
   });
-  const updateGasto=(id,f,v)=>updGastos(g=>g.map(x=>x.id===id?{...x,[f]:v}:x));
-  const batchUpdateGasto=(id,fields)=>updGastos(g=>g.map(x=>x.id===id?{...x,...fields}:x));
-  const removeGasto=(id)=>updGastos(g=>g.filter(x=>x.id!==id));
-  const addGasto=()=>{
-    const nid=uid();
-    updGastos(g=>[...g,{id:nid,nombre:"",monto:0,cat:"",state:"pending",pagado:false,destino:"__new__",tarjetaRef:"",diaPago:null,_quick:false}]);
-    setTimeout(()=>setEditId(nid),80);
+  const saveField=(id,f,v)=>updGastos(g=>g.map(x=>x.id===id?{...x,[f]:v}:x));
+  const saveBatch=(id,fields)=>updGastos(g=>g.map(x=>x.id===id?{...x,...fields}:x));
+  const removeG=(id)=>updGastos(g=>g.filter(x=>x.id!==id));
+
+  const openEdit=(id)=>{
+    const item=gastos.find(x=>x.id===id);
+    if(!item)return;
+    setEditItem({...item});
+    setEditId(id);
+  };
+  const closeEdit=()=>{setEditId(null);setEditItem(null);};
+  const saveEdit=()=>{
+    if(!editItem)return;
+    const isPot=(potsList||[]).find(p=>p.id===editItem.destino);
+    const isCustom=(customLabels||[]).find(l=>l.id===editItem.destino);
+    let dest=editItem.destino||"other",cat=editItem.cat||"other";
+    if(isPot){dest=editItem.destino;cat=editItem.destino;}
+    else if(isCustom){dest=editItem.destino;cat=isCustom.parent||editItem.destino;}
+    if(dest==="__new__"||dest==="")dest="other";
+    if(cat==="__new__"||cat==="")cat="other";
+    saveBatch(editItem.id,{...editItem,destino:dest,cat});
+    closeEdit();
   };
 
-  // Group by destino
+  const addRegular=()=>{
+    const nid=uid();
+    const item={id:nid,nombre:"",monto:0,cat:"other",state:"pending",pagado:false,destino:"other",tarjetaRef:"",diaPago:null,_quick:false};
+    updGastos(g=>[...g,item]);
+    setTimeout(()=>openEdit(nid),60);
+    setAddMode(null);
+  };
+
+  // Summary
+  const periodAmt=(()=>{const s=(data.periods[pid]||{}).amount;if(s!=null&&s!==""&&n(s)>0)return n(s);return n(data.checkAmount||0);})();
+  const total=gastos.reduce((s,g)=>s+n(g.monto),0);
+  const sob=periodAmt-total;
+  const remColor=sob>=0?"#56d364":"#f85149";
+  const nmLabel=period?.payday?.toLocaleDateString("en-US",{month:"long",year:"numeric"})||"";
+  const nmShort=period?.payday?.toLocaleDateString("en-US",{month:"short"})||"";
+
+  // Group gastos for display only — never affects editId logic
   const groups={};
   gastos.forEach(g=>{
     const isCustom=g.destino&&(g.destino.startsWith("label_")||customLabels.some(cl=>cl.id===g.destino));
@@ -988,22 +1030,13 @@ const FutureSheet=({periods,data,setData,onClose,T})=>{
     return(aBot?999:DORDER.indexOf(groups[a].d)+1||50)-(bBot?999:DORDER.indexOf(groups[b].d)+1||50);
   });
 
-  const amt=(()=>{const stored=(data.periods[pid]||{}).amount;if(stored!=null&&stored!==""&&n(stored)>0)return n(stored);return n(data.checkAmount||0);})();
-  const total=gastos.reduce((s,g)=>s+n(g.monto),0);
-  const sob=amt-total;
-  const remColor=sob>=200?"#3fb950":sob>=0?"#56d364":sob>=-99?"#f97316":"#f85149";
-  const nmLabel=period?.payday?.toLocaleDateString("en-US",{month:"long",year:"numeric"})||"";
-  const nmShort=period?.payday?.toLocaleDateString("en-US",{month:"short"})||"";
-
   return(
     <div style={{position:"fixed",inset:0,zIndex:550,background:"rgba(0,0,0,0.65)",backdropFilter:"blur(6px)",WebkitBackdropFilter:"blur(6px)",display:"flex",alignItems:"flex-end",justifyContent:"center",animation:"fadeIn 0.22s ease both"}}
       onClick={e=>{if(e.target===e.currentTarget)onClose();}}>
       <div style={{width:"100%",maxWidth:500,background:T.surface,borderRadius:"20px 20px 0 0",border:"1.5px solid #d2992255",borderBottom:"none",maxHeight:"88vh",display:"flex",flexDirection:"column",animation:"slideInUp 0.38s cubic-bezier(0.25,0.46,0.45,0.94) both"}}>
-        {/* Handle */}
         <div style={{display:"flex",justifyContent:"center",paddingTop:10,paddingBottom:4,flexShrink:0}}>
           <div style={{width:36,height:4,borderRadius:2,background:"#d2992255"}}/>
         </div>
-        {/* Header */}
         <div style={{padding:"8px 16px 12px",borderBottom:`1px solid ${T.border}`,flexShrink:0,display:"flex",alignItems:"center",justifyContent:"space-between"}}>
           <div style={{display:"flex",alignItems:"center",gap:10}}>
             <span style={{fontSize:22}}>🗓️</span>
@@ -1014,35 +1047,37 @@ const FutureSheet=({periods,data,setData,onClose,T})=>{
           </div>
           <button style={{...BTN,width:32,height:32,borderRadius:"50%",background:T.surface2,color:T.muted,fontSize:16,display:"flex",alignItems:"center",justifyContent:"center",border:`1px solid ${T.border}`}} onClick={onClose}>✕</button>
         </div>
-        {/* Period tabs if multiple */}
         {periods.length>1&&(
           <div style={{display:"flex",gap:5,padding:"10px 16px 0",flexShrink:0}}>
             {periods.map(p=>{
               const isActive=p.id===pid;
               const pg=(data.periods[p.id]||{}).gastos||[];
               const pt=pg.reduce((s,g)=>s+n(g.monto),0);
+              const srcPeriod=monthPeriods?.[periods.indexOf(p)]||null;
+              const srcAmt=srcPeriod?((data.periods[srcPeriod.id]||{}).amount||(data.checkAmount||0)):0;
               return(<button key={p.id} style={{...BTN,flex:1,padding:"7px 6px",fontSize:11,borderRadius:9,background:isActive?"#d2992222":"transparent",color:isActive?"#d29922":T.muted,border:isActive?"1.5px solid #d2992255":"1px solid transparent",display:"flex",flexDirection:"column",alignItems:"center",gap:1}}
-                onClick={()=>{setActivePid(p.id);setEditId(null);}}>
+                onClick={()=>{setActivePid(p.id);closeEdit();}}>
                 <span style={{fontWeight:isActive?700:500}}>{p.label}</span>
                 <span style={{fontSize:8,fontWeight:600,color:isActive?"#d29922":T.muted}}>{pt>0?fmt(pt):"—"}</span>
               </button>);
             })}
           </div>
         )}
-        {/* Body */}
-        <div style={{overflowY:"auto",flex:1,padding:"14px 16px",paddingBottom:"max(20px,env(safe-area-inset-bottom,20px))"}}>
-          {/* Summary bar */}
-          <div style={{...CARD,padding:"12px 14px",marginBottom:12,borderColor:"#d2992244"}}>
-            <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:6}}>
-              <span style={{fontSize:10,color:T.muted,fontWeight:600}}>INCOME <span style={{fontFamily:"monospace",color:"#56d364"}}>{fmt(amt)}</span></span>
-              <span style={{fontSize:10,color:T.muted,fontWeight:600}}>ASSIGNED <span style={{fontFamily:"monospace",color:"#f85149"}}>{fmt(total)}</span></span>
-              <span style={{fontSize:11,fontWeight:700,color:remColor}}>LEFT {fmt(sob)}</span>
-            </div>
-            <div style={{height:5,background:T.surface2,borderRadius:4,overflow:"hidden"}}>
-              <div style={{height:"100%",width:`${amt>0?Math.min(100,Math.round((total/amt)*100)):0}%`,background:"#f85149",borderRadius:4,transition:"width 0.4s"}}/>
-            </div>
+        {/* Income amount for this future period */}
+        <div style={{padding:"8px 16px 0",flexShrink:0,display:"flex",alignItems:"center",gap:8}}>
+          <span style={{fontSize:10,color:T.muted,fontWeight:600,flexShrink:0}}>CHECK AMT</span>
+          <div className="amt-wrap" style={{flex:1}}>
+            <span className="amt-prefix" style={{fontSize:12,color:T.muted}}>$</span>
+            <input style={{...INP,paddingLeft:18,fontSize:13,fontWeight:700,fontFamily:"monospace",height:34}}
+              type="number" inputMode="decimal"
+              value={(data.periods[pid]||{}).amount!=null?(data.periods[pid]||{}).amount:(data.checkAmount||"")}
+              onChange={e=>{const v=e.target.value;setData(p=>({...p,periods:{...p.periods,[pid]:{...(p.periods[pid]||{}),amount:v===""?"":parseFloat(v)||0}}}));}}
+              placeholder={String(n(data.checkAmount)||0)}/>
           </div>
-          {/* Grouped gastos */}
+          <span style={{fontSize:11,fontWeight:700,color:remColor,flexShrink:0,fontFamily:"monospace"}}>{fmt(sob)} left</span>
+        </div>
+        <div style={{overflowY:"auto",flex:1,padding:"10px 16px",paddingBottom:"max(20px,env(safe-area-inset-bottom,20px))"}}>
+          {/* Grouped display */}
           {sortedKeys.map(k=>{
             const{d,r,items}=groups[k];
             const dst=gds(d,r,null,potsList,customLabels);
@@ -1052,268 +1087,251 @@ const FutureSheet=({periods,data,setData,onClose,T})=>{
                 <span style={{fontSize:11,fontWeight:700,color:dst.color}}>{dst.icon} {dst.label}</span>
                 <span style={{fontFamily:"monospace",fontSize:12,fontWeight:800,color:dst.color}}>{fmt(sub)}</span>
               </div>
-              {items.map(gi=>(
-                <FutureGastoItem key={gi.id} item={gi} pid={pid} isEditing={editId===gi.id}
-                  onOpenEdit={()=>setEditId(gi.id)}
-                  onCloseEdit={()=>setEditId(null)}
-                  onUpdate={updateGasto} onBatchUpdate={batchUpdateGasto} onRemove={removeGasto}
-                  tarjetas={tarjetas} potsList={potsList} customLabels={customLabels} T={T}/>
-              ))}
+              {items.map(gi=>{
+                const dest=gds(gi.destino,gi.tarjetaRef,null,potsList,customLabels);
+                return(
+                  <FutureRow key={gi.id} item={gi} dest={dest}
+                    onEdit={()=>openEdit(gi.id)}
+                    onDelete={()=>removeG(gi.id)}
+                    T={T}/>
+                );
+              })}
             </div>);
           })}
-          {gastos.length===0&&<div style={{textAlign:"center",padding:"32px 20px",color:T.muted,fontSize:13}}>No expenses yet — add some below</div>}
-          <button style={{...BTN,width:"100%",padding:"11px",background:`${T.accent}20`,color:T.accent,fontSize:13,fontWeight:700,border:`1px solid ${T.accent}55`,borderRadius:12,marginTop:4,marginBottom:8}} onClick={addGasto}>+ Add Expense</button>
-          <div style={{padding:"10px 14px",background:T.surface2,borderRadius:12,display:"flex",alignItems:"center",gap:8,border:`1px solid ${T.border}`}}>
-            <span style={{fontSize:13}}>💡</span>
-            <span style={{fontSize:10,color:T.muted,lineHeight:1.5}}>Activates automatically when {nmShort} starts. Changes saved instantly.</span>
+          {gastos.length===0&&<div style={{textAlign:"center",padding:"28px 20px",color:T.muted,fontSize:13}}>No expenses yet</div>}
+          {/* Add button */}
+          {addMode===null
+            ?<button style={{...BTN,width:"100%",padding:"11px",background:`${T.accent}18`,color:T.accent,fontSize:13,fontWeight:700,border:`1px dashed ${T.accent}55`,borderRadius:12,marginTop:4}} onClick={()=>setAddMode("choose")}>+ Add Expense</button>
+            :<div style={{background:T.surface2,borderRadius:12,padding:"12px",border:`1px solid ${T.border}`,marginTop:4}}>
+              <div style={{fontSize:11,color:T.muted,marginBottom:8,textAlign:"center"}}>What type of expense?</div>
+              <div style={{display:"flex",gap:8}}>
+                <button style={{...BTN,flex:1,padding:"10px",background:`${T.accent}18`,color:T.accent,fontSize:12,fontWeight:700,border:`1px solid ${T.accent}44`,borderRadius:10}} onClick={addRegular}>📝 Regular</button>
+                <button style={{...BTN,flex:1,padding:"10px",background:"rgba(236,72,153,0.12)",color:"#ec4899",fontSize:12,fontWeight:700,border:"1px solid rgba(236,72,153,0.3)",borderRadius:10}}
+                  onClick={()=>{setAddMode("debt");}}>💳 Debt Payment</button>
+                <button style={{...BTN,padding:"10px 12px",background:"transparent",color:T.muted,fontSize:12,borderRadius:10,border:`1px solid ${T.border}`}} onClick={()=>setAddMode(null)}>✕</button>
+              </div>
+              {addMode==="debt"&&(
+                <div style={{marginTop:8,display:"flex",flexDirection:"column",gap:6}}>
+                  {[...tarjetas.map(t=>({...t,tipo:"card"})),...(data.loans||[]).map(l=>({...l,tipo:"loan"}))].map(debt=>{
+                    const isCard=debt.tipo==="card";
+                    return(<button key={debt.id} style={{...BTN,width:"100%",padding:"9px 12px",background:T.surface,border:`1px solid ${T.border}`,borderRadius:9,display:"flex",justifyContent:"space-between",alignItems:"center",fontSize:12,color:T.text}}
+                      onClick={()=>{
+                        const nid=uid();
+                        const realCat=isCard?"credit_card":"auto";
+                        const item={id:nid,nombre:isCard?`${debt.nombre} Payment`:debt.nombre,monto:n(debt.minimo)||0,cat:realCat,state:"pending",pagado:false,destino:realCat,tarjetaRef:isCard?debt.nombre:"",diaPago:debt.fechaPago?parseInt(debt.fechaPago)||null:null,_quick:false,_recurring:true,_recurringCheckOnly:true,debtRef:debt.id};
+                        updGastos(g=>[...g,item]);
+                        setTimeout(()=>openEdit(nid),60);
+                        setAddMode(null);
+                      }}>
+                      <span>{isCard?"💳":"🏦"} {debt.nombre}</span>
+                      <span style={{fontFamily:"monospace",color:T.muted}}>{fmt(debt.minimo)}</span>
+                    </button>);
+                  })}
+                </div>
+              )}
+            </div>
+          }
+          <div style={{marginTop:10,padding:"9px 12px",background:T.surface2,borderRadius:10,display:"flex",alignItems:"center",gap:8,border:`1px solid ${T.border}`}}>
+            <span style={{fontSize:12}}>💡</span>
+            <span style={{fontSize:10,color:T.muted,lineHeight:1.5}}>Activates automatically when {nmShort} starts.</span>
           </div>
         </div>
+      </div>
+      {/* EDIT MODAL — lives in FutureSheet, not in each row */}
+      {editId&&editItem&&ReactDOM.createPortal(
+        <FutureEditModal item={editItem} setItem={setEditItem}
+          onSave={saveEdit} onClose={closeEdit} onDelete={()=>{removeG(editId);closeEdit();}}
+          onFieldSave={(f,v)=>{saveField(editId,f,v);setEditItem(prev=>({...prev,[f]:v}));}}
+          tarjetas={tarjetas} potsList={potsList} customLabels={customLabels} T={T}/>,
+        document.body
+      )}
+    </div>
+  );
+};
+
+// Simple swipeable row — no modal, no state beyond swipe
+const FutureRow=({item,dest,onEdit,onDelete,T})=>{
+  const [swipeX,setSwipeX]=useState(0);
+  const ref=useRef({startX:0,startY:0,dir:null,active:false});
+  const start=(x,y)=>{ref.current={startX:x,startY:y,dir:null,active:false};};
+  const move=(x,y,e)=>{
+    const s=ref.current;if(!s.startX&&!s.startY)return;
+    const dx=x-s.startX,dy=y-s.startY;
+    if(!s.dir){if(Math.abs(dx)<5&&Math.abs(dy)<5)return;s.dir=Math.abs(dx)>Math.abs(dy)*1.1?"h":"v";}
+    if(s.dir==="v"){ref.current={startX:0,startY:0,dir:null,active:false};return;}
+    s.active=true;if(e&&e.cancelable){e.preventDefault();e.stopPropagation();}
+    setSwipeX(Math.max(-88,Math.min(70,dx)));
+  };
+  const end=(x)=>{
+    const s=ref.current;
+    if(!s.active){ref.current={startX:0,startY:0,dir:null,active:false};return;}
+    const fx=x-s.startX;
+    if(fx<-60)setSwipeX(-88);
+    else if(fx>35){setSwipeX(0);onEdit();}
+    else setSwipeX(0);
+    ref.current={startX:0,startY:0,dir:null,active:false};
+  };
+  return(
+    <div style={{marginBottom:6,position:"relative",borderRadius:10,overflow:"hidden"}}>
+      {swipeX!==0&&<div style={{position:"absolute",inset:0,display:"flex",borderRadius:10}}>
+        <div style={{width:70,background:`rgba(88,166,255,0.9)`,display:"flex",alignItems:"center",justifyContent:"center",fontSize:16,cursor:"pointer",borderRadius:"10px 0 0 10px"}}
+          onClick={()=>{setSwipeX(0);onEdit();}}>✏️</div>
+        <div style={{flex:1}}/>
+        <div style={{width:88,background:"rgba(248,81,73,0.9)",display:"flex",alignItems:"center",justifyContent:"center",gap:4,cursor:"pointer",borderRadius:"0 10px 10px 0"}}
+          onClick={()=>onDelete()}>
+          <span style={{fontSize:15}}>🗑</span>
+          {swipeX<=-88&&<span style={{fontSize:11,color:"#fff",fontWeight:700}}>Delete</span>}
+        </div>
+      </div>}
+      <div
+        onTouchStart={e=>start(e.touches[0].clientX,e.touches[0].clientY)}
+        onTouchMove={e=>move(e.touches[0].clientX,e.touches[0].clientY,e)}
+        onTouchEnd={e=>end(e.changedTouches[0].clientX)}
+        onMouseDown={e=>{if(e.button!==0)return;start(e.clientX,e.clientY);
+          const mm=ev=>move(ev.clientX,ev.clientY,null);
+          const mu=ev=>{end(ev.clientX);window.removeEventListener('mousemove',mm);window.removeEventListener('mouseup',mu);};
+          window.addEventListener('mousemove',mm);window.addEventListener('mouseup',mu);}}
+        style={{display:"flex",alignItems:"center",gap:8,padding:"9px 11px",borderRadius:10,background:T.surface,border:`1px solid ${T.border}`,transform:`translateX(${swipeX}px)`,transition:swipeX===0?"transform 0.3s":"none",position:"relative",zIndex:1,touchAction:"pan-y",userSelect:"none"}}>
+        <div style={{width:24,height:24,borderRadius:6,background:(dest.color||"#94a3b8")+"22",display:"flex",alignItems:"center",justifyContent:"center",fontSize:12,flexShrink:0}}>{dest.icon||"📌"}</div>
+        <div style={{flex:1,minWidth:0}}>
+          <div style={{fontSize:13,fontWeight:600,color:T.text,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{item.nombre||"Untitled"}</div>
+          <div style={{fontSize:10,color:T.muted}}>
+            {item._recurring&&<span style={{color:"#58a6ff",marginRight:4}}>🔁</span>}
+            {item.diaPago?`Due day ${item.diaPago}`:"Pending"}
+          </div>
+        </div>
+        <span style={{fontFamily:"monospace",fontWeight:700,fontSize:13,color:dest.color||"#f85149",flexShrink:0}}>{fmt(item.monto)}</span>
       </div>
     </div>
   );
 };
 
-// ── FutureGastoItem ──────────────────────────────────────────────────────────
-// A simplified expense row for future checks. Edit state is 100% local.
-// isEditing is passed from FutureSheet — only ONE item is editing at a time.
-const FutureGastoItem=({item,pid,isEditing,onOpenEdit,onCloseEdit,onUpdate,onBatchUpdate,onRemove,tarjetas,potsList,customLabels,T})=>{
+// Edit modal for future items — receives item as controlled state from FutureSheet
+const FutureEditModal=({item,setItem,onSave,onClose,onDelete,onFieldSave,tarjetas,potsList,customLabels,T})=>{
   const INP=mkINP(T),BTN=mkBTN();
-  const [swipeX,setSwipeX]=useState(0);
-  const swipeRef=useRef({startX:0,startY:0,dir:null,active:false});
-  const dest=gds(item.destino,item.tarjetaRef,null,potsList,customLabels);
-  const catIcon=dest.icon||getCatIcon(item.cat)||"📌";
-  const catColor=dest.color||CATCOLORS[item.cat]||"#94a3b8";
-
-  // Local edit state — initialized fresh each time isEditing becomes true
-  const [localDestino,setLocalDestino]=useState(item.destino||"");
-  const [localTarjetaRef,setLocalTarjetaRef]=useState(item.tarjetaRef||"");
-  const [localCat,setLocalCat]=useState(item.cat||"");
   const [openCatGroup,setOpenCatGroup]=useState(null);
-  const [newLabelInput,setNewLabelInput]=useState(false);
-  const [newLabelName,setNewLabelName]=useState("");
-  const [newLabelParent,setNewLabelParent]=useState("");
-  const didFocusRef=useRef(false);
-
-  useEffect(()=>{
-    if(isEditing){
-      setLocalDestino(item.destino||"");
-      setLocalTarjetaRef(item.tarjetaRef||"");
-      setLocalCat(item.cat||"");
-      setOpenCatGroup(null);
-      didFocusRef.current=false;
-    }
-  },[isEditing]);
-
-  // Swipe handlers
-  const startSwipe=(x,y)=>{swipeRef.current={startX:x,startY:y,dir:null,active:false};};
-  const moveSwipe=(x,y,e)=>{
-    const s=swipeRef.current;if(!s.startX&&!s.startY)return;
-    const dx=x-s.startX,dy=y-s.startY;
-    if(!s.dir){if(Math.abs(dx)<6&&Math.abs(dy)<6)return;s.dir=Math.abs(dx)>Math.abs(dy)*1.2?"h":"v";}
-    if(s.dir==="v"){swipeRef.current={startX:0,startY:0,dir:null,active:false};return;}
-    s.active=true;
-    if(e&&e.cancelable){e.preventDefault();e.stopPropagation();}
-    setSwipeX(Math.max(-88,Math.min(70,dx)));
-  };
-  const endSwipe=(x)=>{
-    const s=swipeRef.current;
-    if(!s.active){swipeRef.current={startX:0,startY:0,dir:null,active:false};return;}
-    const finalX=x!=null?x-s.startX:swipeX;
-    if(finalX<-60)setSwipeX(-88);
-    else if(finalX>40){setSwipeX(0);onOpenEdit();}
-    else setSwipeX(0);
-    swipeRef.current={startX:0,startY:0,dir:null,active:false,justSwiped:true};
-    setTimeout(()=>{if(swipeRef.current)swipeRef.current.justSwiped=false;},300);
-  };
-
-  const saveEdit=()=>{
-    const isPot=(potsList||[]).find(p=>p.id===localDestino);
-    const isCustom=(customLabels||[]).find(l=>l.id===localDestino);
-    let dest,cat;
-    if(isPot){dest=localDestino;cat=localDestino;}
-    else if(isCustom){dest=localDestino;cat=isCustom.parent||localDestino;}
-    else{dest=localCat||localDestino;cat=localCat||localDestino;}
-    if(dest==="__new__"||dest==="")dest="other";
-    if(cat==="__new__"||cat==="")cat="other";
-    if(cat==="credit_card"&&!isCustom&&!isPot)dest="credit_card";
-    const tRef=localTarjetaRef||"";
-    onBatchUpdate(item.id,{destino:dest,cat,tarjetaRef:tRef});
-    onCloseEdit();
-  };
-
-  const isSwipedLeft=swipeX<=-88;
-
-  // Edit modal via portal
-  if(isEditing){
-    const CAT_GROUPS=[
-      {id:"essentials",label:"Essentials",icon:"🏠",cats:["rent","utilities","gas","groceries","auto"]},
-      {id:"spending",  label:"Spending",  icon:"🛍️",cats:["dining","entertainment","lifestyle","travel","personal"]},
-      {id:"bills",     label:"Bills",     icon:"📋",cats:["subscription","insurance","medical","education"]},
-      {id:"finance",   label:"Finance",   icon:"💰",cats:[]},
-    ];
-    const selCat=localCat||(localDestino&&!localDestino.startsWith("label_")&&!(potsList||[]).find(p=>p.id===localDestino)?localDestino:"");
-    const selGroup=selCat?CAT_GROUPS.find(g=>g.cats.includes(selCat))?.id:(potsList||[]).find(p=>p.id===localDestino)?"finance":null;
-    const activeGroup=openCatGroup||(selGroup&&!openCatGroup?selGroup:null);
-    return(<>{ReactDOM.createPortal(
-      <div style={{position:"fixed",inset:0,zIndex:600,background:"rgba(0,0,0,0.72)",backdropFilter:"blur(6px)",WebkitBackdropFilter:"blur(6px)",display:"flex",alignItems:"flex-end",justifyContent:"center",animation:"fadeIn 0.22s ease both"}}
-        onMouseDown={e=>{if(e.target===e.currentTarget)onCloseEdit();}}
-        onTouchEnd={e=>{if(e.target===e.currentTarget)onCloseEdit();}}>
-        <div style={{width:"100%",maxWidth:500,background:T.surface,borderRadius:"20px 20px 0 0",border:`1px solid ${T.accent}55`,padding:"20px",paddingBottom:"max(32px,env(safe-area-inset-bottom,32px))",maxHeight:"90vh",overflowY:"auto",animation:"slideInUp 0.38s cubic-bezier(0.25,0.46,0.45,0.94) both"}}
-          onMouseDown={e=>e.stopPropagation()} onTouchEnd={e=>e.stopPropagation()}>
-          <div style={{width:36,height:4,borderRadius:2,background:T.border,margin:"0 auto 16px"}}/>
-          {/* NAME */}
-          <div style={{marginBottom:10}}><div style={{fontSize:10,color:T.muted,marginBottom:5}}>NAME</div>
-            <input ref={el=>{if(el&&!didFocusRef.current){didFocusRef.current=true;setTimeout(()=>{el.focus();const len=el.value.length;el.setSelectionRange(len,len);},380);}}}
-              style={INP} value={item.nombre} onChange={e=>onUpdate(item.id,"nombre",e.target.value)} placeholder="Expense name"/>
+  const nameRef=useRef(null);
+  useEffect(()=>{setTimeout(()=>{if(nameRef.current){nameRef.current.focus();const l=nameRef.current.value.length;nameRef.current.setSelectionRange(l,l);}},350);},[]);
+  const CAT_GROUPS=[
+    {id:"essentials",label:"Essentials",icon:"🏠",cats:["rent","utilities","gas","groceries","auto"]},
+    {id:"spending",  label:"Spending",  icon:"🛍️",cats:["dining","entertainment","lifestyle","travel","personal"]},
+    {id:"bills",     label:"Bills",     icon:"📋",cats:["subscription","insurance","medical","education"]},
+    {id:"finance",   label:"Finance",   icon:"💰",cats:[]},
+  ];
+  const selCat=item.cat&&DEST[item.cat]?item.cat:(item.destino&&DEST[item.destino]?item.destino:"");
+  const selGroup=CAT_GROUPS.find(g=>g.cats.includes(selCat))?.id||(item._recurring&&!selCat?"finance":null);
+  const activeGroup=openCatGroup??selGroup;
+  const set=(f,v)=>setItem(prev=>({...prev,[f]:v}));
+  return ReactDOM.createPortal(
+    <div style={{position:"fixed",inset:0,zIndex:660,background:"rgba(0,0,0,0.75)",backdropFilter:"blur(8px)",WebkitBackdropFilter:"blur(8px)",display:"flex",alignItems:"flex-end",justifyContent:"center",animation:"fadeIn 0.18s ease both"}}
+      onMouseDown={e=>{if(e.target===e.currentTarget)onClose();}}
+      onTouchEnd={e=>{if(e.target===e.currentTarget)onClose();}}>
+      <div style={{width:"100%",maxWidth:500,background:T.surface,borderRadius:"20px 20px 0 0",border:`1px solid ${T.accent}44`,padding:"16px 18px",paddingBottom:"max(28px,env(safe-area-inset-bottom,28px))",maxHeight:"90vh",overflowY:"auto",animation:"slideInUp 0.32s cubic-bezier(0.25,0.46,0.45,0.94) both"}}
+        onMouseDown={e=>e.stopPropagation()} onTouchEnd={e=>e.stopPropagation()}>
+        <div style={{width:36,height:4,borderRadius:2,background:T.border,margin:"0 auto 14px"}}/>
+        {/* NAME */}
+        <div style={{marginBottom:10}}>
+          <div style={{fontSize:9,color:T.muted,letterSpacing:1,marginBottom:5}}>NAME</div>
+          <input ref={nameRef} style={INP} value={item.nombre||""} onChange={e=>set("nombre",e.target.value)} placeholder="Expense name"/>
+        </div>
+        {/* AMOUNT */}
+        <div style={{marginBottom:10}}>
+          <div style={{fontSize:9,color:T.muted,letterSpacing:1,marginBottom:5}}>AMOUNT</div>
+          <div className="amt-wrap">
+            <span className="amt-prefix" style={{fontSize:14,color:item.monto?T.accent+"99":T.muted+"55"}}>$</span>
+            <input style={{...INP,paddingLeft:20}} type="number" inputMode="decimal" value={item.monto||""} onChange={e=>set("monto",parseFloat(e.target.value)||0)} placeholder="0"/>
           </div>
-          {/* AMOUNT */}
-          <div style={{marginBottom:10}}><div style={{fontSize:10,color:T.muted,marginBottom:5}}>AMOUNT ($)</div>
-            <div className="amt-wrap"><span className="amt-prefix" style={{fontSize:14,color:item.monto?T.accent+"99":T.muted+"55"}}>$</span>
-              <input style={{...INP,paddingLeft:20}} type="number" inputMode="decimal" value={item.monto||""} onChange={e=>onUpdate(item.id,"monto",e.target.value)} placeholder="0"/>
-            </div>
+        </div>
+        {/* CATEGORY */}
+        <div style={{marginBottom:10}}>
+          <div style={{fontSize:9,color:T.muted,letterSpacing:1,marginBottom:5}}>CATEGORY</div>
+          <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr 1fr",gap:5,marginBottom:5}}>
+            {CAT_GROUPS.map(g=>{
+              const isActive=activeGroup===g.id;
+              const hasSel=selGroup===g.id;
+              const selD=hasSel&&selCat?DEST[selCat]:null;
+              const selPot=g.id==="finance"?(potsList||[]).find(p=>p.id===item.destino):null;
+              const label=selPot?`${selPot.icon||"🪣"} ${selPot.name}`:hasSel&&selD?`${selD.icon} ${selD.label}`:`${g.icon} ${g.label}`;
+              return(<button key={g.id} style={{cursor:"pointer",fontFamily:"inherit",WebkitTapHighlightColor:"transparent",padding:"7px 6px",fontSize:10,textAlign:"center",borderRadius:9,fontWeight:600,background:isActive?`${T.accent}15`:"#21262d",color:isActive?T.accent:hasSel||(selPot&&g.id==="finance")?(selD?.color||T.accent):T.muted,border:`1px solid ${isActive?T.accent+"55":hasSel?(selD?.border||T.border):T.border}`}}
+                onMouseDown={e=>{e.preventDefault();setOpenCatGroup(activeGroup===g.id?null:g.id);}}>
+                {label}
+              </button>);
+            })}
           </div>
-          {/* CATEGORY */}
-          <div style={{marginBottom:10}}>
-            <div style={{fontSize:10,color:T.muted,marginBottom:5}}>CATEGORY</div>
-            <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:5,marginBottom:5}}>
-              {CAT_GROUPS.map(g=>{
-                const isActive=activeGroup===g.id;
-                const hasSel=selGroup===g.id;
-                const selD=hasSel&&selCat?DEST[selCat]:null;
-                const selPot=g.id==="finance"?(potsList||[]).find(p=>p.id===localDestino):null;
-                const label=selPot?`${selPot.icon||"🪣"} ${selPot.name}`:hasSel&&selD?`${selD.icon} ${selD.label}`:`${g.icon} ${g.label}`;
-                return(<button key={g.id} style={{cursor:"pointer",fontFamily:"inherit",WebkitTapHighlightColor:"transparent",padding:"7px 8px",fontSize:11,textAlign:"left",borderRadius:10,fontWeight:600,border:"none",background:isActive?`${T.accent}15`:"#21262d",color:isActive?T.accent:hasSel||selPot?(selD?.color||selPot?.color||T.text):T.muted,border:`1px solid ${isActive?T.accent+"55":hasSel||selPot?(selD?.border||selPot?.color+"66"||T.border):T.border}`,transition:"all 0.15s",display:"flex",alignItems:"center",justifyContent:"space-between",gap:4}}
-                  onMouseDown={e=>{e.preventDefault();setOpenCatGroup(activeGroup===g.id?null:g.id);}}>
-                  <span style={{overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{label}</span>
-                  <span style={{fontSize:9,opacity:0.5,flexShrink:0}}>{isActive?"▲":"▼"}</span>
-                </button>);
-              })}
-            </div>
-            {CAT_GROUPS.filter(g=>g.id===activeGroup).map(g=>(
-              <div key={g.id} style={{marginBottom:5,padding:"8px",background:T.surface2,borderRadius:10,border:`1px solid ${T.border}`}}>
-                <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:4}}>
-                  {g.cats.map(k=>{const d=DEST[k];if(!d)return null;const isSel=selCat===k;
-                    return(<button key={k} style={{cursor:"pointer",border:"none",borderRadius:8,fontFamily:"inherit",fontWeight:600,WebkitTapHighlightColor:"transparent",padding:"7px 6px",fontSize:10,textAlign:"left",background:isSel?d.bg:"transparent",color:isSel?d.color:T.muted,border:`1px solid ${isSel?d.border:"transparent"}`,transition:"all 0.1s",whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}
-                      onMouseDown={e=>{e.preventDefault();setLocalCat(k);setLocalDestino(k==="credit_card"?"credit_card":k);if(k!=="credit_card")setLocalTarjetaRef("");setOpenCatGroup(null);}}>
-                      {d.icon} {d.label}
-                    </button>);})}
-                  {g.id==="finance"&&(potsList||[]).map(pot=>{const isSel=localDestino===pot.id;const color=pot.color||"#58a6ff";
-                    return(<button key={pot.id} style={{cursor:"pointer",border:"none",borderRadius:8,fontFamily:"inherit",fontWeight:600,WebkitTapHighlightColor:"transparent",padding:"7px 6px",fontSize:10,textAlign:"left",background:isSel?color+"22":"transparent",color:isSel?color:T.muted,border:`1px solid ${isSel?color+"66":"transparent"}`,transition:"all 0.1s",whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}
-                      onMouseDown={e=>{e.preventDefault();setLocalDestino(pot.id);setLocalCat("");setLocalTarjetaRef("");setOpenCatGroup(null);}}>
-                      {pot.icon||"🪣"} {pot.name}
-                    </button>);})}
-                </div>
+          {CAT_GROUPS.filter(g=>g.id===activeGroup).map(g=>(
+            <div key={g.id} style={{padding:"8px",background:T.surface2,borderRadius:9,border:`1px solid ${T.border}`,marginBottom:5}}>
+              <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:4}}>
+                {g.cats.map(k=>{const d=DEST[k];if(!d)return null;const isSel=selCat===k||item.cat===k;
+                  return(<button key={k} style={{cursor:"pointer",border:"none",borderRadius:7,fontFamily:"inherit",fontWeight:600,WebkitTapHighlightColor:"transparent",padding:"7px 5px",fontSize:10,background:isSel?d.bg:"transparent",color:isSel?d.color:T.muted,border:`1px solid ${isSel?d.border:"transparent"}`,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}
+                    onMouseDown={e=>{e.preventDefault();const dest=k==="credit_card"?"credit_card":k;set("cat",k);set("destino",dest);if(k!=="credit_card")set("tarjetaRef","");setOpenCatGroup(null);}}>
+                    {d.icon} {d.label}
+                  </button>);})}
+                {g.id==="finance"&&(potsList||[]).map(pot=>{const isSel=item.destino===pot.id;const color=pot.color||"#58a6ff";
+                  return(<button key={pot.id} style={{cursor:"pointer",border:"none",borderRadius:7,fontFamily:"inherit",fontWeight:600,WebkitTapHighlightColor:"transparent",padding:"7px 5px",fontSize:10,background:isSel?color+"22":"transparent",color:isSel?color:T.muted,border:`1px solid ${isSel?color+"66":"transparent"}`,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}
+                    onMouseDown={e=>{e.preventDefault();set("destino",pot.id);set("cat","");set("tarjetaRef","");setOpenCatGroup(null);}}>
+                    {pot.icon||"🪣"} {pot.name}
+                  </button>);})}
               </div>
-            ))}
-            {/* Temp + custom labels */}
-            {(()=>{const isSel=localDestino==="temp";const d=DEST["temp"];
-              return(<div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:5,marginBottom:5}}>
-                <button style={{cursor:"pointer",border:"none",borderRadius:10,fontFamily:"inherit",fontWeight:600,WebkitTapHighlightColor:"transparent",padding:"7px 8px",fontSize:11,textAlign:"left",background:isSel?d.bg:"#21262d",color:isSel?d.color:T.muted,border:`1px solid ${isSel?d.border:T.border}`,transition:"all 0.1s",display:"flex",alignItems:"center",justifyContent:"space-between",gap:4}}
-                  onMouseDown={e=>{e.preventDefault();setLocalCat("temp");setLocalDestino("temp");setLocalTarjetaRef("");setOpenCatGroup(null);}}>
-                  <span style={{overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{d.icon} {d.label}</span>
-                </button>
-              </div>);
-            })()}
-            <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:5}}>
-              {(customLabels||[]).map(cl=>{const isSel=localDestino===cl.id;
-                return(<button key={cl.id} style={{cursor:"pointer",border:"none",borderRadius:10,fontFamily:"inherit",fontWeight:600,WebkitTapHighlightColor:"transparent",padding:"7px 9px",fontSize:11,textAlign:"left",background:isSel?"rgba(167,139,250,0.15)":"#21262d",color:isSel?"#a78bfa":T.muted,border:`1px solid ${isSel?"rgba(167,139,250,0.5)":T.border}`,transition:"all 0.1s",whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}
-                  onMouseDown={e=>{e.preventDefault();setLocalDestino(cl.id);setLocalCat("");setLocalTarjetaRef("");}}>
-                  {cl.icon||"🏷️"} {cl.name}
-                </button>);})}
-              {newLabelInput
-                ?<div style={{gridColumn:"1/-1",display:"flex",flexDirection:"column",gap:4}}>
-                  <input autoFocus style={{...INP,fontSize:11,padding:"6px 8px"}} placeholder="Label name..." value={newLabelName} onChange={e=>setNewLabelName(e.target.value)}/>
-                  <select style={{...INP,fontSize:11,padding:"6px 8px"}} value={newLabelParent||""} onChange={e=>setNewLabelParent(e.target.value)}>
-                    <option value="">No parent</option>
-                    {PARENT_CATS.map(k=><option key={k} value={k}>{DEST[k].icon} {DEST[k].label}</option>)}
-                  </select>
-                  <div style={{display:"flex",gap:4}}>
-                    <button style={{...BTN,flex:1,background:"#238636",color:"#fff",padding:"7px",fontSize:11,borderRadius:8,WebkitTapHighlightColor:"transparent"}}
-                      onMouseDown={e=>{e.preventDefault();if(newLabelName.trim()){const id="label_"+uid();setLocalDestino(id);setLocalCat("");setNewLabelName("");setNewLabelParent("");setNewLabelInput(false);}}}>✓ Add</button>
-                    <button style={{...BTN,background:T.surface2,color:T.muted,padding:"7px 12px",fontSize:11,borderRadius:8,WebkitTapHighlightColor:"transparent"}}
-                      onMouseDown={e=>{e.preventDefault();setNewLabelInput(false);setNewLabelName("");setNewLabelParent("");}}>✕</button>
-                  </div>
-                </div>
-                :<button style={{cursor:"pointer",border:"none",borderRadius:10,fontFamily:"inherit",fontWeight:600,WebkitTapHighlightColor:"transparent",padding:"7px 9px",fontSize:11,textAlign:"left",background:"transparent",color:T.muted,border:`1px dashed ${T.border}`,whiteSpace:"nowrap"}}
-                  onMouseDown={e=>{e.preventDefault();setNewLabelInput(true);}}>+ New</button>
-              }
             </div>
+          ))}
+          {(customLabels||[]).length>0&&<div style={{display:"flex",flexWrap:"wrap",gap:4,marginBottom:5}}>
+            {customLabels.map(cl=>{const isSel=item.destino===cl.id;
+              return(<button key={cl.id} style={{cursor:"pointer",border:"none",borderRadius:8,fontFamily:"inherit",fontWeight:600,WebkitTapHighlightColor:"transparent",padding:"5px 10px",fontSize:11,background:isSel?"rgba(167,139,250,0.15)":"#21262d",color:isSel?"#a78bfa":T.muted,border:`1px solid ${isSel?"rgba(167,139,250,0.5)":T.border}`}}
+                onMouseDown={e=>{e.preventDefault();set("destino",cl.id);set("cat","");set("tarjetaRef","");}}>
+                {cl.icon||"🏷️"} {cl.name}
+              </button>);})}
+          </div>}
+        </div>
+        {/* PAID WITH */}
+        {item.destino==="credit_card"&&<div style={{marginBottom:10}}>
+          <div style={{fontSize:9,color:T.muted,letterSpacing:1,marginBottom:5}}>CARD</div>
+          <select style={{...INP,WebkitAppearance:"auto",appearance:"auto",cursor:"pointer"}}
+            value={item.tarjetaRef||""}
+            onChange={e=>set("tarjetaRef",e.target.value)}>
+            <option value="">Select card...</option>
+            {tarjetas.map(t=><option key={t.id} value={t.nombre}>{t.nombre}</option>)}
+          </select>
+        </div>}
+        {/* DUE DAY + RECURRING */}
+        <div style={{display:"flex",gap:8,marginBottom:12}}>
+          <div style={{flex:1}}>
+            <div style={{fontSize:9,color:T.muted,letterSpacing:1,marginBottom:4}}>📅 DUE DAY</div>
+            <input style={{...INP,fontFamily:"monospace",fontWeight:700,textAlign:"center"}} type="number" inputMode="numeric" placeholder="—" min="1" max="31"
+              value={item.diaPago||""} onChange={e=>{const v=parseInt(e.target.value);set("diaPago",e.target.value?Math.min(31,Math.max(1,v)):null);}}/>
           </div>
-          {/* PAID WITH */}
-          <div style={{marginBottom:10}}>
-            <div style={{fontSize:10,color:T.muted,marginBottom:6}}>PAID WITH</div>
-            <select style={{...INP,fontSize:14,fontWeight:600,WebkitAppearance:"auto",appearance:"auto",cursor:"pointer"}}
-              value={localTarjetaRef?`card:${localTarjetaRef}`:"cash"}
-              onChange={e=>{const v=e.target.value;if(v==="cash"){setLocalTarjetaRef("");}else{setLocalTarjetaRef(v.replace("card:",""));}}}>
-              <option value="cash">💵 Debit / Cash</option>
-              {tarjetas.map(t=>{const tc=CC[t.nombre]||null;const dot=tc?.dot||t._vc?.dot||"💳";return(<option key={t.id} value={`card:${t.nombre}`}>{dot} {t.nombre}</option>);})}
-            </select>
-          </div>
-          {/* DUE DAY + RECURRING */}
-          <div style={{display:"flex",gap:8,marginBottom:10}}>
-            <div style={{flex:1}}>
-              <div style={{fontSize:9,color:T.muted,marginBottom:4,letterSpacing:1}}>📅 DUE DAY</div>
-              <input style={{...INP,fontFamily:"monospace",fontWeight:700,textAlign:"center",height:44}} type="number" inputMode="numeric" placeholder="—" min="1" max="31" value={item.diaPago||""}
-                onChange={e=>{const v=parseInt(e.target.value);onUpdate(item.id,"diaPago",e.target.value?Math.min(31,Math.max(1,v)):null);}}/>
+          <button style={{...BTN,flex:2,padding:"0 12px",borderRadius:11,display:"flex",alignItems:"center",justifyContent:"space-between",background:item._recurring?`${T.accent}10`:"transparent",border:`1px solid ${item._recurring?T.accent+"55":T.border}`,marginTop:17,height:44}}
+            onClick={()=>set("_recurring",!item._recurring)}>
+            <div style={{display:"flex",alignItems:"center",gap:6}}>
+              <span style={{fontSize:13}}>🔁</span>
+              <div>
+                <div style={{fontSize:11,fontWeight:600,color:item._recurring?T.accent:T.text}}>Repeat</div>
+                <div style={{fontSize:9,color:T.muted}}>{item._recurring?"Every cycle":"One-time"}</div>
+              </div>
             </div>
-            <button style={{...BTN,flex:2,height:44,marginTop:17,padding:"0 12px",borderRadius:11,display:"flex",alignItems:"center",justifyContent:"space-between",background:item._recurring?`${T.accent}10`:"transparent",border:`1px solid ${item._recurring?T.accent+"55":T.border}`,transition:"all 0.2s"}}
-              onClick={()=>onUpdate(item.id,"_recurring",!item._recurring)}>
-              <div style={{display:"flex",alignItems:"center",gap:6}}>
-                <span style={{fontSize:14}}>🔁</span>
-                <div><div style={{fontSize:11,fontWeight:600,color:item._recurring?T.accent:T.text}}>Repeat</div>
-                  <div style={{fontSize:9,color:T.muted}}>{item._recurring?"Every cycle":"One-time"}</div>
-                </div>
-              </div>
-              <div style={{width:32,height:18,borderRadius:9,position:"relative",flexShrink:0,background:item._recurring?T.accent:"rgba(255,255,255,0.1)",border:`1px solid ${item._recurring?T.accent:T.border}`,transition:"background 0.2s"}}>
-                <div style={{position:"absolute",top:2,left:item._recurring?16:2,width:12,height:12,borderRadius:"50%",background:"#fff",transition:"left 0.2s cubic-bezier(0.34,1.56,0.64,1)",boxShadow:"0 1px 3px rgba(0,0,0,0.3)"}}/>
-              </div>
-            </button>
+            <div style={{width:30,height:17,borderRadius:9,position:"relative",flexShrink:0,background:item._recurring?T.accent:"rgba(255,255,255,0.08)",border:`1px solid ${item._recurring?T.accent:T.border}`,transition:"background 0.2s"}}>
+              <div style={{position:"absolute",top:2,left:item._recurring?15:2,width:11,height:11,borderRadius:"50%",background:"#fff",transition:"left 0.2s cubic-bezier(0.34,1.56,0.64,1)",boxShadow:"0 1px 3px rgba(0,0,0,0.3)"}}/>
+            </div>
+          </button>
+        </div>
+        {/* RECURRING SCOPE — only show when _recurring is true */}
+        {item._recurring&&<div style={{marginBottom:12,padding:"10px",background:T.surface2,borderRadius:10,border:`1px solid ${T.border}`}}>
+          <div style={{fontSize:9,color:T.muted,letterSpacing:1,marginBottom:8}}>REPEAT SCOPE</div>
+          <div style={{display:"flex",gap:6}}>
+            <button style={{...BTN,flex:1,padding:"8px",fontSize:11,fontWeight:600,borderRadius:9,background:!item._recurringCheckOnly?`${T.accent}20`:"transparent",color:!item._recurringCheckOnly?T.accent:T.muted,border:`1px solid ${!item._recurringCheckOnly?T.accent+"55":T.border}`}}
+              onClick={()=>set("_recurringCheckOnly",false)}>All checks</button>
+            <button style={{...BTN,flex:1,padding:"8px",fontSize:11,fontWeight:600,borderRadius:9,background:item._recurringCheckOnly?`${T.accent}20`:"transparent",color:item._recurringCheckOnly?T.accent:T.muted,border:`1px solid ${item._recurringCheckOnly?T.accent+"55":T.border}`}}
+              onClick={()=>set("_recurringCheckOnly",true)}>This check only</button>
           </div>
-          {/* Actions */}
-          <div style={{display:"flex",gap:8,marginTop:10}}>
-            <button style={{...BTN,flex:1,padding:"12px",background:"#238636",color:"#fff",fontSize:13,fontWeight:700,borderRadius:11}} onClick={saveEdit}>✓  SAVE</button>
-            <button style={{...BTN,padding:"12px 16px",background:"transparent",color:T.muted,fontSize:12,borderRadius:11,border:"none",opacity:0.6}} onClick={onCloseEdit}>CANCEL</button>
-            <button style={{...BTN,padding:"12px 14px",background:"rgba(248,81,73,0.1)",color:"#f85149",fontSize:14,borderRadius:11,border:"1px solid rgba(248,81,73,0.2)"}} onClick={()=>{onRemove(item.id);onCloseEdit();}}>🗑</button>
-          </div>
+        </div>}
+        {/* ACTIONS */}
+        <div style={{display:"flex",gap:8}}>
+          <button style={{...BTN,flex:1,padding:"12px",background:"#238636",color:"#fff",fontSize:13,fontWeight:700,borderRadius:11}} onClick={onSave}>✓ Save</button>
+          <button style={{...BTN,padding:"12px 14px",background:"transparent",color:T.muted,fontSize:12,borderRadius:11,border:`1px solid ${T.border}`}} onClick={onClose}>Cancel</button>
+          <button style={{...BTN,padding:"12px 14px",background:"rgba(248,81,73,0.1)",color:"#f85149",fontSize:13,borderRadius:11,border:"1px solid rgba(248,81,73,0.2)"}} onClick={onDelete}>🗑</button>
         </div>
       </div>
-    ,document.body)}</>);
-  }
-
-  // Compact row
-  return(
-    <div className="expense-row" style={{marginBottom:7,position:"relative",borderRadius:11,overflow:"hidden"}}>
-      {swipeX!==0&&<div style={{position:"absolute",inset:0,display:"flex",borderRadius:11}}>
-        <div style={{width:70,background:`${T.accent}ee`,display:"flex",alignItems:"center",justifyContent:"center",fontSize:18,cursor:"pointer",flexShrink:0,borderRadius:"11px 0 0 11px"}}
-          onTouchEnd={e=>{e.preventDefault();e.stopPropagation();if(!swipeRef.current?.justSwiped){setSwipeX(0);onOpenEdit();}}}
-          onClick={e=>{e.stopPropagation();if(!swipeRef.current?.justSwiped){setSwipeX(0);onOpenEdit();}}}>✏️</div>
-        <div style={{flex:1}}/>
-        <div style={{width:88,background:"rgba(248,81,73,0.92)",display:"flex",alignItems:"center",justifyContent:"center",gap:6,cursor:"pointer",flexShrink:0,borderRadius:"0 11px 11px 0"}}
-          onClick={e=>{if(navigator.vibrate)navigator.vibrate([20,40,20]);const row=e.currentTarget.closest(".expense-row");if(row){row.classList.add("expense-row-exit");setTimeout(()=>onRemove(item.id),260);}else onRemove(item.id);}}>
-          <span style={{fontSize:16}}>🗑</span>
-          {isSwipedLeft&&<span style={{fontSize:11,color:"#fff",fontWeight:700}}>Delete</span>}
-        </div>
-      </div>}
-      <div onTouchStart={e=>{startSwipe(e.touches[0].clientX,e.touches[0].clientY);}}
-        onTouchMove={e=>{moveSwipe(e.touches[0].clientX,e.touches[0].clientY,e);}}
-        onTouchEnd={e=>{endSwipe(e.changedTouches[0].clientX);}}
-        onMouseDown={e=>{if(e.button!==0)return;startSwipe(e.clientX,e.clientY);
-          const onMM=(ev)=>moveSwipe(ev.clientX,ev.clientY,null);
-          const onMU=(ev)=>{endSwipe(ev.clientX);window.removeEventListener('mousemove',onMM);window.removeEventListener('mouseup',onMU);};
-          window.addEventListener('mousemove',onMM);window.addEventListener('mouseup',onMU);}}
-        style={{display:"flex",alignItems:"center",gap:8,padding:"10px 11px",borderRadius:11,background:T.surface,border:`1px solid ${T.border}`,transform:`translateX(${swipeX}px)`,transition:"transform 0.3s cubic-bezier(0.34,1.2,0.64,1)",position:"relative",zIndex:1,touchAction:"pan-y"}}>
-        <div style={{width:26,height:26,borderRadius:7,background:catColor+"22",display:"flex",alignItems:"center",justifyContent:"center",fontSize:13,flexShrink:0}}>{catIcon}</div>
-        <div style={{flex:1,minWidth:0}}>
-          <div style={{fontSize:13,fontWeight:600,color:T.text}}>{item.nombre||"Untitled"}</div>
-          <div style={{fontSize:10,color:T.muted,marginTop:1}}>
-            {item._recurring&&<span style={{color:T.accent,marginRight:4}}>🔁</span>}
-            {item.diaPago&&<span>Due day {item.diaPago}</span>}
-            {!item.diaPago&&<span>○ Pending</span>}
-          </div>
-        </div>
-        <div style={{fontFamily:"monospace",fontWeight:700,fontSize:13,color:catColor,flexShrink:0}}>{fmt(item.monto)}</div>
-      </div>
-    </div>
+    </div>,
+    document.body
   );
 };
 
@@ -2956,6 +2974,7 @@ const hashPin=async(pin)=>{
           data={data}
           setData={setData}
           onClose={()=>setPreviewNextMonth(false)}
+          monthPeriods={monthPeriods}
           T={T}/>
       )}
       {toast&&<div style={{position:"fixed",top:"max(16px, env(safe-area-inset-top, 16px))",left:"50%",transform:"translateX(-50%)",zIndex:9999,background:toast.type==="err"?"#da3633":"#238636",color:"#fff",padding:"10px 20px",borderRadius:24,fontWeight:600,fontSize:13,boxShadow:"0 8px 32px rgba(0,0,0,0.4)",border:`1px solid ${toast.type==="err"?"rgba(248,81,73,0.4)":"rgba(46,160,67,0.4)"}`,whiteSpace:"nowrap",animation:"slideInDown 0.25s cubic-bezier(0.4,0,0.2,1)"}}>{toast.msg}</div>}
