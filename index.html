@@ -948,44 +948,42 @@ const GastoItem=({item,pid,editId,editPid,setEditId,tarjetas,loans,potsList,peri
 };
 
 // ── FutureSheet ──────────────────────────────────────────────────────────────
-// Self-contained sheet. editId lives HERE only — never shared with App.
-// Modal renders OUTSIDE the list in FutureSheet itself, so reordering/regrouping
-// of items never causes the wrong modal to open.
-const FutureSheet=({periods,data,setData,onClose,T,monthPeriods})=>{
+const FutureSheet=({periods,data,setData,onClose,T,monthPeriods,onAddExpense,getPeriodAmount,setPeriodAmount,amtInputVal,setAmtInputVal,globalCheckAmount,openEditRef})=>{
   const [activePid,setActivePid]=useState(periods[0]?.id||"");
   const [editId,setEditId]=useState(null);
-  const [editItem,setEditItem]=useState(null); // snapshot of item being edited
-  const [addMode,setAddMode]=useState(null); // null | "regular" | "debt"
+  const [editItem,setEditItem]=useState(null);
   const INP=mkINP(T),BTN=mkBTN(),CARD=mkCARD(T);
 
   const pid=periods.find(p=>p.id===activePid)?.id||periods[0]?.id||"";
-  const period=periods.find(p=>p.id===pid)||periods[0];
   const gastos=(data.periods[pid]||{}).gastos||[];
   const potsList=data.potsList||[];
   const customLabels=data.customLabels||[];
   const tarjetas=data.tarjetas||[];
 
-  // Keep editItem in sync with live data while modal is open
-  useEffect(()=>{
-    if(!editId)return;
-    const live=gastos.find(x=>x.id===editId);
-    if(live)setEditItem({...live});
-  },[editId,gastos]);
-
-  const updGastos=(fn)=>setData(p=>{
-    const cur=(p.periods[pid]||{}).gastos||[];
-    return{...p,periods:{...p.periods,[pid]:{...(p.periods[pid]||{}),gastos:fn(cur)}}};
+  const updGastos=(p,fn)=>setData(d=>{
+    const cur=(d.periods[p]||{}).gastos||[];
+    return{...d,periods:{...d.periods,[p]:{...(d.periods[p]||{}),gastos:fn(cur)}}};
   });
-  const saveField=(id,f,v)=>updGastos(g=>g.map(x=>x.id===id?{...x,[f]:v}:x));
-  const saveBatch=(id,fields)=>updGastos(g=>g.map(x=>x.id===id?{...x,...fields}:x));
-  const removeG=(id)=>updGastos(g=>g.filter(x=>x.id!==id));
 
   const openEdit=(id)=>{
-    const item=gastos.find(x=>x.id===id);
+    // Search ALL future periods for this id — not just current activePid
+    let item=null;
+    let foundPid=pid;
+    for(const p of periods){
+      const g=((data.periods[p.id]||{}).gastos||[]).find(x=>x.id===id);
+      if(g){item=g;foundPid=p.id;break;}
+    }
     if(!item)return;
+    setActivePid(foundPid);
     setEditItem({...item});
     setEditId(id);
   };
+
+  // Register openEdit so App can call it after adding a gasto
+  useEffect(()=>{
+    if(openEditRef)openEditRef.current=openEdit;
+    return()=>{if(openEditRef)openEditRef.current=null;};
+  });
   const closeEdit=()=>{setEditId(null);setEditItem(null);};
   const saveEdit=()=>{
     if(!editItem)return;
@@ -996,27 +994,10 @@ const FutureSheet=({periods,data,setData,onClose,T,monthPeriods})=>{
     else if(isCustom){dest=editItem.destino;cat=isCustom.parent||editItem.destino;}
     if(dest==="__new__"||dest==="")dest="other";
     if(cat==="__new__"||cat==="")cat="other";
-    saveBatch(editItem.id,{...editItem,destino:dest,cat});
+    updGastos(pid,g=>g.map(x=>x.id===editItem.id?{...editItem,destino:dest,cat}:x));
     closeEdit();
   };
 
-  const addRegular=()=>{
-    const nid=uid();
-    const item={id:nid,nombre:"",monto:0,cat:"other",state:"pending",pagado:false,destino:"other",tarjetaRef:"",diaPago:null,_quick:false};
-    updGastos(g=>[...g,item]);
-    setTimeout(()=>openEdit(nid),60);
-    setAddMode(null);
-  };
-
-  // Summary
-  const periodAmt=(()=>{const s=(data.periods[pid]||{}).amount;if(s!=null&&s!==""&&n(s)>0)return n(s);return n(data.checkAmount||0);})();
-  const total=gastos.reduce((s,g)=>s+n(g.monto),0);
-  const sob=periodAmt-total;
-  const remColor=sob>=0?"#56d364":"#f85149";
-  const nmLabel=period?.payday?.toLocaleDateString("en-US",{month:"long",year:"numeric"})||"";
-  const nmShort=period?.payday?.toLocaleDateString("en-US",{month:"short"})||"";
-
-  // Group gastos for display only — never affects editId logic
   const groups={};
   gastos.forEach(g=>{
     const isCustom=g.destino&&(g.destino.startsWith("label_")||customLabels.some(cl=>cl.id===g.destino));
@@ -1024,11 +1005,15 @@ const FutureSheet=({periods,data,setData,onClose,T,monthPeriods})=>{
     if(!groups[k])groups[k]={d:g.destino,r:g.tarjetaRef,items:[]};
     groups[k].items.push(g);
   });
-  const sortedKeys=Object.keys(groups).sort((a,b)=>{
-    const aBot=groups[a].d==="other"||groups[a].d==="temp";
-    const bBot=groups[b].d==="other"||groups[b].d==="temp";
-    return(aBot?999:DORDER.indexOf(groups[a].d)+1||50)-(bBot?999:DORDER.indexOf(groups[b].d)+1||50);
-  });
+  const sortedKeys=Object.keys(groups).sort((a,b)=>(DORDER.indexOf(groups[a].d)+1||50)-(DORDER.indexOf(groups[b].d)+1||50));
+
+  const amt=getPeriodAmount(pid);
+  const total=gastos.reduce((s,g)=>s+n(g.monto),0);
+  const sob=amt-total;
+  const remColor=sob>=0?"#56d364":"#f85149";
+  const nmLabel=periods.find(p=>p.id===pid)?.payday?.toLocaleDateString("en-US",{month:"long",year:"numeric"})||"";
+  const nmShort=periods.find(p=>p.id===pid)?.payday?.toLocaleDateString("en-US",{month:"short"})||"";
+  const periodAmountIsCustom=(data.periods[pid]||{}).amount!=null&&(data.periods[pid]||{}).amount!=="";
 
   return(
     <div style={{position:"fixed",inset:0,zIndex:550,background:"rgba(0,0,0,0.65)",backdropFilter:"blur(6px)",WebkitBackdropFilter:"blur(6px)",display:"flex",alignItems:"flex-end",justifyContent:"center",animation:"fadeIn 0.22s ease both"}}
@@ -1053,8 +1038,6 @@ const FutureSheet=({periods,data,setData,onClose,T,monthPeriods})=>{
               const isActive=p.id===pid;
               const pg=(data.periods[p.id]||{}).gastos||[];
               const pt=pg.reduce((s,g)=>s+n(g.monto),0);
-              const srcPeriod=monthPeriods?.[periods.indexOf(p)]||null;
-              const srcAmt=srcPeriod?((data.periods[srcPeriod.id]||{}).amount||(data.checkAmount||0)):0;
               return(<button key={p.id} style={{...BTN,flex:1,padding:"7px 6px",fontSize:11,borderRadius:9,background:isActive?"#d2992222":"transparent",color:isActive?"#d29922":T.muted,border:isActive?"1.5px solid #d2992255":"1px solid transparent",display:"flex",flexDirection:"column",alignItems:"center",gap:1}}
                 onClick={()=>{setActivePid(p.id);closeEdit();}}>
                 <span style={{fontWeight:isActive?700:500}}>{p.label}</span>
@@ -1063,21 +1046,24 @@ const FutureSheet=({periods,data,setData,onClose,T,monthPeriods})=>{
             })}
           </div>
         )}
-        {/* Income amount for this future period */}
-        <div style={{padding:"8px 16px 0",flexShrink:0,display:"flex",alignItems:"center",gap:8}}>
-          <span style={{fontSize:10,color:T.muted,fontWeight:600,flexShrink:0}}>CHECK AMT</span>
-          <div className="amt-wrap" style={{flex:1}}>
-            <span className="amt-prefix" style={{fontSize:12,color:T.muted}}>$</span>
-            <input style={{...INP,paddingLeft:18,fontSize:13,fontWeight:700,fontFamily:"monospace",height:34}}
-              type="number" inputMode="decimal"
-              value={(data.periods[pid]||{}).amount!=null?(data.periods[pid]||{}).amount:(data.checkAmount||"")}
-              onChange={e=>{const v=e.target.value;setData(p=>({...p,periods:{...p.periods,[pid]:{...(p.periods[pid]||{}),amount:v===""?"":parseFloat(v)||0}}}));}}
-              placeholder={String(n(data.checkAmount)||0)}/>
-          </div>
-          <span style={{fontSize:11,fontWeight:700,color:remColor,flexShrink:0,fontFamily:"monospace"}}>{fmt(sob)} left</span>
-        </div>
         <div style={{overflowY:"auto",flex:1,padding:"10px 16px",paddingBottom:"max(20px,env(safe-area-inset-bottom,20px))"}}>
-          {/* Grouped display */}
+          {/* Amount card — identical to Paychecks */}
+          <div style={{...CARD,padding:"13px 16px",marginBottom:12,borderColor:"#d2992255"}}>
+            <div style={{fontSize:10,color:"#d29922",fontWeight:700,letterSpacing:1.5,marginBottom:7}}>CHECK AMOUNT</div>
+            <div className="amt-wrap"><span className="amt-prefix" style={{fontSize:20,color:amt>0?"#d29922":T.muted+"55"}}>$</span>
+              <input style={{...INP,fontFamily:"monospace",fontSize:22,fontWeight:700,paddingLeft:28}} type="text" inputMode="decimal"
+                value={amtInputVal[pid]!=null?amtInputVal[pid]:String(amt)}
+                onChange={e=>{const v=e.target.value;if(v===""||/^\d*\.?\d*$/.test(v))setAmtInputVal(p=>({...p,[pid]:v}));}}
+                onFocus={()=>setAmtInputVal(p=>({...p,[pid]:String(amt)}))}
+                onBlur={()=>{const v=amtInputVal[pid];if(v==null)return;const num=parseFloat(v);if(!isNaN(num)&&num>0)setPeriodAmount(pid,num);else{setData(p=>{const np={...p.periods};if(np[pid]){const{amount:_,...rest}=np[pid];np[pid]=rest;}return{...p,periods:np};});}setAmtInputVal(p=>{const n={...p};delete n[pid];return n;});}}
+                placeholder={String(globalCheckAmount)}/>
+            </div>
+            <div style={{marginTop:6,minHeight:18,display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+              {periodAmountIsCustom&&<button style={{...BTN,padding:"2px 8px",fontSize:10,background:"rgba(210,153,34,0.1)",color:"#d29922",border:"1px solid rgba(210,153,34,0.3)"}}
+                onClick={()=>{setData(p=>{const np={...p.periods};if(np[pid]){const{amount:_,...rest}=np[pid];np[pid]=rest;}return{...p,periods:np};});setAmtInputVal(p=>{const n={...p};delete n[pid];return n;});}}>↩ Default ({fmt(globalCheckAmount)})</button>}
+              <span style={{fontFamily:"monospace",fontWeight:700,fontSize:13,color:remColor,marginLeft:"auto"}}>{fmt(sob)} left</span>
+            </div>
+          </div>
           {sortedKeys.map(k=>{
             const{d,r,items}=groups[k];
             const dst=gds(d,r,null,potsList,customLabels);
@@ -1089,67 +1075,33 @@ const FutureSheet=({periods,data,setData,onClose,T,monthPeriods})=>{
               </div>
               {items.map(gi=>{
                 const dest=gds(gi.destino,gi.tarjetaRef,null,potsList,customLabels);
-                return(
-                  <FutureRow key={gi.id} item={gi} dest={dest}
-                    onEdit={()=>openEdit(gi.id)}
-                    onDelete={()=>removeG(gi.id)}
-                    T={T}/>
-                );
+                return(<FutureRow key={gi.id} item={gi} dest={dest}
+                  onEdit={()=>openEdit(gi.id)}
+                  onDelete={()=>updGastos(pid,g=>g.filter(x=>x.id!==gi.id))}
+                  T={T}/>);
               })}
             </div>);
           })}
-          {gastos.length===0&&<div style={{textAlign:"center",padding:"28px 20px",color:T.muted,fontSize:13}}>No expenses yet</div>}
-          {/* Add button */}
-          {addMode===null
-            ?<button style={{...BTN,width:"100%",padding:"11px",background:`${T.accent}18`,color:T.accent,fontSize:13,fontWeight:700,border:`1px dashed ${T.accent}55`,borderRadius:12,marginTop:4}} onClick={()=>setAddMode("choose")}>+ Add Expense</button>
-            :<div style={{background:T.surface2,borderRadius:12,padding:"12px",border:`1px solid ${T.border}`,marginTop:4}}>
-              <div style={{fontSize:11,color:T.muted,marginBottom:8,textAlign:"center"}}>What type of expense?</div>
-              <div style={{display:"flex",gap:8}}>
-                <button style={{...BTN,flex:1,padding:"10px",background:`${T.accent}18`,color:T.accent,fontSize:12,fontWeight:700,border:`1px solid ${T.accent}44`,borderRadius:10}} onClick={addRegular}>📝 Regular</button>
-                <button style={{...BTN,flex:1,padding:"10px",background:"rgba(236,72,153,0.12)",color:"#ec4899",fontSize:12,fontWeight:700,border:"1px solid rgba(236,72,153,0.3)",borderRadius:10}}
-                  onClick={()=>{setAddMode("debt");}}>💳 Debt Payment</button>
-                <button style={{...BTN,padding:"10px 12px",background:"transparent",color:T.muted,fontSize:12,borderRadius:10,border:`1px solid ${T.border}`}} onClick={()=>setAddMode(null)}>✕</button>
-              </div>
-              {addMode==="debt"&&(
-                <div style={{marginTop:8,display:"flex",flexDirection:"column",gap:6}}>
-                  {[...tarjetas.map(t=>({...t,tipo:"card"})),...(data.loans||[]).map(l=>({...l,tipo:"loan"}))].map(debt=>{
-                    const isCard=debt.tipo==="card";
-                    return(<button key={debt.id} style={{...BTN,width:"100%",padding:"9px 12px",background:T.surface,border:`1px solid ${T.border}`,borderRadius:9,display:"flex",justifyContent:"space-between",alignItems:"center",fontSize:12,color:T.text}}
-                      onClick={()=>{
-                        const nid=uid();
-                        const realCat=isCard?"credit_card":"auto";
-                        const item={id:nid,nombre:isCard?`${debt.nombre} Payment`:debt.nombre,monto:n(debt.minimo)||0,cat:realCat,state:"pending",pagado:false,destino:realCat,tarjetaRef:isCard?debt.nombre:"",diaPago:debt.fechaPago?parseInt(debt.fechaPago)||null:null,_quick:false,_recurring:true,_recurringCheckOnly:true,debtRef:debt.id};
-                        updGastos(g=>[...g,item]);
-                        setTimeout(()=>openEdit(nid),60);
-                        setAddMode(null);
-                      }}>
-                      <span>{isCard?"💳":"🏦"} {debt.nombre}</span>
-                      <span style={{fontFamily:"monospace",color:T.muted}}>{fmt(debt.minimo)}</span>
-                    </button>);
-                  })}
-                </div>
-              )}
-            </div>
-          }
-          <div style={{marginTop:10,padding:"9px 12px",background:T.surface2,borderRadius:10,display:"flex",alignItems:"center",gap:8,border:`1px solid ${T.border}`}}>
+          {gastos.length===0&&<div style={{textAlign:"center",padding:"28px 20px",color:T.muted,fontSize:13}}>No expenses yet — add one below</div>}
+          <button style={{...BTN,width:"100%",padding:"12px",background:`${T.accent}18`,color:T.accent,fontSize:13,fontWeight:700,border:`1px dashed ${T.accent}55`,borderRadius:12,marginTop:4,marginBottom:10}}
+            onClick={()=>onAddExpense(pid)}>+ Add Expense</button>
+          <div style={{padding:"9px 12px",background:T.surface2,borderRadius:10,display:"flex",alignItems:"center",gap:8,border:`1px solid ${T.border}`}}>
             <span style={{fontSize:12}}>💡</span>
             <span style={{fontSize:10,color:T.muted,lineHeight:1.5}}>Activates automatically when {nmShort} starts.</span>
           </div>
         </div>
       </div>
-      {/* EDIT MODAL — lives in FutureSheet, not in each row */}
       {editId&&editItem&&ReactDOM.createPortal(
         <FutureEditModal item={editItem} setItem={setEditItem}
-          onSave={saveEdit} onClose={closeEdit} onDelete={()=>{removeG(editId);closeEdit();}}
-          onFieldSave={(f,v)=>{saveField(editId,f,v);setEditItem(prev=>({...prev,[f]:v}));}}
+          onSave={saveEdit} onClose={closeEdit}
+          onDelete={()=>{updGastos(pid,g=>g.filter(x=>x.id!==editId));closeEdit();}}
           tarjetas={tarjetas} potsList={potsList} customLabels={customLabels} T={T}/>,
         document.body
       )}
     </div>
   );
 };
-
-// Simple swipeable row — no modal, no state beyond swipe
+// Simple swipeable row — no modal, no local edit state
 const FutureRow=({item,dest,onEdit,onDelete,T})=>{
   const [swipeX,setSwipeX]=useState(0);
   const ref=useRef({startX:0,startY:0,dir:null,active:false});
@@ -1174,7 +1126,7 @@ const FutureRow=({item,dest,onEdit,onDelete,T})=>{
   return(
     <div style={{marginBottom:6,position:"relative",borderRadius:10,overflow:"hidden"}}>
       {swipeX!==0&&<div style={{position:"absolute",inset:0,display:"flex",borderRadius:10}}>
-        <div style={{width:70,background:`rgba(88,166,255,0.9)`,display:"flex",alignItems:"center",justifyContent:"center",fontSize:16,cursor:"pointer",borderRadius:"10px 0 0 10px"}}
+        <div style={{width:70,background:"rgba(88,166,255,0.9)",display:"flex",alignItems:"center",justifyContent:"center",fontSize:16,cursor:"pointer",borderRadius:"10px 0 0 10px"}}
           onClick={()=>{setSwipeX(0);onEdit();}}>✏️</div>
         <div style={{flex:1}}/>
         <div style={{width:88,background:"rgba(248,81,73,0.9)",display:"flex",alignItems:"center",justifyContent:"center",gap:4,cursor:"pointer",borderRadius:"0 10px 10px 0"}}
@@ -1206,8 +1158,8 @@ const FutureRow=({item,dest,onEdit,onDelete,T})=>{
   );
 };
 
-// Edit modal for future items — receives item as controlled state from FutureSheet
-const FutureEditModal=({item,setItem,onSave,onClose,onDelete,onFieldSave,tarjetas,potsList,customLabels,T})=>{
+// Edit modal for future items
+const FutureEditModal=({item,setItem,onSave,onClose,onDelete,tarjetas,potsList,customLabels,T})=>{
   const INP=mkINP(T),BTN=mkBTN();
   const [openCatGroup,setOpenCatGroup]=useState(null);
   const nameRef=useRef(null);
@@ -1222,19 +1174,17 @@ const FutureEditModal=({item,setItem,onSave,onClose,onDelete,onFieldSave,tarjeta
   const selGroup=CAT_GROUPS.find(g=>g.cats.includes(selCat))?.id||(item._recurring&&!selCat?"finance":null);
   const activeGroup=openCatGroup??selGroup;
   const set=(f,v)=>setItem(prev=>({...prev,[f]:v}));
-  return ReactDOM.createPortal(
+  return(
     <div style={{position:"fixed",inset:0,zIndex:660,background:"rgba(0,0,0,0.75)",backdropFilter:"blur(8px)",WebkitBackdropFilter:"blur(8px)",display:"flex",alignItems:"flex-end",justifyContent:"center",animation:"fadeIn 0.18s ease both"}}
       onMouseDown={e=>{if(e.target===e.currentTarget)onClose();}}
       onTouchEnd={e=>{if(e.target===e.currentTarget)onClose();}}>
       <div style={{width:"100%",maxWidth:500,background:T.surface,borderRadius:"20px 20px 0 0",border:`1px solid ${T.accent}44`,padding:"16px 18px",paddingBottom:"max(28px,env(safe-area-inset-bottom,28px))",maxHeight:"90vh",overflowY:"auto",animation:"slideInUp 0.32s cubic-bezier(0.25,0.46,0.45,0.94) both"}}
         onMouseDown={e=>e.stopPropagation()} onTouchEnd={e=>e.stopPropagation()}>
         <div style={{width:36,height:4,borderRadius:2,background:T.border,margin:"0 auto 14px"}}/>
-        {/* NAME */}
         <div style={{marginBottom:10}}>
           <div style={{fontSize:9,color:T.muted,letterSpacing:1,marginBottom:5}}>NAME</div>
           <input ref={nameRef} style={INP} value={item.nombre||""} onChange={e=>set("nombre",e.target.value)} placeholder="Expense name"/>
         </div>
-        {/* AMOUNT */}
         <div style={{marginBottom:10}}>
           <div style={{fontSize:9,color:T.muted,letterSpacing:1,marginBottom:5}}>AMOUNT</div>
           <div className="amt-wrap">
@@ -1242,7 +1192,6 @@ const FutureEditModal=({item,setItem,onSave,onClose,onDelete,onFieldSave,tarjeta
             <input style={{...INP,paddingLeft:20}} type="number" inputMode="decimal" value={item.monto||""} onChange={e=>set("monto",parseFloat(e.target.value)||0)} placeholder="0"/>
           </div>
         </div>
-        {/* CATEGORY */}
         <div style={{marginBottom:10}}>
           <div style={{fontSize:9,color:T.muted,letterSpacing:1,marginBottom:5}}>CATEGORY</div>
           <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr 1fr",gap:5,marginBottom:5}}>
@@ -1263,7 +1212,7 @@ const FutureEditModal=({item,setItem,onSave,onClose,onDelete,onFieldSave,tarjeta
               <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:4}}>
                 {g.cats.map(k=>{const d=DEST[k];if(!d)return null;const isSel=selCat===k||item.cat===k;
                   return(<button key={k} style={{cursor:"pointer",border:"none",borderRadius:7,fontFamily:"inherit",fontWeight:600,WebkitTapHighlightColor:"transparent",padding:"7px 5px",fontSize:10,background:isSel?d.bg:"transparent",color:isSel?d.color:T.muted,border:`1px solid ${isSel?d.border:"transparent"}`,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}
-                    onMouseDown={e=>{e.preventDefault();const dest=k==="credit_card"?"credit_card":k;set("cat",k);set("destino",dest);if(k!=="credit_card")set("tarjetaRef","");setOpenCatGroup(null);}}>
+                    onMouseDown={e=>{e.preventDefault();set("cat",k);set("destino",k==="credit_card"?"credit_card":k);if(k!=="credit_card")set("tarjetaRef","");setOpenCatGroup(null);}}>
                     {d.icon} {d.label}
                   </button>);})}
                 {g.id==="finance"&&(potsList||[]).map(pot=>{const isSel=item.destino===pot.id;const color=pot.color||"#58a6ff";
@@ -1282,17 +1231,13 @@ const FutureEditModal=({item,setItem,onSave,onClose,onDelete,onFieldSave,tarjeta
               </button>);})}
           </div>}
         </div>
-        {/* PAID WITH */}
         {item.destino==="credit_card"&&<div style={{marginBottom:10}}>
           <div style={{fontSize:9,color:T.muted,letterSpacing:1,marginBottom:5}}>CARD</div>
-          <select style={{...INP,WebkitAppearance:"auto",appearance:"auto",cursor:"pointer"}}
-            value={item.tarjetaRef||""}
-            onChange={e=>set("tarjetaRef",e.target.value)}>
+          <select style={{...INP,WebkitAppearance:"auto",appearance:"auto",cursor:"pointer"}} value={item.tarjetaRef||""} onChange={e=>set("tarjetaRef",e.target.value)}>
             <option value="">Select card...</option>
             {tarjetas.map(t=><option key={t.id} value={t.nombre}>{t.nombre}</option>)}
           </select>
         </div>}
-        {/* DUE DAY + RECURRING */}
         <div style={{display:"flex",gap:8,marginBottom:12}}>
           <div style={{flex:1}}>
             <div style={{fontSize:9,color:T.muted,letterSpacing:1,marginBottom:4}}>📅 DUE DAY</div>
@@ -1313,7 +1258,6 @@ const FutureEditModal=({item,setItem,onSave,onClose,onDelete,onFieldSave,tarjeta
             </div>
           </button>
         </div>
-        {/* RECURRING SCOPE — only show when _recurring is true */}
         {item._recurring&&<div style={{marginBottom:12,padding:"10px",background:T.surface2,borderRadius:10,border:`1px solid ${T.border}`}}>
           <div style={{fontSize:9,color:T.muted,letterSpacing:1,marginBottom:8}}>REPEAT SCOPE</div>
           <div style={{display:"flex",gap:6}}>
@@ -1323,17 +1267,16 @@ const FutureEditModal=({item,setItem,onSave,onClose,onDelete,onFieldSave,tarjeta
               onClick={()=>set("_recurringCheckOnly",true)}>This check only</button>
           </div>
         </div>}
-        {/* ACTIONS */}
         <div style={{display:"flex",gap:8}}>
           <button style={{...BTN,flex:1,padding:"12px",background:"#238636",color:"#fff",fontSize:13,fontWeight:700,borderRadius:11}} onClick={onSave}>✓ Save</button>
           <button style={{...BTN,padding:"12px 14px",background:"transparent",color:T.muted,fontSize:12,borderRadius:11,border:`1px solid ${T.border}`}} onClick={onClose}>Cancel</button>
           <button style={{...BTN,padding:"12px 14px",background:"rgba(248,81,73,0.1)",color:"#f85149",fontSize:13,borderRadius:11,border:"1px solid rgba(248,81,73,0.2)"}} onClick={onDelete}>🗑</button>
         </div>
       </div>
-    </div>,
-    document.body
+    </div>
   );
 };
+
 
 const DebtCard=memo(({debt,idx,isFirst,tipo,accion,setAccion,montoAccion,setMontoAccion,onApply,onUpdate,onRemove,isAdding,setAddingDebt,onTogglePriority,onCollapse,resetToken,clipH,T})=>{
   const [editing,setEditing]=useState(false);
@@ -1797,6 +1740,7 @@ const hashPin=async(pin)=>{
   const [editId,setEditId]=useState(null);
   const [editPid,setEditPid]=useState(null);
   const [previewNextMonth,setPreviewNextMonth]=useState(false);
+  const futureOpenEditRef=useRef(null); // set by FutureSheet to open its own edit modal
   const [accion,setAccion]=useState(null);
   const [montoAccion,setMontoAccion]=useState("");
   const [alertDim,setAlertDim]=useState(()=>{
@@ -2271,8 +2215,12 @@ const hashPin=async(pin)=>{
     updPeriodGastos(pid,g=>[...g,{id:nid,nombre:"",monto:0,cat:"",state:"pending",pagado:false,destino:"__new__",tarjetaRef:"",diaPago:null,_quick:false}]);
     editGroupKeyRef.current="__new__";
     setTimeout(()=>{
-      window.scrollTo({top:scrollY,behavior:"instant"});
-      setEditPid(pid);setEditId(nid);
+      if(futureOpenEditRef.current){
+        futureOpenEditRef.current(nid);
+      } else {
+        window.scrollTo({top:scrollY,behavior:"instant"});
+        setEditPid(pid);setEditId(nid);
+      }
     },80);
   },[]);
   const addGastoDebt=useCallback((pid,debtRef,debt,tipo)=>{
@@ -2296,8 +2244,12 @@ const hashPin=async(pin)=>{
       debtRef
     }]);
     setTimeout(()=>{
-      window.scrollTo({top:scrollY,behavior:"instant"});
-      setEditPid(pid);setEditId(nid);
+      if(futureOpenEditRef.current){
+        futureOpenEditRef.current(nid);
+      } else {
+        window.scrollTo({top:scrollY,behavior:"instant"});
+        setEditPid(pid);setEditId(nid);
+      }
     },80);
   },[]);
   // Auto-archive previous month's checks when entering Check 1 of new month
@@ -2404,32 +2356,28 @@ const hashPin=async(pin)=>{
     });
   },[activeCheckPid]);
 
-  // Auto-copy recurrents to next month periods when FutureSheet opens
+  // Auto-copy recurrents AND due-date items to next month periods when FutureSheet opens
   useEffect(()=>{
     if(!previewNextMonth||!nextMonthPeriods.length)return;
     nextMonthPeriods.forEach((nmp,idx)=>{
       const sourcePeriod=monthPeriods[idx]||monthPeriods[monthPeriods.length-1];
       if(!sourcePeriod)return;
-      const recurring=((data.periods[sourcePeriod.id]||{}).gastos||[]).filter(x=>x._recurring);
-      if(!recurring.length)return;
       setData(p=>{
+        const sourceGastos=(p.periods[sourcePeriod.id]||{}).gastos||[];
+        const toCopy=sourceGastos.filter(x=>x._recurring||(x.diaPago&&!x._recurring));
+        if(!toCopy.length)return p;
         const curGastos=(p.periods[nmp.id]||{}).gastos||[];
-        const blocked=new Set(p.periods[nmp.id]?._blockedRecurring||[]);
-        const existingKeys=curGastos.filter(x=>x._recurring).map(x=>x.nombre.trim()+"||"+x.destino);
-        const remaining=[...existingKeys];
-        const toAdd=recurring.filter(x=>{
-          const k=x.nombre.trim()+"||"+x.destino;
-          if(blocked.has(k)||blocked.has(k+"||0")||blocked.has(k+"||1"))return false;
-          const i=remaining.indexOf(k);
-          if(i>=0){remaining.splice(i,1);return false;}
-          return true;
+        const existingKeys=new Set(curGastos.map(x=>x.nombre.trim()+"||"+x.destino+"||"+(x._recurring?"r":"")+(x.diaPago||"")));
+        const toAdd=toCopy.filter(x=>{
+          const k=x.nombre.trim()+"||"+x.destino+"||"+(x._recurring?"r":"")+(x.diaPago||"");
+          return!existingKeys.has(k);
         });
         if(!toAdd.length)return p;
         const copies=toAdd.map(x=>({...x,id:uid(),state:"pending",pagado:false,_potAdded:false,_debtPaid:false,_charged:false}));
         return{...p,periods:{...p.periods,[nmp.id]:{...(p.periods[nmp.id]||{}),gastos:[...curGastos,...copies]}}};
       });
     });
-  },[previewNextMonth]);
+  },[previewNextMonth,nextMonthPeriods,monthPeriods]);
 
   const resetCheck=useCallback((pid,label)=>{
     updPeriodGastos(pid,g=>{
@@ -2973,8 +2921,15 @@ const hashPin=async(pin)=>{
           periods={nextMonthPeriods}
           data={data}
           setData={setData}
-          onClose={()=>setPreviewNextMonth(false)}
+          onClose={()=>{setPreviewNextMonth(false);futureOpenEditRef.current=null;}}
           monthPeriods={monthPeriods}
+          onAddExpense={(pid)=>setGastoTypePicker({pid})}
+          getPeriodAmount={getPeriodAmount}
+          setPeriodAmount={setPeriodAmount}
+          amtInputVal={amtInputVal}
+          setAmtInputVal={setAmtInputVal}
+          globalCheckAmount={globalCheckAmount}
+          openEditRef={futureOpenEditRef}
           T={T}/>
       )}
       {toast&&<div style={{position:"fixed",top:"max(16px, env(safe-area-inset-top, 16px))",left:"50%",transform:"translateX(-50%)",zIndex:9999,background:toast.type==="err"?"#da3633":"#238636",color:"#fff",padding:"10px 20px",borderRadius:24,fontWeight:600,fontSize:13,boxShadow:"0 8px 32px rgba(0,0,0,0.4)",border:`1px solid ${toast.type==="err"?"rgba(248,81,73,0.4)":"rgba(46,160,67,0.4)"}`,whiteSpace:"nowrap",animation:"slideInDown 0.25s cubic-bezier(0.4,0,0.2,1)"}}>{toast.msg}</div>}
