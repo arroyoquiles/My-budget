@@ -6329,7 +6329,42 @@ function App() {
     });
   }, [activeCheckPid]);
 
-  // Auto-copy recurrents AND due-date items to next month periods — runs ONCE when sheet opens
+  // Deduplicate future periods every time sheet opens — cleans up legacy duplicates
+  useEffect(() => {
+    if (!previewNextMonth || !nextMonthPeriods.length) return;
+    setData(p => {
+      let newPeriods = {
+        ...p.periods
+      };
+      let changed = false;
+      nextMonthPeriods.forEach(nmp => {
+        const cur = (newPeriods[nmp.id] || {}).gastos || [];
+        const seenNames = new Set();
+        const deduped = cur.filter(g => {
+          const key = g.nombre.trim().toLowerCase();
+          if (seenNames.has(key)) return false;
+          seenNames.add(key);
+          return true;
+        });
+        if (deduped.length !== cur.length) {
+          newPeriods = {
+            ...newPeriods,
+            [nmp.id]: {
+              ...(newPeriods[nmp.id] || {}),
+              gastos: deduped
+            }
+          };
+          changed = true;
+        }
+      });
+      return changed ? {
+        ...p,
+        periods: newPeriods
+      } : p;
+    });
+  }, [previewNextMonth]);
+
+  // Auto-copy recurrents AND due-date items — runs ONCE per sheet open
   const didCopyRef = useRef(false);
   useEffect(() => {
     if (!previewNextMonth) {
@@ -6347,20 +6382,11 @@ function App() {
         if (!sourcePeriod) return;
         const sourceGastos = (p.periods[sourcePeriod.id] || {}).gastos || [];
         const toCopy = sourceGastos.filter(x => x._recurring || x.diaPago && !x._recurring);
+        if (!toCopy.length) return;
         const curGastos = (newPeriods[nmp.id] || {}).gastos || [];
-
-        // First: deduplicate existing gastos — keep only first occurrence by nombre
-        const seenNames = new Set();
-        const dedupedGastos = curGastos.filter(g => {
-          const key = g.nombre.trim().toLowerCase();
-          if (seenNames.has(key)) return false;
-          seenNames.add(key);
-          return true;
-        });
-
-        // Then: add missing recurrents not already present
-        const existingNames = new Set(dedupedGastos.map(x => x.nombre.trim().toLowerCase()));
+        const existingNames = new Set(curGastos.map(x => x.nombre.trim().toLowerCase()));
         const toAdd = toCopy.filter(x => !existingNames.has(x.nombre.trim().toLowerCase()));
+        if (!toAdd.length) return;
         const copies = toAdd.map(x => ({
           ...x,
           id: uid(),
@@ -6374,7 +6400,7 @@ function App() {
           ...newPeriods,
           [nmp.id]: {
             ...(newPeriods[nmp.id] || {}),
-            gastos: [...dedupedGastos, ...copies]
+            gastos: [...curGastos, ...copies]
           }
         };
       });
