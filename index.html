@@ -2283,7 +2283,8 @@ const hashPin=async(pin)=>{
   },[activeCheckPid]);
   useEffect(()=>{
     if(!activeCheckPid)return;
-    const allPeriods=monthPeriods;
+    // Skip future periods — future sheet handles its own copies
+    if(nextMonthPeriods.some(p=>p.id===activeCheckPid))return;
     const checkIdx=allPeriods.findIndex(p=>p.id===activeCheckPid);
     if(checkIdx<0)return;
     const currentPids=new Set(monthPeriods.map(p=>p.id));
@@ -2337,9 +2338,11 @@ const hashPin=async(pin)=>{
     });
   },[activeCheckPid]);
 
-  // Auto-copy due-day expenses to new periods
+  // Auto-copy due-day expenses to new periods — CURRENT MONTH ONLY, never future
   useEffect(()=>{
     if(!activeCheckPid)return;
+    // Skip if this is a future period — future sheet handles its own copies
+    if(nextMonthPeriods.some(p=>p.id===activeCheckPid))return;
     const checkIdx=monthPeriods.findIndex(p=>p.id===activeCheckPid);
     if(checkIdx<0)return;
     const currentPids=new Set(monthPeriods.map(p=>p.id));
@@ -2383,8 +2386,9 @@ const hashPin=async(pin)=>{
         const toCopy=sourceGastos.filter(x=>x._recurring||(x.diaPago&&!x._recurring));
         if(!toCopy.length)return;
         const curGastos=(newPeriods[nmp.id]||{}).gastos||[];
-        const existingKeys=new Set(curGastos.map(x=>x.nombre.trim()+"||"+x.destino+"||"+(x._recurring?"r":"")+(x.diaPago||"")));
-        const toAdd=toCopy.filter(x=>!existingKeys.has(x.nombre.trim()+"||"+x.destino+"||"+(x._recurring?"r":"")+(x.diaPago||"")));
+        // Dedup by nombre only — prevents same expense appearing twice under different categories
+        const existingNames=new Set(curGastos.map(x=>x.nombre.trim().toLowerCase()));
+        const toAdd=toCopy.filter(x=>!existingNames.has(x.nombre.trim().toLowerCase()));
         if(!toAdd.length)return;
         const copies=toAdd.map(x=>({...x,id:uid(),state:"pending",pagado:false,_potAdded:false,_debtPaid:false,_charged:false}));
         newPeriods={...newPeriods,[nmp.id]:{...(newPeriods[nmp.id]||{}),gastos:[...curGastos,...copies]}};
