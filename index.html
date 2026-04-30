@@ -2025,6 +2025,19 @@ const hashPin=async(pin)=>{
       setEditId(id);
     }
   },[data.periods]);
+  const openFutureEditId=useCallback((id)=>{
+    if(id===null){futureEditGroupKeyRef.current=null;setFutureEditId(null);}
+    else{
+      // Search all future periods fresh — never stale
+      let found=null;
+      for(const pid of Object.keys(data.periods||{})){
+        const g=(data.periods[pid]?.gastos||[]).find(x=>x.id===id);
+        if(g){found=g;break;}
+      }
+      if(found){futureEditGroupKeyRef.current=found.destino==="credit_card"?"__cards__":found.destino;}
+      setFutureEditId(id);
+    }
+  },[data.periods]);
   const updateTarjeta=useCallback((id,f,v)=>setData(p=>({...p,tarjetas:p.tarjetas.map(t=>t.id===id?{...t,[f]:v}:t)})),[]);
   const updateLoan=useCallback((id,f,v)=>setData(p=>({...p,loans:(p.loans||[]).map(l=>l.id===id?{...l,[f]:v}:l)})),[]);
   const removeTarjeta=useCallback(id=>{setData(p=>({...p,tarjetas:p.tarjetas.filter(t=>t.id!==id)}));toast_("🗑 Removed");},[]);
@@ -2250,14 +2263,7 @@ const hashPin=async(pin)=>{
     // Use isolated edit state for future checks to prevent cross-contamination with current checks
     const activeEditId=isFuture?futureEditId:editId;
     const activeEditGroupKeyRef=isFuture?futureEditGroupKeyRef:editGroupKeyRef;
-    const activeSetEditId=isFuture?(id)=>{
-      if(id===null){futureEditGroupKeyRef.current=null;setFutureEditId(null);}
-      else{
-        const g=gastos.find(x=>x.id===id);
-        if(g)futureEditGroupKeyRef.current=g.destino==="credit_card"?"__cards__":g.destino;
-        setFutureEditId(id);
-      }
-    }:(id)=>openEditId(id);
+    const activeSetEditId=isFuture?(id)=>openFutureEditId(id):(id)=>openEditId(id);
     const groups={};
     // Build groups preserving original array order
     gastos.forEach(g=>{
