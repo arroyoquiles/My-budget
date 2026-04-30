@@ -6338,7 +6338,6 @@ function App() {
     }
     if (didCopyRef.current) return;
     didCopyRef.current = true;
-    // Single setData call covering ALL future periods to avoid race conditions
     setData(p => {
       let newPeriods = {
         ...p.periods
@@ -6348,12 +6347,20 @@ function App() {
         if (!sourcePeriod) return;
         const sourceGastos = (p.periods[sourcePeriod.id] || {}).gastos || [];
         const toCopy = sourceGastos.filter(x => x._recurring || x.diaPago && !x._recurring);
-        if (!toCopy.length) return;
         const curGastos = (newPeriods[nmp.id] || {}).gastos || [];
-        // Dedup by nombre only — prevents same expense appearing twice under different categories
-        const existingNames = new Set(curGastos.map(x => x.nombre.trim().toLowerCase()));
+
+        // First: deduplicate existing gastos — keep only first occurrence by nombre
+        const seenNames = new Set();
+        const dedupedGastos = curGastos.filter(g => {
+          const key = g.nombre.trim().toLowerCase();
+          if (seenNames.has(key)) return false;
+          seenNames.add(key);
+          return true;
+        });
+
+        // Then: add missing recurrents not already present
+        const existingNames = new Set(dedupedGastos.map(x => x.nombre.trim().toLowerCase()));
         const toAdd = toCopy.filter(x => !existingNames.has(x.nombre.trim().toLowerCase()));
-        if (!toAdd.length) return;
         const copies = toAdd.map(x => ({
           ...x,
           id: uid(),
@@ -6367,7 +6374,7 @@ function App() {
           ...newPeriods,
           [nmp.id]: {
             ...(newPeriods[nmp.id] || {}),
-            gastos: [...curGastos, ...copies]
+            gastos: [...dedupedGastos, ...copies]
           }
         };
       });
