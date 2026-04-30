@@ -537,7 +537,7 @@ const DragList=({items,renderItem,editId})=>{
   return(<div>{items.map((item,i)=>(<div key={item.id}>{renderItem(item,i,{})}</div>))}</div>);
 };
 const getCatIcon=(cat)=>CICONS[cat]||"📌";
-const GastoItem=({item,pid,editId,setEditId,tarjetas,loans,potsList,periodDate,customLabels,onAddCustomLabel,globalEditingAmt,checkIdx,onCycle,onLongPress,onUpdate,onBatchUpdate,onPropagate,onRemove,T,isFuture=false})=>{
+const GastoItem=({item,pid,editId,editPid,setEditId,tarjetas,loans,potsList,periodDate,customLabels,onAddCustomLabel,globalEditingAmt,checkIdx,onCycle,onLongPress,onUpdate,onBatchUpdate,onPropagate,onRemove,T,isFuture=false})=>{
   const dest=gds(item.destino,item.tarjetaRef,null,potsList,customLabels);
   const INP=mkINP(T),BTN=mkBTN(),CARD=mkCARD(T);
   const [swipeX,setSwipeX]=useState(0);
@@ -632,7 +632,7 @@ const GastoItem=({item,pid,editId,setEditId,tarjetas,loans,potsList,periodDate,c
   };
   // isCardPayment = paying the card itself (no category)
   const isCardPayment=localDestino==="credit_card"&&!localCat;
-  if(editId===item.id)return(
+  if(editId===item.id&&(editPid===pid||editPid===null))return(
     <>{ReactDOM.createPortal(
       <div style={{position:"fixed",inset:0,zIndex:600,background:"rgba(0,0,0,0.72)",backdropFilter:"blur(6px)",WebkitBackdropFilter:"blur(6px)",display:"flex",alignItems:"flex-end",justifyContent:"center",animation:"fadeIn 0.22s ease both"}}
         onMouseDown={e=>{if(e.target===e.currentTarget)setEditId(null);}}
@@ -1386,6 +1386,7 @@ const hashPin=async(pin)=>{
   const [importPreview,setImportPreview]=useState(null);
   const [locked,setLocked]=useState(true);
   const [editId,setEditId]=useState(null);
+  const [editPid,setEditPid]=useState(null);
   const [accion,setAccion]=useState(null);
   const [montoAccion,setMontoAccion]=useState("");
   const [alertDim,setAlertDim]=useState(()=>{
@@ -1812,6 +1813,7 @@ const hashPin=async(pin)=>{
     setTimeout(()=>{
       const isInSheet=nextMonthPeriods.some(p=>p.id===pid);
       if(!isInSheet)window.scrollTo({top:scrollY,behavior:"instant"});
+      setEditPid(pid);
       setEditId(nid);
     },80);
   },[nextMonthPeriods]);
@@ -1839,6 +1841,7 @@ const hashPin=async(pin)=>{
       // Only restore scroll position on main page, not inside bottom sheet
       const isInSheet=nextMonthPeriods.some(p=>p.id===pid);
       if(!isInSheet)window.scrollTo({top:scrollY,behavior:"instant"});
+      setEditPid(pid);
       setEditId(nid);
     },80);
   },[nextMonthPeriods]);
@@ -2003,16 +2006,19 @@ const hashPin=async(pin)=>{
     if(id===null){
       editGroupKeyRef.current=null;
       setEditId(null);
+      setEditPid(null);
     } else {
       // Search all periods for the item — stable, no stale closure
       let found=null;
+      let foundPid=null;
       for(const pid of Object.keys(data.periods||{})){
         const g=(data.periods[pid]?.gastos||[]).find(x=>x.id===id);
-        if(g){found=g;break;}
+        if(g){found=g;foundPid=pid;break;}
       }
       if(found){
         editGroupKeyRef.current=found.destino==="credit_card"?"__cards__":found.destino;
       }
+      setEditPid(foundPid);
       setEditId(id);
     }
   },[data.periods]);
@@ -2218,7 +2224,7 @@ const hashPin=async(pin)=>{
           <span style={{fontFamily:"monospace",fontSize:13,fontWeight:800,color:dst.color}}>{fmt(sub)}</span>
         </div>
         <DragList items={items}
-          renderItem={(item)=>(<GastoItem key={item.id} item={item} pid={pid} editId={editId} setEditId={(id)=>openEditId(id)} tarjetas={data.tarjetas} loans={data.loans||[]} potsList={potsList} globalEditingAmt={globalEditingAmt} checkIdx={(()=>{const i=monthPeriods.findIndex(p=>p.id===pid);return i>=0?i:nextMonthPeriods.findIndex(p=>p.id===pid);})()}  periodDate={periodDate} customLabels={data.customLabels||[]} onAddCustomLabel={(name,id,parent)=>{if(!id)return;setData(p=>({...p,customLabels:(p.customLabels||[]).some(l=>l.id===id)?p.customLabels:[...(p.customLabels||[]),{id,name,icon:"🏷️",parent:parent||null}]}));}}
+          renderItem={(item)=>(<GastoItem key={item.id} item={item} pid={pid} editId={editId} editPid={editPid} setEditId={(id)=>openEditId(id)} tarjetas={data.tarjetas} loans={data.loans||[]} potsList={potsList} globalEditingAmt={globalEditingAmt} checkIdx={(()=>{const i=monthPeriods.findIndex(p=>p.id===pid);return i>=0?i:nextMonthPeriods.findIndex(p=>p.id===pid);})()}  periodDate={periodDate} customLabels={data.customLabels||[]} onAddCustomLabel={(name,id,parent)=>{if(!id)return;setData(p=>({...p,customLabels:(p.customLabels||[]).some(l=>l.id===id)?p.customLabels:[...(p.customLabels||[]),{id,name,icon:"🏷️",parent:parent||null}]}));}}
             onCycle={isFuture?()=>{}:id=>cycleState(pid,id)} onLongPress={isFuture?()=>{}:id=>setReserved(pid,id)}
             onUpdate={(id,f,v)=>updateGasto(pid,id,f,v)}
             onBatchUpdate={(id,fields)=>batchUpdateGasto(pid,id,fields)} onPropagate={(item)=>propagateToAllChecks(pid,item)}
@@ -2276,7 +2282,7 @@ const hashPin=async(pin)=>{
           <span style={{fontSize:12,fontWeight:700,color:dst.color}}>{dst.icon} {dst.label}</span>
           <span style={{fontFamily:"monospace",fontSize:13,fontWeight:800,color:dst.color}}>{fmt(sub)}</span>
         </div>
-        <div>{sortedItems.map(gi=>(<GastoItem key={gi.id} item={gi} pid={pid} editId={editId} setEditId={(id)=>openEditId(id)} tarjetas={data.tarjetas} loans={data.loans||[]} potsList={potsList} globalEditingAmt={globalEditingAmt} checkIdx={(()=>{const i=monthPeriods.findIndex(p=>p.id===pid);return i>=0?i:nextMonthPeriods.findIndex(p=>p.id===pid);})()}  periodDate={periodDate} customLabels={data.customLabels||[]} onAddCustomLabel={(name,id,parent)=>{if(!id)return;setData(p=>({...p,customLabels:(p.customLabels||[]).some(l=>l.id===id)?p.customLabels:[...(p.customLabels||[]),{id,name,icon:"🏷️",parent:parent||null}]}));}}
+        <div>{sortedItems.map(gi=>(<GastoItem key={gi.id} item={gi} pid={pid} editId={editId} editPid={editPid} setEditId={(id)=>openEditId(id)} tarjetas={data.tarjetas} loans={data.loans||[]} potsList={potsList} globalEditingAmt={globalEditingAmt} checkIdx={(()=>{const i=monthPeriods.findIndex(p=>p.id===pid);return i>=0?i:nextMonthPeriods.findIndex(p=>p.id===pid);})()}  periodDate={periodDate} customLabels={data.customLabels||[]} onAddCustomLabel={(name,id,parent)=>{if(!id)return;setData(p=>({...p,customLabels:(p.customLabels||[]).some(l=>l.id===id)?p.customLabels:[...(p.customLabels||[]),{id,name,icon:"🏷️",parent:parent||null}]}));}}
             onCycle={()=>{}} onLongPress={()=>{}}
             onUpdate={(id,f,v)=>updateGasto(pid,id,f,v)}
             onBatchUpdate={(id,fields)=>batchUpdateGasto(pid,id,fields)} onPropagate={(gi)=>propagateToAllChecks(pid,gi)}
@@ -2531,7 +2537,7 @@ const hashPin=async(pin)=>{
         const nmShort=nextMonthPeriods[0].payday.toLocaleDateString("en-US",{month:"short"});
         const pid=nextMonthPeriods.find(p=>p.id===activeCheckPid)?.id||nextMonthPeriods[0].id;
         const period=nextMonthPeriods.find(p=>p.id===pid)||nextMonthPeriods[0];
-        const close=()=>{setPreviewNextMonth(false);setActiveCheckPid(null);setEditId(null);};
+        const close=()=>{setPreviewNextMonth(false);setActiveCheckPid(null);setEditId(null);setEditPid(null);};
         return(
           <div style={{position:"fixed",inset:0,zIndex:550,background:"rgba(0,0,0,0.65)",backdropFilter:"blur(6px)",WebkitBackdropFilter:"blur(6px)",display:"flex",alignItems:"flex-end",justifyContent:"center",animation:"fadeIn 0.22s ease both"}}
             onClick={e=>{if(e.target===e.currentTarget)close();}}>
