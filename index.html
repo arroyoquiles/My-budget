@@ -921,7 +921,7 @@ const GastoItem=({item,pid,editId,setEditId,tarjetas,loans,potsList,periodDate,c
             </div>
         }
         {/* Edit button for future checks */}
-        {isFuture&&<div onClick={e=>{e.stopPropagation();toast_(item.nombre+"|"+item.id.slice(-4));setEditId(item.id);}}
+        {isFuture&&<div onClick={e=>{e.stopPropagation();setEditId(item.id);}}
           style={{width:28,height:28,borderRadius:8,background:T.surface2,border:`1px solid ${T.border}`,
             display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0,cursor:"pointer",
             fontSize:13,color:T.muted,WebkitTapHighlightColor:"transparent",marginLeft:4}}>✏️</div>}
@@ -2281,7 +2281,7 @@ const hashPin=async(pin)=>{
           <span style={{fontFamily:"monospace",fontSize:13,fontWeight:800,color:dst.color}}>{fmt(sub)}</span>
         </div>
         <DragList items={sortedItems}
-          renderItem={(item,_,touch)=>(<GastoItem key={item.id} item={item} pid={pid} editId={editId} setEditId={(id)=>openEditId(id)} tarjetas={data.tarjetas} loans={data.loans||[]} potsList={potsList} globalEditingAmt={globalEditingAmt} checkIdx={(()=>{const i=monthPeriods.findIndex(p=>p.id===pid);return i>=0?i:nextMonthPeriods.findIndex(p=>p.id===pid);})()}  periodDate={periodDate} customLabels={data.customLabels||[]} onAddCustomLabel={(name,id,parent)=>{if(!id)return;setData(p=>({...p,customLabels:(p.customLabels||[]).some(l=>l.id===id)?p.customLabels:[...(p.customLabels||[]),{id,name,icon:"🏷️",parent:parent||null}]}));}}
+          renderItem={(item,_,touch)=>(<GastoItem key={item.id} item={item} pid={pid} editId={editId} setEditId={(id)=>{if(id===null){editGroupKeyRef.current=null;setEditId(null);}else{const g=(data.periods[pid]?.gastos||[]).find(x=>x.id===id);if(g)editGroupKeyRef.current=g.destino==="credit_card"?"__cards__":g.destino;setEditId(id);}}} tarjetas={data.tarjetas} loans={data.loans||[]} potsList={potsList} globalEditingAmt={globalEditingAmt} checkIdx={(()=>{const i=monthPeriods.findIndex(p=>p.id===pid);return i>=0?i:nextMonthPeriods.findIndex(p=>p.id===pid);})()}  periodDate={periodDate} customLabels={data.customLabels||[]} onAddCustomLabel={(name,id,parent)=>{if(!id)return;setData(p=>({...p,customLabels:(p.customLabels||[]).some(l=>l.id===id)?p.customLabels:[...(p.customLabels||[]),{id,name,icon:"🏷️",parent:parent||null}]}));}}
             onCycle={isFuture?()=>{}:id=>cycleState(pid,id)} onLongPress={isFuture?()=>{}:id=>setReserved(pid,id)}
             onUpdate={(id,f,v)=>updateGasto(pid,id,f,v)}
             onBatchUpdate={(id,fields)=>batchUpdateGasto(pid,id,fields)} onPropagate={(item)=>propagateToAllChecks(pid,item)}
