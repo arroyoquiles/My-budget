@@ -1868,23 +1868,15 @@ const hashPin=async(pin)=>{
   },[activeCheckPid]);
   useEffect(()=>{
     if(!activeCheckPid)return;
-    const curGastos=(data.periods[activeCheckPid]?.gastos)||[];
-    // Count how many recurrents source has — if current already has same count, skip
-    // This allows multiple recurrents with same name to all get copied
     const isNextMonth=nextMonthPeriods.some(p=>p.id===activeCheckPid);
     const allPeriods=isNextMonth?nextMonthPeriods:monthPeriods;
     const checkIdx=allPeriods.findIndex(p=>p.id===activeCheckPid);
     if(checkIdx<0)return;
-    // For next month: use current month's same check index as source
-    // For current month: look in past months
     const currentPids=new Set([...monthPeriods.map(p=>p.id),...nextMonthPeriods.map(p=>p.id)]);
     let sourcePid=null;
     if(isNextMonth){
-      // Use the corresponding current month check (same index) as source
       const sortedCurrent=monthPeriods.map(p=>p.id).sort();
       sourcePid=sortedCurrent[checkIdx]||null;
-      // If no matching index, still need a source for "All checks" recurrents
-      // Use any check that has recurrents
       if(!sourcePid){
         for(const p of monthPeriods){
           const g=(data.periods[p.id]?.gastos)||[];
@@ -1918,9 +1910,7 @@ const hashPin=async(pin)=>{
     const recurring=((data.periods[sourcePid]?.gastos)||[]).filter(x=>{
       if(!x._recurring)return false;
       if(x._recurringCheckOnly){
-        // If source doesn't match index (fallback source), skip check-only items
         if(!sourceMatchesIdx)return false;
-        // For next month source is current month — index already matches by construction
         if(isNextMonth)return true;
         const srcIdx=Object.keys(data.periods).filter(p=>!currentPids.has(p))
           .filter(p=>p.replace("period_","").slice(0,7)===sourcePid.replace("period_","").slice(0,7))
@@ -1930,41 +1920,35 @@ const hashPin=async(pin)=>{
       return true;
     });
     if(!recurring.length)return;
-    // Figure out which ones are already copied by matching nombre+monto+destino
-    // Use a count-based approach so duplicates with same name are handled correctly
-    const existingRecurring=curGastos.filter(x=>x._recurring);
-    // Dedup by nombre+destino only (ignore monto) so edited amounts aren't re-copied
-    const existingKeys=existingRecurring.map(x=>x.nombre.trim()+"||"+x.destino+"||"+(x._recurringCheckOnly?"1":"0"));
-    // Remove already-present keys one by one (count-aware dedup)
-    const remaining=[...existingKeys];
-    const toAdd=recurring.filter(x=>{
-      const k=x.nombre.trim()+"||"+x.destino+"||"+(x._recurringCheckOnly?"1":"0");
-      const idx=remaining.indexOf(k);
-      if(idx>=0){remaining.splice(idx,1);return false;}
-      return true;
+    // Use setData updater to read freshest gastos — prevents race with due-day effect
+    setData(p=>{
+      const curGastos=(p.periods[activeCheckPid]?.gastos)||[];
+      const existingRecurring=curGastos.filter(x=>x._recurring);
+      const existingKeys=existingRecurring.map(x=>x.nombre.trim()+"||"+x.destino+"||"+(x._recurringCheckOnly?"1":"0"));
+      const remaining=[...existingKeys];
+      const toAdd=recurring.filter(x=>{
+        const k=x.nombre.trim()+"||"+x.destino+"||"+(x._recurringCheckOnly?"1":"0");
+        const idx=remaining.indexOf(k);
+        if(idx>=0){remaining.splice(idx,1);return false;}
+        return true;
+      });
+      if(!toAdd.length)return p;
+      const copies=toAdd.map((x)=>({...x,id:uid(),state:"pending",pagado:false,_potAdded:false,_debtPaid:false,_charged:false}));
+      setTimeout(()=>toast_(`🔁 ${copies.length} recurring copied`),100);
+      return{...p,periods:{...p.periods,[activeCheckPid]:{...(p.periods[activeCheckPid]||{}),gastos:[...curGastos,...copies]}}};
     });
-    if(!toAdd.length)return;
-    const copies=toAdd.map((x)=>({...x,id:uid(),state:"pending",pagado:false,_potAdded:false,_debtPaid:false,_charged:false}));
-    setData(p=>({...p,periods:{...p.periods,[activeCheckPid]:{...(p.periods[activeCheckPid]||{}),gastos:[...(p.periods[activeCheckPid]?.gastos||[]),...copies]}}}));
-    setTimeout(()=>toast_(`🔁 ${copies.length} recurring copied`),100);
   },[activeCheckPid,nextMonthPeriods]);
 
   // Auto-copy due-day expenses to new periods
   useEffect(()=>{
     if(!activeCheckPid)return;
-    const curGastos=(data.periods[activeCheckPid]?.gastos)||[];
-    // Skip if already has due-day items (but not if they came from recurring copy)
-    if(curGastos.some(x=>x.diaPago&&!x._recurring))return;
     const isNextMonth=nextMonthPeriods.some(p=>p.id===activeCheckPid);
     const allPeriods=isNextMonth?nextMonthPeriods:monthPeriods;
     const checkIdx=allPeriods.findIndex(p=>p.id===activeCheckPid);
     if(checkIdx<0)return;
-    // Find most recent past period with due-day items
-    // For next month periods, also search current month as source
     const nextMonthPids=new Set(nextMonthPeriods.map(p=>p.id));
     const currentPids=new Set(monthPeriods.map(p=>p.id));
     const byMonth={};
-    // Include current month periods as potential source for next month
     if(isNextMonth){
       monthPeriods.forEach(p=>{
         const m=p.id.replace("period_","").slice(0,7);
@@ -1979,23 +1963,24 @@ const hashPin=async(pin)=>{
     });
     const months=Object.keys(byMonth).sort().reverse();
     let sourcePid=null;
-    // Take ONLY the most recent month — don't fall back to older months
-    // This ensures if user deleted due-day items last month, they stay deleted
     if(months.length>0){
       const pids=byMonth[months[0]].sort();
-      sourcePid=pids[checkIdx]||null; // no fallback — respect check count difference
+      sourcePid=pids[checkIdx]||null;
     }
     if(!sourcePid)return;
     const dueDayItems=((data.periods[sourcePid]?.gastos)||[]).filter(x=>x.diaPago&&!x._recurring);
     if(!dueDayItems.length)return;
-    // Dedup: don't copy if same nombre.trim()+monto+destino already exists
-    const existing=(data.periods[activeCheckPid]?.gastos)||[];
-    const existingKeys=new Set(existing.map(x=>x.nombre.trim()+"_"+x.monto+"_"+x.destino+"_"+x.diaPago));
-    const toAdd=dueDayItems.filter(x=>!existingKeys.has(x.nombre.trim()+"_"+x.monto+"_"+x.destino+"_"+x.diaPago));
-    if(!toAdd.length)return;
-    const copies=toAdd.map(x=>({...x,id:uid(),state:"pending",pagado:false,_potAdded:false,_debtPaid:false,_charged:false}));
-    setData(p=>({...p,periods:{...p.periods,[activeCheckPid]:{...(p.periods[activeCheckPid]||{}),gastos:[...(p.periods[activeCheckPid]?.gastos||[]),...copies]}}}));
-    setTimeout(()=>toast_(`📅 ${copies.length} due-day expense${copies.length>1?"s":""} copied`),150);
+    // Use setData updater to read freshest state — avoids overwriting recurring copies added in same batch
+    setData(p=>{
+      const curGastos=(p.periods[activeCheckPid]?.gastos)||[];
+      if(curGastos.some(x=>x.diaPago&&!x._recurring))return p;
+      const existingKeys=new Set(curGastos.map(x=>x.nombre.trim()+"_"+x.monto+"_"+x.destino+"_"+x.diaPago));
+      const toAdd=dueDayItems.filter(x=>!existingKeys.has(x.nombre.trim()+"_"+x.monto+"_"+x.destino+"_"+x.diaPago));
+      if(!toAdd.length)return p;
+      const copies=toAdd.map(x=>({...x,id:uid(),state:"pending",pagado:false,_potAdded:false,_debtPaid:false,_charged:false}));
+      setTimeout(()=>toast_(`📅 ${copies.length} due-day expense${copies.length>1?"s":""} copied`),150);
+      return{...p,periods:{...p.periods,[activeCheckPid]:{...(p.periods[activeCheckPid]||{}),gastos:[...curGastos,...copies]}}};
+    });
   },[activeCheckPid,nextMonthPeriods]);
   const resetCheck=useCallback((pid,label)=>{
     updPeriodGastos(pid,g=>{
