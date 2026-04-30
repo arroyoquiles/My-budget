@@ -1712,10 +1712,16 @@ const GastoItem = ({
       animation: "fadeIn 0.22s ease both"
     },
     onMouseDown: e => {
-      if (e.target === e.currentTarget) setEditId(null);
+      if (e.target === e.currentTarget) {
+        if (item.destino === "__new__") onRemove(item.id);
+        setEditId(null);
+      }
     },
     onTouchEnd: e => {
-      if (e.target === e.currentTarget) setEditId(null);
+      if (e.target === e.currentTarget) {
+        if (item.destino === "__new__") onRemove(item.id);
+        setEditId(null);
+      }
     }
   }, /*#__PURE__*/React.createElement("div", {
     style: {
@@ -2453,7 +2459,10 @@ const GastoItem = ({
       letterSpacing: 0.5,
       opacity: 0.6
     },
-    onClick: () => setEditId(null)
+    onClick: () => {
+      if (item.destino === "__new__") onRemove(item.id);
+      setEditId(null);
+    }
   }, "CANCEL"), /*#__PURE__*/React.createElement("button", {
     style: {
       ...BTN,
@@ -3898,7 +3907,11 @@ const DestinoSummary = memo(({
     };
     bd[k].total += n(g.monto);
   });
-  const entries = Object.entries(bd).filter(([, v]) => v.total > 0 && v.d !== "other");
+  const entries = Object.entries(bd).filter(([, v]) => v.total > 0 && v.d !== "other" && v.d !== "__new__").sort((a, b) => {
+    const aBot = a[1].d === "temp" || a[1].d === "other";
+    const bBot = b[1].d === "temp" || b[1].d === "other";
+    return (aBot ? 999 : DORDER.indexOf(a[1].d) + 1 || 50) - (bBot ? 999 : DORDER.indexOf(b[1].d) + 1 || 50);
+  });
   if (!entries.length) return null;
   const scrollToGroup = k => {
     const el = document.getElementById(`group-${pid}-${k}`);
@@ -5565,20 +5578,28 @@ function App() {
     toast_(isUse ? "💳 " + fmt(m) + " used from " + (pot?.name || moveTo) : "💸 " + fmt(m) + " added to " + (pot?.name || moveTo));
   };
   const exportData = useCallback(fname => {
-    const b = new Blob([JSON.stringify(data, null, 2)], {
+    const json = JSON.stringify(data, null, 2);
+    const b = new Blob([json], {
       type: "application/json"
     });
     const u = URL.createObjectURL(b);
-    const a = document.createElement("a");
-    a.href = u;
-    a.download = fname || "mybudget_backup.json";
-    a.style.display = "none";
-    document.body.appendChild(a);
-    a.click();
-    setTimeout(() => {
-      document.body.removeChild(a);
-      URL.revokeObjectURL(u);
-    }, 1000);
+    // iOS Safari doesn't support anchor download — open in new tab so user can share/save
+    const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream;
+    if (isIOS) {
+      window.open(u, "_blank");
+      setTimeout(() => URL.revokeObjectURL(u), 5000);
+    } else {
+      const a = document.createElement("a");
+      a.href = u;
+      a.download = fname || "mybudget_backup.json";
+      a.style.display = "none";
+      document.body.appendChild(a);
+      a.click();
+      setTimeout(() => {
+        document.body.removeChild(a);
+        URL.revokeObjectURL(u);
+      }, 1000);
+    }
     toast_("📥 Backup exported");
   }, [data]);
   const importData = useCallback(e => {
