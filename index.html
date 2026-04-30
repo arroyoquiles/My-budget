@@ -1387,6 +1387,8 @@ const hashPin=async(pin)=>{
   const [locked,setLocked]=useState(true);
   const [editId,setEditId]=useState(null);
   const [editPid,setEditPid]=useState(null);
+  const [futureEditId,setFutureEditId]=useState(null);
+  const futureEditGroupKeyRef=useRef(null);
   const [accion,setAccion]=useState(null);
   const [montoAccion,setMontoAccion]=useState("");
   const [alertDim,setAlertDim]=useState(()=>{
@@ -1809,19 +1811,22 @@ const hashPin=async(pin)=>{
     const nid=uid();
     const scrollY=window.scrollY;
     updPeriodGastos(pid,g=>[...g,{id:nid,nombre:"",monto:0,cat:"",state:"pending",pagado:false,destino:"__new__",tarjetaRef:"",diaPago:null,_quick:false}]);
-    editGroupKeyRef.current="__new__";
+    const isInSheet=nextMonthPeriods.some(p=>p.id===pid);
+    if(isInSheet){futureEditGroupKeyRef.current="__new__";}
+    else{editGroupKeyRef.current="__new__";}
     setTimeout(()=>{
-      const isInSheet=nextMonthPeriods.some(p=>p.id===pid);
       if(!isInSheet)window.scrollTo({top:scrollY,behavior:"instant"});
-      setEditPid(pid);
-      setEditId(nid);
+      if(isInSheet){setFutureEditId(nid);}
+      else{setEditPid(pid);setEditId(nid);}
     },80);
   },[nextMonthPeriods]);
   const addGastoDebt=useCallback((pid,debtRef,debt,tipo)=>{
     const nid=uid();
     const isCard=tipo==="card";
     const realCat=isCard?"credit_card":"auto";
-    editGroupKeyRef.current=isCard?"__cards__":realCat;
+    const isInSheet=nextMonthPeriods.some(p=>p.id===pid);
+    if(isInSheet){futureEditGroupKeyRef.current=isCard?"__cards__":realCat;}
+    else{editGroupKeyRef.current=isCard?"__cards__":realCat;}
     const scrollY=window.scrollY;
     updPeriodGastos(pid,g=>[...g,{
       id:nid,
@@ -1838,11 +1843,9 @@ const hashPin=async(pin)=>{
       debtRef
     }]);
     setTimeout(()=>{
-      // Only restore scroll position on main page, not inside bottom sheet
-      const isInSheet=nextMonthPeriods.some(p=>p.id===pid);
       if(!isInSheet)window.scrollTo({top:scrollY,behavior:"instant"});
-      setEditPid(pid);
-      setEditId(nid);
+      if(isInSheet){setFutureEditId(nid);}
+      else{setEditPid(pid);setEditId(nid);}
     },80);
   },[nextMonthPeriods]);
   // Auto-archive previous month's checks when entering Check 1 of new month
@@ -2244,6 +2247,17 @@ const hashPin=async(pin)=>{
   };
 
   const renderCheckTabGrouped=(pid,gastos,periodDate,isFuture=false)=>{
+    // Use isolated edit state for future checks to prevent cross-contamination with current checks
+    const activeEditId=isFuture?futureEditId:editId;
+    const activeEditGroupKeyRef=isFuture?futureEditGroupKeyRef:editGroupKeyRef;
+    const activeSetEditId=isFuture?(id)=>{
+      if(id===null){futureEditGroupKeyRef.current=null;setFutureEditId(null);}
+      else{
+        const g=gastos.find(x=>x.id===id);
+        if(g)futureEditGroupKeyRef.current=g.destino==="credit_card"?"__cards__":g.destino;
+        setFutureEditId(id);
+      }
+    }:(id)=>openEditId(id);
     const groups={};
     // Build groups preserving original array order
     gastos.forEach(g=>{
@@ -2253,21 +2267,21 @@ const hashPin=async(pin)=>{
       groups[k].items.push(g);
     });
     // Apply editGroupKeyRef after groups are built — move item to its edit group
-    if(editId&&editGroupKeyRef.current!==null){
-      const editItem=gastos.find(g=>g.id===editId);
+    if(activeEditId&&activeEditGroupKeyRef.current!==null){
+      const editItem=gastos.find(g=>g.id===activeEditId);
       if(editItem){
         const isCustomLabel=editItem.destino&&(editItem.destino.startsWith("label_")||(data.customLabels||[]).some(cl=>cl.id===editItem.destino));
         const origKey=editItem.destino==="credit_card"&&!isCustomLabel?(editItem.tarjetaRef||"Credit Card"):editItem.destino;
-        const newKey=editGroupKeyRef.current;
+        const newKey=activeEditGroupKeyRef.current;
         if(origKey!==newKey&&groups[origKey]){
-          groups[origKey].items=groups[origKey].items.filter(g=>g.id!==editId);
+          groups[origKey].items=groups[origKey].items.filter(g=>g.id!==activeEditId);
           if(!groups[newKey])groups[newKey]={d:editItem.destino,r:editItem.tarjetaRef,items:[]};
           groups[newKey].items.push(editItem);
         }
       }
     }
-    if(editId!==null&&editGroupKeyRef.current!==null){
-      const k=editGroupKeyRef.current;
+    if(activeEditId!==null&&activeEditGroupKeyRef.current!==null){
+      const k=activeEditGroupKeyRef.current;
       if(groups[k]){
         const isCardRef=!DEST[k];
         if(isCardRef){groups[k].d="credit_card";groups[k].r=k;}
@@ -2276,13 +2290,13 @@ const hashPin=async(pin)=>{
     }
     return(<>{Object.keys(groups).sort((a,b)=>((groups[a].d==="other"||groups[a].d==="temp"||a==="__temp__"||a==="__other__")?999:DORDER.indexOf(groups[a].d)+1||50)-((groups[b].d==="other"||groups[b].d==="temp"||b==="__temp__"||b==="__other__")?999:DORDER.indexOf(groups[b].d)+1||50)).map(k=>{
       const{d,r,items}=groups[k];const dst=gds(d,r,null,potsList||[],data.customLabels||[]);const sub=items.reduce((s,g)=>s+n(g.monto),0);
-      const sortedItems=items; // preserve insertion order — sorting caused swipe-to-wrong-item bug
+      const sortedItems=items; // preserve insertion order
       return(<div key={`${pid}-${k}`} style={{marginBottom:14}}>
         <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"6px 10px",marginBottom:5,background:dst.bg,borderRadius:9,border:`1px solid ${dst.border}`}}>
           <span style={{fontSize:12,fontWeight:700,color:dst.color}}>{dst.icon} {dst.label}</span>
           <span style={{fontFamily:"monospace",fontSize:13,fontWeight:800,color:dst.color}}>{fmt(sub)}</span>
         </div>
-        <div>{sortedItems.map(gi=>(<GastoItem key={gi.id} item={gi} pid={pid} editId={editId} editPid={editPid} setEditId={(id)=>openEditId(id)} tarjetas={data.tarjetas} loans={data.loans||[]} potsList={potsList} globalEditingAmt={globalEditingAmt} checkIdx={(()=>{const i=monthPeriods.findIndex(p=>p.id===pid);return i>=0?i:nextMonthPeriods.findIndex(p=>p.id===pid);})()}  periodDate={periodDate} customLabels={data.customLabels||[]} onAddCustomLabel={(name,id,parent)=>{if(!id)return;setData(p=>({...p,customLabels:(p.customLabels||[]).some(l=>l.id===id)?p.customLabels:[...(p.customLabels||[]),{id,name,icon:"🏷️",parent:parent||null}]}));}}
+        <div>{sortedItems.map(gi=>(<GastoItem key={gi.id} item={gi} pid={pid} editId={activeEditId} editPid={isFuture?pid:editPid} setEditId={activeSetEditId} tarjetas={data.tarjetas} loans={data.loans||[]} potsList={potsList} globalEditingAmt={globalEditingAmt} checkIdx={(()=>{const i=monthPeriods.findIndex(p=>p.id===pid);return i>=0?i:nextMonthPeriods.findIndex(p=>p.id===pid);})()}  periodDate={periodDate} customLabels={data.customLabels||[]} onAddCustomLabel={(name,id,parent)=>{if(!id)return;setData(p=>({...p,customLabels:(p.customLabels||[]).some(l=>l.id===id)?p.customLabels:[...(p.customLabels||[]),{id,name,icon:"🏷️",parent:parent||null}]}));}}
             onCycle={()=>{}} onLongPress={()=>{}}
             onUpdate={(id,f,v)=>updateGasto(pid,id,f,v)}
             onBatchUpdate={(id,fields)=>batchUpdateGasto(pid,id,fields)} onPropagate={(gi)=>propagateToAllChecks(pid,gi)}
@@ -2537,7 +2551,7 @@ const hashPin=async(pin)=>{
         const nmShort=nextMonthPeriods[0].payday.toLocaleDateString("en-US",{month:"short"});
         const pid=nextMonthPeriods.find(p=>p.id===activeCheckPid)?.id||nextMonthPeriods[0].id;
         const period=nextMonthPeriods.find(p=>p.id===pid)||nextMonthPeriods[0];
-        const close=()=>{setPreviewNextMonth(false);setActiveCheckPid(null);setEditId(null);setEditPid(null);};
+        const close=()=>{setPreviewNextMonth(false);setActiveCheckPid(null);setEditId(null);setEditPid(null);setFutureEditId(null);futureEditGroupKeyRef.current=null;};
         return(
           <div style={{position:"fixed",inset:0,zIndex:550,background:"rgba(0,0,0,0.65)",backdropFilter:"blur(6px)",WebkitBackdropFilter:"blur(6px)",display:"flex",alignItems:"flex-end",justifyContent:"center",animation:"fadeIn 0.22s ease both"}}
             onClick={e=>{if(e.target===e.currentTarget)close();}}>
