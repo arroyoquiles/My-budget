@@ -4168,6 +4168,8 @@ function App() {
   const [quickAmt, setQuickAmt] = useState("");
   const [quickPid, setQuickPid] = useState("");
   const [quickApplyTo, setQuickApplyTo] = useState("check");
+  const [quickCat, setQuickCat] = useState("");
+  const [quickCatGroup, setQuickCatGroup] = useState(null);
   const [quickCardId, setQuickCardId] = useState("");
   const [quickCardMode, setQuickCardMode] = useState("budget"); // "budget" or "cardonly"
   const [moveOpen, setMoveOpen] = useState(false);
@@ -4559,6 +4561,8 @@ function App() {
     if (quickOpen) {
       setQuickCardId("");
       setQuickCardMode("budget");
+      setQuickCat("");
+      setQuickCatGroup(null);
     }
   }, [quickOpen]);
   const TABS_ORDER = useMemo(() => ["overview", "paychecks", "debts", "calendar", "history", "settings"], []);
@@ -4685,11 +4689,14 @@ function App() {
         }));
         toast_("↩️ Payment reversed from card");
       } else if (tipo === "loan") {
+        // Reverse only the principal that was deducted (not full payment)
+        const loanForReversal = (data.loans || []).find(l => l.id === debtId);
+        const principalPaid = loanForReversal ? calcLoan(Math.max(0, n(loanForReversal.balance) - m), n(loanForReversal.interes), m).principal : m;
         setData(p => ({
           ...p,
           loans: (p.loans || []).map(l => l.id !== debtId ? l : {
             ...l,
-            balance: n(l.balance) + m,
+            balance: n(l.balance) + principalPaid,
             historial: (l.historial || []).slice(1)
           })
         }));
@@ -5346,10 +5353,10 @@ function App() {
       id: nid,
       nombre: quickNote.trim(),
       monto: m,
-      cat: "other",
+      cat: quickCat || "other",
       state: "paid",
       pagado: true,
-      destino: "other",
+      destino: quickCat || "other",
       tarjetaRef: "",
       diaPago: null,
       _quick: true
@@ -5400,10 +5407,10 @@ function App() {
         id: nid,
         nombre: quickNote.trim(),
         monto: m,
-        cat: "other",
+        cat: quickCat || "other",
         state: "paid",
         pagado: true,
-        destino: "other",
+        destino: quickCat || "other",
         tarjetaRef: card ? card.nombre : "",
         diaPago: null,
         _quick: true
@@ -5560,11 +5567,11 @@ function App() {
     const safeName = typeof fname === "string" && fname || `mybudget_${mo[now.getMonth()]}_${now.getFullYear()}.json`;
     const json = JSON.stringify(data, null, 2);
     const b = new Blob([json], {
-      type: "application/json"
+      type: "text/plain"
     });
     if (navigator.share && navigator.canShare) {
       const file = new File([b], safeName, {
-        type: "application/json"
+        type: "text/plain"
       });
       if (navigator.canShare({
         files: [file]
@@ -7189,6 +7196,7 @@ function App() {
     const debtId = parseInt(idStr);
     const debt = tipo === "card" ? data.tarjetas.find(t => t.id === debtId) : (data.loans || []).find(l => l.id === debtId);
     if (!debt) return null;
+    const loanCalc = tipo === "loan" ? calcLoan(n(debt.balance), n(debt.interes), m) : null;
     const registerPayment = () => {
       const entry = {
         fecha: new Date().toLocaleDateString("en-US", {
@@ -7209,10 +7217,7 @@ function App() {
         }));
       } else {
         // For loans, only deduct the PRINCIPAL portion from balance (not interest)
-        const {
-          principal
-        } = calcLoan(n(debt.balance), n(debt.interes), m);
-        const deductAmount = principal > 0 ? principal : m; // fallback to full amount if no rate set
+        const deductAmount = loanCalc && loanCalc.principal > 0 ? loanCalc.principal : m;
         setData(p => ({
           ...p,
           loans: (p.loans || []).map(l => l.id !== debtId ? l : {
@@ -7289,7 +7294,7 @@ function App() {
         fontSize: 13,
         color: T.muted,
         textAlign: "center",
-        marginBottom: 20
+        marginBottom: loanCalc ? 12 : 20
       }
     }, "Record ", /*#__PURE__*/React.createElement("span", {
       style: {
@@ -7301,7 +7306,67 @@ function App() {
         color: T.accent,
         fontWeight: 700
       }
-    }, debt.nombre), " in Debts?"), /*#__PURE__*/React.createElement("div", {
+    }, debt.nombre), " in Debts?"), loanCalc && /*#__PURE__*/React.createElement("div", {
+      style: {
+        marginBottom: 16,
+        padding: "10px 14px",
+        background: T.surface2,
+        borderRadius: 10,
+        border: `1px solid ${T.border}`
+      }
+    }, /*#__PURE__*/React.createElement("div", {
+      style: {
+        display: "flex",
+        justifyContent: "space-between",
+        fontSize: 11,
+        marginBottom: 4
+      }
+    }, /*#__PURE__*/React.createElement("span", {
+      style: {
+        color: T.muted
+      }
+    }, "Interest"), /*#__PURE__*/React.createElement("span", {
+      style: {
+        fontFamily: "monospace",
+        color: "#f85149",
+        fontWeight: 700
+      }
+    }, fmt(loanCalc.interest))), /*#__PURE__*/React.createElement("div", {
+      style: {
+        display: "flex",
+        justifyContent: "space-between",
+        fontSize: 11,
+        marginBottom: 4
+      }
+    }, /*#__PURE__*/React.createElement("span", {
+      style: {
+        color: T.muted
+      }
+    }, "Principal"), /*#__PURE__*/React.createElement("span", {
+      style: {
+        fontFamily: "monospace",
+        color: "#3fb950",
+        fontWeight: 700
+      }
+    }, fmt(loanCalc.principal))), /*#__PURE__*/React.createElement("div", {
+      style: {
+        display: "flex",
+        justifyContent: "space-between",
+        fontSize: 11,
+        paddingTop: 6,
+        borderTop: `1px solid ${T.border}`
+      }
+    }, /*#__PURE__*/React.createElement("span", {
+      style: {
+        color: T.muted
+      }
+    }, "New balance"), /*#__PURE__*/React.createElement("span", {
+      style: {
+        fontFamily: "monospace",
+        color: T.text,
+        fontWeight: 700
+      }
+    }, fmt(loanCalc.newBalance)))), /*#__PURE__*/React.createElement("div", {
       style: {
         display: "flex",
         gap: 10
@@ -7542,6 +7607,216 @@ function App() {
     onChange: e => setQuickAmt(e.target.value),
     placeholder: "0.00"
   }))), /*#__PURE__*/React.createElement("div", {
+    style: {
+      marginBottom: 10
+    }
+  }, /*#__PURE__*/React.createElement("div", {
+    style: {
+      fontSize: 10,
+      color: T.muted,
+      marginBottom: 5
+    }
+  }, "CATEGORY"), (() => {
+    const CAT_GROUPS = [{
+      id: "essentials",
+      label: "Essentials",
+      icon: "🏠",
+      cats: ["rent", "utilities", "gas", "groceries", "auto"]
+    }, {
+      id: "spending",
+      label: "Spending",
+      icon: "🛍️",
+      cats: ["dining", "entertainment", "lifestyle", "travel", "personal"]
+    }, {
+      id: "bills",
+      label: "Bills",
+      icon: "📋",
+      cats: ["subscription", "insurance", "medical", "education"]
+    }, {
+      id: "finance",
+      label: "Finance",
+      icon: "💰",
+      cats: []
+    }];
+    const selCat = quickCat && DEST[quickCat] ? quickCat : "";
+    const selGroup = selCat ? CAT_GROUPS.find(g => g.cats.includes(selCat))?.id : (data.potsList || []).find(p => p.id === quickCat) ? "finance" : null;
+    const activeGroup = quickCatGroup || (selGroup && !quickCatGroup ? selGroup : null);
+    return /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement("div", {
+      style: {
+        display: "grid",
+        gridTemplateColumns: "1fr 1fr 1fr",
+        gap: 5,
+        marginBottom: 5
+      }
+    }, CAT_GROUPS.map(g => {
+      const isActive = activeGroup === g.id;
+      const hasSel = selGroup === g.id;
+      const selD = hasSel && selCat ? DEST[selCat] : null;
+      const selPot = g.id === "finance" ? (data.potsList || []).find(p => p.id === quickCat) : null;
+      const label = selPot ? `${selPot.icon || "🪣"} ${selPot.name}` : hasSel && selD ? `${selD.icon} ${selD.label}` : `${g.icon} ${g.label}`;
+      return /*#__PURE__*/React.createElement("button", {
+        key: g.id,
+        style: {
+          cursor: "pointer",
+          fontFamily: "inherit",
+          WebkitTapHighlightColor: "transparent",
+          padding: "7px 8px",
+          fontSize: 11,
+          textAlign: "left",
+          borderRadius: 10,
+          fontWeight: 600,
+          border: "none",
+          background: isActive ? `${T.accent}15` : "#21262d",
+          color: isActive ? T.accent : hasSel || selPot ? selD?.color || selPot?.color || T.text : T.muted,
+          border: `1px solid ${isActive ? T.accent + "55" : hasSel || selPot ? selD?.border || selPot?.color + "66" || T.border : T.border}`,
+          transition: "all 0.15s",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "space-between",
+          gap: 4
+        },
+        onMouseDown: e => {
+          e.preventDefault();
+          setQuickCatGroup(activeGroup === g.id ? null : g.id);
+        }
+      }, /*#__PURE__*/React.createElement("span", {
+        style: {
+          overflow: "hidden",
+          textOverflow: "ellipsis",
+          whiteSpace: "nowrap"
+        }
+      }, label), /*#__PURE__*/React.createElement("span", {
+        style: {
+          fontSize: 9,
+          opacity: 0.5,
+          flexShrink: 0
+        }
+      }, isActive ? "▲" : "▼"));
+    })), CAT_GROUPS.filter(g => g.id === activeGroup).map(g => /*#__PURE__*/React.createElement("div", {
+      key: g.id,
+      style: {
+        marginBottom: 5,
+        padding: "8px",
+        background: T.surface2,
+        borderRadius: 10,
+        border: `1px solid ${T.border}`
+      }
+    }, /*#__PURE__*/React.createElement("div", {
+      style: {
+        display: "grid",
+        gridTemplateColumns: "1fr 1fr 1fr",
+        gap: 4
+      }
+    }, g.cats.map(k => {
+      const d = DEST[k];
+      if (!d) return null;
+      const isSel = selCat === k;
+      return /*#__PURE__*/React.createElement("button", {
+        key: k,
+        style: {
+          cursor: "pointer",
+          border: "none",
+          borderRadius: 8,
+          fontFamily: "inherit",
+          fontWeight: 600,
+          WebkitTapHighlightColor: "transparent",
+          padding: "7px 6px",
+          fontSize: 10,
+          textAlign: "left",
+          background: isSel ? d.bg : "transparent",
+          color: isSel ? d.color : T.muted,
+          border: `1px solid ${isSel ? d.border : "transparent"}`,
+          transition: "all 0.1s",
+          whiteSpace: "nowrap",
+          overflow: "hidden",
+          textOverflow: "ellipsis"
+        },
+        onMouseDown: e => {
+          e.preventDefault();
+          if (isSel) {
+            setQuickCat("");
+            setQuickCatGroup(null);
+          } else {
+            setQuickCat(k);
+            setQuickCatGroup(null);
+          }
+        }
+      }, d.icon, " ", d.label);
+    }), g.id === "finance" && (data.potsList || []).map(pot => {
+      const isSel = quickCat === pot.id;
+      const color = pot.color || "#58a6ff";
+      return /*#__PURE__*/React.createElement("button", {
+        key: pot.id,
+        style: {
+          cursor: "pointer",
+          border: "none",
+          borderRadius: 8,
+          fontFamily: "inherit",
+          fontWeight: 600,
+          WebkitTapHighlightColor: "transparent",
+          padding: "7px 6px",
+          fontSize: 10,
+          textAlign: "left",
+          background: isSel ? color + "22" : "transparent",
+          color: isSel ? color : T.muted,
+          border: `1px solid ${isSel ? color + "66" : "transparent"}`,
+          transition: "all 0.1s",
+          whiteSpace: "nowrap",
+          overflow: "hidden",
+          textOverflow: "ellipsis"
+        },
+        onMouseDown: e => {
+          e.preventDefault();
+          if (isSel) {
+            setQuickCat("");
+            setQuickCatGroup(null);
+          } else {
+            setQuickCat(pot.id);
+            setQuickCatGroup(null);
+          }
+        }
+      }, pot.icon || "🪣", " ", pot.name);
+    })))), (data.customLabels || []).length > 0 && /*#__PURE__*/React.createElement("div", {
+      style: {
+        display: "grid",
+        gridTemplateColumns: "1fr 1fr 1fr",
+        gap: 5,
+        marginBottom: 5
+      }
+    }, (data.customLabels || []).map(cl => {
+      const isSel = quickCat === cl.id;
+      return /*#__PURE__*/React.createElement("button", {
+        key: cl.id,
+        style: {
+          cursor: "pointer",
+          border: "none",
+          borderRadius: 10,
+          fontFamily: "inherit",
+          fontWeight: 600,
+          WebkitTapHighlightColor: "transparent",
+          padding: "7px 9px",
+          fontSize: 11,
+          textAlign: "left",
+          background: isSel ? "rgba(167,139,250,0.15)" : "#21262d",
+          color: isSel ? "#a78bfa" : T.muted,
+          border: `1px solid ${isSel ? "rgba(167,139,250,0.5)" : T.border}`,
+          transition: "all 0.1s",
+          whiteSpace: "nowrap",
+          overflow: "hidden",
+          textOverflow: "ellipsis"
+        },
+        onMouseDown: e => {
+          e.preventDefault();
+          if (isSel) {
+            setQuickCat("");
+          } else {
+            setQuickCat(cl.id);
+            setQuickCatGroup(null);
+          }
+        }
+      }, cl.icon || "🏷️", " ", cl.name);
+    })));
+  })()), /*#__PURE__*/React.createElement("div", {
     style: {
       marginBottom: 8
     }
