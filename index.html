@@ -1932,10 +1932,17 @@ const GastoItem = ({
         },
         onMouseDown: e => {
           e.preventDefault();
-          setLocalCat(k);
-          setLocalDestino(k === "credit_card" ? "credit_card" : k);
-          if (k !== "credit_card") setLocalTarjetaRef("");
-          setOpenCatGroup(null);
+          if (isSel) {
+            setLocalCat("");
+            setLocalDestino("");
+            setLocalTarjetaRef("");
+            setOpenCatGroup(null);
+          } else {
+            setLocalCat(k);
+            setLocalDestino(k === "credit_card" ? "credit_card" : k);
+            if (k !== "credit_card") setLocalTarjetaRef("");
+            setOpenCatGroup(null);
+          }
         }
       }, d.icon, " ", d.label);
     }), g.id === "finance" && (potsList || []).map(pot => {
@@ -1963,57 +1970,20 @@ const GastoItem = ({
         },
         onMouseDown: e => {
           e.preventDefault();
-          setLocalDestino(pot.id);
-          setLocalCat("");
-          setLocalTarjetaRef("");
-          setOpenCatGroup(null);
+          if (isSel) {
+            setLocalDestino("");
+            setLocalCat("");
+            setLocalTarjetaRef("");
+            setOpenCatGroup(null);
+          } else {
+            setLocalDestino(pot.id);
+            setLocalCat("");
+            setLocalTarjetaRef("");
+            setOpenCatGroup(null);
+          }
         }
       }, pot.icon || "🪣", " ", pot.name);
-    })))), (() => {
-      const isSel = localDestino === "temp";
-      const d = DEST["temp"];
-      return /*#__PURE__*/React.createElement("div", {
-        style: {
-          display: "grid",
-          gridTemplateColumns: "1fr 1fr 1fr",
-          gap: 5,
-          marginBottom: 5
-        }
-      }, /*#__PURE__*/React.createElement("button", {
-        style: {
-          cursor: "pointer",
-          border: "none",
-          borderRadius: 10,
-          fontFamily: "inherit",
-          fontWeight: 600,
-          WebkitTapHighlightColor: "transparent",
-          padding: "7px 8px",
-          fontSize: 11,
-          textAlign: "left",
-          background: isSel ? d.bg : "#21262d",
-          color: isSel ? d.color : T.muted,
-          border: `1px solid ${isSel ? d.border : T.border}`,
-          transition: "all 0.1s",
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "space-between",
-          gap: 4
-        },
-        onMouseDown: e => {
-          e.preventDefault();
-          setLocalCat("temp");
-          setLocalDestino("temp");
-          setLocalTarjetaRef("");
-          setOpenCatGroup(null);
-        }
-      }, /*#__PURE__*/React.createElement("span", {
-        style: {
-          overflow: "hidden",
-          textOverflow: "ellipsis",
-          whiteSpace: "nowrap"
-        }
-      }, d.icon, " ", d.label)));
-    })(), /*#__PURE__*/React.createElement("div", {
+    })))), /*#__PURE__*/React.createElement("div", {
       style: {
         display: "grid",
         gridTemplateColumns: "1fr 1fr 1fr",
@@ -2043,11 +2013,17 @@ const GastoItem = ({
         },
         onMouseDown: e => {
           e.preventDefault();
-          setLocalDestino(cl.id);
-          setLocalCat("");
-          setLocalTarjetaRef("");
+          if (isSel) {
+            setLocalDestino("");
+            setLocalCat("");
+            setLocalTarjetaRef("");
+          } else {
+            setLocalDestino(cl.id);
+            setLocalCat("");
+            setLocalTarjetaRef("");
+          }
         }
-      }, cl.icon || "🏷️", " ", cl.name);
+      }, "                  ", cl.icon || "🏷️", " ", cl.name);
     }), newLabelInput ? /*#__PURE__*/React.createElement("div", {
       style: {
         gridColumn: "1/-1",
@@ -5370,10 +5346,10 @@ function App() {
       id: nid,
       nombre: quickNote.trim(),
       monto: m,
-      cat: "temp",
+      cat: "other",
       state: "paid",
       pagado: true,
-      destino: "temp",
+      destino: "other",
       tarjetaRef: "",
       diaPago: null,
       _quick: true
@@ -5424,10 +5400,10 @@ function App() {
         id: nid,
         nombre: quickNote.trim(),
         monto: m,
-        cat: "temp",
+        cat: "other",
         state: "paid",
         pagado: true,
-        destino: "temp",
+        destino: "other",
         tarjetaRef: card ? card.nombre : "",
         diaPago: null,
         _quick: true
