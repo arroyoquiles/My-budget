@@ -4214,7 +4214,7 @@ const DebtCard = memo(({
         id: debt.id,
         tipo: "pago"
       });
-      setMontoAccion("");
+      setMontoAccion(tipo === "loan" && n(debt.minimo) > 0 ? String(n(debt.minimo)) : "");
     }
   }, "\uD83D\uDCB3 Payment"), tipo === "card" && /*#__PURE__*/React.createElement("button", {
     style: {
