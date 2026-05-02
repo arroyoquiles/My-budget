@@ -2738,26 +2738,34 @@ const DebtCard = memo(({
   onCollapse,
   resetToken,
   clipH,
+  customLabels,
+  onAddCustomLabel,
   T
 }) => {
   const [editing, setEditing] = useState(false);
   const [savedSnapshot, setSavedSnapshot] = useState(null);
   const [debtSwipe, setDebtSwipe] = useState(0);
   const [showColorPicker, setShowColorPicker] = useState(false);
+  const [showCatPicker, setShowCatPicker] = useState(false);
+  const [catPickerGroup, setCatPickerGroup] = useState(null);
+  const [newLabelInput, setNewLabelInput] = useState(false);
+  const [newLabelName, setNewLabelName] = useState("");
   const debtSwipeRef = useRef({
     startX: 0,
     startY: 0,
     dir: null,
     active: false
   });
-  // Reset all internal open UI whenever resetToken changes (card collapsed by external action)
   useEffect(() => {
     if (resetToken === undefined) return;
     setEditing(false);
     setSavedSnapshot(null);
     setDebtSwipe(0);
     setShowColorPicker(false);
-    setShowColorPicker(false);
+    setShowCatPicker(false);
+    setCatPickerGroup(null);
+    setNewLabelInput(false);
+    setNewLabelName("");
   }, [resetToken]);
   const INP = mkINP(T),
     BTN = mkBTN(),
@@ -2990,16 +2998,66 @@ const DebtCard = memo(({
         onCollapse(e);
       }
     }
+  }, /*#__PURE__*/React.createElement("div", {
+    style: {
+      display: "flex",
+      flexDirection: "column",
+      alignItems: "center",
+      flexShrink: 0,
+      gap: 2
+    }
   }, /*#__PURE__*/React.createElement("span", {
     style: {
       fontSize: clipH != null ? 19 : 15,
-      flexShrink: 0,
-      pointerEvents: "none",
       display: "inline-block",
       transition: "transform 0.35s cubic-bezier(0.34,1.56,0.64,1)",
-      transform: clipH == null ? "scale(1.35)" : "scale(1)"
+      transform: clipH == null ? "scale(1.35)" : "scale(1)",
+      cursor: tipo === "loan" && clipH == null ? "pointer" : "default",
+      WebkitTapHighlightColor: "transparent"
+    },
+    onClick: e => {
+      if (tipo === "loan" && clipH == null) {
+        e.stopPropagation();
+        setShowCatPicker(s => !s);
+        setCatPickerGroup(null);
+      }
     }
-  }, debtIcon), showEdit ? /*#__PURE__*/React.createElement("input", {
+  }, debtIcon), tipo === "loan" && clipH == null && (() => {
+    const catD = debt.cat && DEST[debt.cat] ? DEST[debt.cat] : debt.cat ? (customLabels || []).find(l => l.id === debt.cat) : null;
+    if (catD) return /*#__PURE__*/React.createElement("span", {
+      style: {
+        fontSize: 8,
+        color: catD.color || "#a78bfa",
+        fontWeight: 700,
+        background: catD.bg || "rgba(167,139,250,0.15)",
+        borderRadius: 4,
+        padding: "1px 4px",
+        maxWidth: 44,
+        overflow: "hidden",
+        textOverflow: "ellipsis",
+        whiteSpace: "nowrap",
+        cursor: "pointer"
+      },
+      onClick: e => {
+        e.stopPropagation();
+        setShowCatPicker(s => !s);
+        setCatPickerGroup(null);
+      }
+    }, catD.icon || "🏷️");
+    return /*#__PURE__*/React.createElement("span", {
+      style: {
+        fontSize: 8,
+        color: T.muted,
+        opacity: 0.5,
+        cursor: "pointer"
+      },
+      onClick: e => {
+        e.stopPropagation();
+        setShowCatPicker(s => !s);
+        setCatPickerGroup(null);
+      }
+    }, "+cat");
+  })()), showEdit ? /*#__PURE__*/React.createElement("input", {
     style: {
       ...INP,
       fontWeight: 700,
@@ -3120,7 +3178,324 @@ const DebtCard = memo(({
       e.preventDefault();
       onTogglePriority(debt.id);
     }
-  }, "\u2B50")), showEdit && /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement("div", {
+  }, "\u2B50")), tipo === "loan" && showCatPicker && clipH == null && (() => {
+    const CAT_GROUPS = [{
+      id: "essentials",
+      label: "Essentials",
+      icon: "🏠",
+      cats: ["rent", "utilities", "gas", "groceries", "auto"]
+    }, {
+      id: "spending",
+      label: "Spending",
+      icon: "🛍️",
+      cats: ["dining", "entertainment", "lifestyle", "travel", "personal"]
+    }, {
+      id: "bills",
+      label: "Bills",
+      icon: "📋",
+      cats: ["subscription", "insurance", "medical", "education"]
+    }];
+    const selCat = debt.cat && DEST[debt.cat] ? debt.cat : "";
+    const selGroup = selCat ? CAT_GROUPS.find(g => g.cats.includes(selCat))?.id : null;
+    const activeGroup = catPickerGroup || (selGroup && !catPickerGroup ? selGroup : null);
+    return /*#__PURE__*/React.createElement("div", {
+      style: {
+        marginBottom: 10,
+        padding: "10px",
+        background: T.surface2,
+        borderRadius: 10,
+        border: `1px solid ${T.border}`,
+        animation: "editOpen 0.22s ease both"
+      },
+      onMouseDown: e => e.stopPropagation(),
+      onTouchStart: e => e.stopPropagation()
+    }, /*#__PURE__*/React.createElement("div", {
+      style: {
+        fontSize: 9,
+        color: T.muted,
+        letterSpacing: 1,
+        marginBottom: 8,
+        fontWeight: 700
+      }
+    }, "CATEGORY FOR PAYMENTS"), /*#__PURE__*/React.createElement("div", {
+      style: {
+        display: "grid",
+        gridTemplateColumns: "1fr 1fr 1fr",
+        gap: 5,
+        marginBottom: 5
+      }
+    }, CAT_GROUPS.map(g => {
+      const isActive = activeGroup === g.id;
+      const hasSel = selGroup === g.id;
+      const selD = hasSel && selCat ? DEST[selCat] : null;
+      const label = hasSel && selD ? `${selD.icon} ${selD.label}` : `${g.icon} ${g.label}`;
+      return /*#__PURE__*/React.createElement("button", {
+        key: g.id,
+        style: {
+          cursor: "pointer",
+          fontFamily: "inherit",
+          WebkitTapHighlightColor: "transparent",
+          padding: "6px 7px",
+          fontSize: 10,
+          textAlign: "left",
+          borderRadius: 9,
+          fontWeight: 600,
+          border: "none",
+          background: isActive ? `${T.accent}15` : "#21262d",
+          color: isActive ? T.accent : hasSel ? selD?.color || T.text : T.muted,
+          border: `1px solid ${isActive ? T.accent + "55" : hasSel ? selD?.border || T.border : T.border}`,
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "space-between",
+          gap: 3
+        },
+        onMouseDown: e => {
+          e.preventDefault();
+          setCatPickerGroup(activeGroup === g.id ? null : g.id);
+        }
+      }, /*#__PURE__*/React.createElement("span", {
+        style: {
+          overflow: "hidden",
+          textOverflow: "ellipsis",
+          whiteSpace: "nowrap"
+        }
+      }, label), /*#__PURE__*/React.createElement("span", {
+        style: {
+          fontSize: 8,
+          opacity: 0.5,
+          flexShrink: 0
+        }
+      }, isActive ? "▲" : "▼"));
+    })), CAT_GROUPS.filter(g => g.id === activeGroup).map(g => /*#__PURE__*/React.createElement("div", {
+      key: g.id,
+      style: {
+        padding: "7px",
+        background: T.surface,
+        borderRadius: 9,
+        border: `1px solid ${T.border}`,
+        marginBottom: 5
+      }
+    }, /*#__PURE__*/React.createElement("div", {
+      style: {
+        display: "grid",
+        gridTemplateColumns: "1fr 1fr 1fr",
+        gap: 4
+      }
+    }, g.cats.map(k => {
+      const d = DEST[k];
+      if (!d) return null;
+      const isSel = selCat === k;
+      return /*#__PURE__*/React.createElement("button", {
+        key: k,
+        style: {
+          cursor: "pointer",
+          border: "none",
+          borderRadius: 7,
+          fontFamily: "inherit",
+          fontWeight: 600,
+          WebkitTapHighlightColor: "transparent",
+          padding: "7px 5px",
+          fontSize: 10,
+          textAlign: "left",
+          background: isSel ? d.bg : "transparent",
+          color: isSel ? d.color : T.muted,
+          border: `1px solid ${isSel ? d.border : "transparent"}`,
+          whiteSpace: "nowrap",
+          overflow: "hidden",
+          textOverflow: "ellipsis"
+        },
+        onMouseDown: e => {
+          e.preventDefault();
+          if (isSel) {
+            onUpdate(debt.id, "cat", "");
+            setCatPickerGroup(null);
+          } else {
+            onUpdate(debt.id, "cat", k);
+            setCatPickerGroup(null);
+          }
+        }
+      }, d.icon, " ", d.label, isSel ? " ✓" : "");
+    })))), (customLabels || []).length > 0 && /*#__PURE__*/React.createElement("div", {
+      style: {
+        display: "flex",
+        flexWrap: "wrap",
+        gap: 4,
+        marginBottom: 5
+      }
+    }, (customLabels || []).map(cl => {
+      const isSel = debt.cat === cl.id;
+      return /*#__PURE__*/React.createElement("button", {
+        key: cl.id,
+        style: {
+          cursor: "pointer",
+          border: "none",
+          borderRadius: 8,
+          fontFamily: "inherit",
+          fontWeight: 600,
+          WebkitTapHighlightColor: "transparent",
+          padding: "5px 9px",
+          fontSize: 10,
+          background: isSel ? "rgba(167,139,250,0.15)" : "#21262d",
+          color: isSel ? "#a78bfa" : T.muted,
+          border: `1px solid ${isSel ? "rgba(167,139,250,0.5)" : T.border}`
+        },
+        onMouseDown: e => {
+          e.preventDefault();
+          if (isSel) {
+            onUpdate(debt.id, "cat", "");
+          } else {
+            onUpdate(debt.id, "cat", cl.id);
+          }
+        }
+      }, cl.icon || "🏷️", " ", cl.name, isSel ? " ✓" : "");
+    })), !newLabelInput ? /*#__PURE__*/React.createElement("button", {
+      style: {
+        cursor: "pointer",
+        border: "none",
+        borderRadius: 8,
+        fontFamily: "inherit",
+        fontWeight: 600,
+        WebkitTapHighlightColor: "transparent",
+        padding: "5px 9px",
+        fontSize: 10,
+        background: "transparent",
+        color: T.muted,
+        border: `1px dashed ${T.border}`
+      },
+      onMouseDown: e => {
+        e.preventDefault();
+        setNewLabelInput(true);
+      }
+    }, "+ New label") : /*#__PURE__*/React.createElement("div", {
+      style: {
+        display: "flex",
+        gap: 4,
+        marginBottom: 4
+      }
+    }, /*#__PURE__*/React.createElement("input", {
+      autoFocus: true,
+      style: {
+        ...INP,
+        fontSize: 11,
+        padding: "5px 8px",
+        flex: 1
+      },
+      placeholder: "Label name...",
+      value: newLabelName,
+      onChange: e => setNewLabelName(e.target.value),
+      onMouseDown: e => e.stopPropagation(),
+      onTouchStart: e => e.stopPropagation()
+    }), /*#__PURE__*/React.createElement("button", {
+      style: {
+        cursor: "pointer",
+        border: "none",
+        borderRadius: 8,
+        fontFamily: "inherit",
+        fontWeight: 700,
+        WebkitTapHighlightColor: "transparent",
+        padding: "5px 10px",
+        fontSize: 11,
+        background: "#238636",
+        color: "#fff"
+      },
+      onMouseDown: e => {
+        e.preventDefault();
+        if (newLabelName.trim() && onAddCustomLabel) {
+          const id = "label_" + uid();
+          onAddCustomLabel(newLabelName.trim(), id, null);
+          onUpdate(debt.id, "cat", id);
+          setNewLabelInput(false);
+          setNewLabelName("");
+        }
+      }
+    }, "\u2713"), /*#__PURE__*/React.createElement("button", {
+      style: {
+        cursor: "pointer",
+        border: "none",
+        borderRadius: 8,
+        fontFamily: "inherit",
+        fontWeight: 600,
+        WebkitTapHighlightColor: "transparent",
+        padding: "5px 8px",
+        fontSize: 11,
+        background: "transparent",
+        color: T.muted,
+        border: `1px solid ${T.border}`
+      },
+      onMouseDown: e => {
+        e.preventDefault();
+        setNewLabelInput(false);
+        setNewLabelName("");
+      }
+    }, "\u2715")), /*#__PURE__*/React.createElement("div", {
+      style: {
+        display: "flex",
+        justifyContent: "space-between",
+        alignItems: "center",
+        marginTop: 8,
+        paddingTop: 8,
+        borderTop: `1px solid ${T.border}`
+      }
+    }, /*#__PURE__*/React.createElement("span", {
+      style: {
+        fontSize: 10,
+        fontWeight: 600,
+        color: selCat ? DEST[selCat]?.color || "#a78bfa" : T.muted,
+        flex: 1,
+        minWidth: 0,
+        overflow: "hidden",
+        textOverflow: "ellipsis",
+        whiteSpace: "nowrap"
+      }
+    }, selCat ? (() => {
+      const d = DEST[selCat] || (customLabels || []).find(l => l.id === selCat);
+      return d ? `${d.icon || "🏷️"} ${d.label || d.name} — will apply` : "Selected";
+    })() : "No category selected"), /*#__PURE__*/React.createElement("div", {
+      style: {
+        display: "flex",
+        gap: 6,
+        flexShrink: 0
+      }
+    }, selCat && /*#__PURE__*/React.createElement("button", {
+      style: {
+        cursor: "pointer",
+        border: "none",
+        borderRadius: 7,
+        fontFamily: "inherit",
+        fontWeight: 600,
+        WebkitTapHighlightColor: "transparent",
+        padding: "5px 10px",
+        fontSize: 10,
+        background: "transparent",
+        color: T.muted,
+        border: `1px solid ${T.border}`
+      },
+      onMouseDown: e => {
+        e.preventDefault();
+        onUpdate(debt.id, "cat", "");
+      }
+    }, "Clear"), /*#__PURE__*/React.createElement("button", {
+      style: {
+        cursor: "pointer",
+        border: "none",
+        borderRadius: 7,
+        fontFamily: "inherit",
+        fontWeight: 700,
+        WebkitTapHighlightColor: "transparent",
+        padding: "5px 14px",
+        fontSize: 11,
+        background: T.accent,
+        color: "#fff",
+        borderRadius: 8
+      },
+      onMouseDown: e => {
+        e.preventDefault();
+        setShowCatPicker(false);
+        setNewLabelInput(false);
+        setNewLabelName("");
+      }
+    }, "Done"))));
+  })(), showEdit && /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement("div", {
     style: {
       animation: "editOpen 0.28s cubic-bezier(0.4,0,0.2,1) both"
     },
@@ -4945,8 +5320,10 @@ function App() {
   const addGastoDebt = useCallback((pid, debtRef, debt, tipo) => {
     const nid = uid();
     const isCard = tipo === "card";
-    const realCat = isCard ? "credit_card" : "auto";
-    editGroupKeyRef.current = isCard ? "__cards__" : realCat;
+    const loanCat = !isCard && debt.cat && DEST[debt.cat] ? debt.cat : null;
+    const realCat = isCard ? "credit_card" : loanCat || "other";
+    const realDestino = isCard ? "credit_card" : loanCat || "__new__";
+    editGroupKeyRef.current = isCard ? "__cards__" : loanCat || "__new__";
     const scrollY = window.scrollY;
     updPeriodGastos(pid, g => [...g, {
       id: nid,
@@ -4955,7 +5332,7 @@ function App() {
       cat: realCat,
       state: "pending",
       pagado: false,
-      destino: realCat,
+      destino: realDestino,
       tarjetaRef: isCard ? debt.nombre : "",
       diaPago: debt.fechaPago ? parseInt(debt.fechaPago) || null : null,
       _quick: false,
@@ -5195,21 +5572,35 @@ function App() {
       tipo: accion.tipo,
       monto: m
     };
-    if (tipo === "card") setData(p => ({
-      ...p,
-      tarjetas: p.tarjetas.map(t => t.id !== id ? t : {
-        ...t,
-        balance: accion.tipo === "pago" ? Math.max(0, n(t.balance) - m) : n(t.balance) + m,
-        historial: [entry, ...(t.historial || [])].slice(0, 10)
-      })
-    }));else setData(p => ({
-      ...p,
-      loans: (p.loans || []).map(l => l.id !== id ? l : {
-        ...l,
-        balance: accion.tipo === "pago" ? Math.max(0, n(l.balance) - m) : n(l.balance) + m,
-        historial: [entry, ...(l.historial || [])].slice(0, 10)
-      })
-    }));
+    if (tipo === "card") {
+      setData(p => ({
+        ...p,
+        tarjetas: p.tarjetas.map(t => t.id !== id ? t : {
+          ...t,
+          balance: accion.tipo === "pago" ? Math.max(0, n(t.balance) - m) : n(t.balance) + m,
+          historial: [entry, ...(t.historial || [])].slice(0, 10)
+        })
+      }));
+    } else {
+      setData(p => {
+        const loan = (p.loans || []).find(l => l.id === id);
+        let deduct = m;
+        if (accion.tipo === "pago" && loan) {
+          const {
+            principal
+          } = calcLoan(n(loan.balance), n(loan.interes), m);
+          if (principal > 0) deduct = principal;
+        }
+        return {
+          ...p,
+          loans: (p.loans || []).map(l => l.id !== id ? l : {
+            ...l,
+            balance: accion.tipo === "pago" ? Math.max(0, n(l.balance) - deduct) : n(l.balance) + m,
+            historial: [entry, ...(l.historial || [])].slice(0, 10)
+          })
+        };
+      });
+    }
     setAccion(null);
     setMontoAccion("");
     toast_(accion.tipo === "pago" ? "✅ Payment recorded" : "📝 Charge recorded");
@@ -7216,7 +7607,6 @@ function App() {
           })
         }));
       } else {
-        // For loans, only deduct the PRINCIPAL portion from balance (not interest)
         const deductAmount = loanCalc && loanCalc.principal > 0 ? loanCalc.principal : m;
         setData(p => ({
           ...p,
@@ -7315,6 +7705,29 @@ function App() {
         border: `1px solid ${T.border}`
       }
     }, /*#__PURE__*/React.createElement("div", {
+      style: {
+        display: "flex",
+        justifyContent: "space-between",
+        fontSize: 11,
+        marginBottom: 4
+      }
+    }, /*#__PURE__*/React.createElement("span", {
+      style: {
+        color: T.muted
+      }
+    }, "Current balance"), /*#__PURE__*/React.createElement("span", {
+      style: {
+        fontFamily: "monospace",
+        color: T.text,
+        fontWeight: 700
+      }
+    }, fmt(n(debt.balance)))), /*#__PURE__*/React.createElement("div", {
+      style: {
+        height: 1,
+        background: T.border,
+        marginBottom: 4
+      }
+    }), /*#__PURE__*/React.createElement("div", {
       style: {
         display: "flex",
         justifyContent: "space-between",
@@ -11424,6 +11837,19 @@ function App() {
           onCollapse: isExpanded ? handleExpand : null,
           resetToken: resetTokens[d.id],
           clipH: clipH,
+          customLabels: data.customLabels || [],
+          onAddCustomLabel: (name, id, parent) => {
+            if (!id) return;
+            setData(p => ({
+              ...p,
+              customLabels: (p.customLabels || []).some(l => l.id === id) ? p.customLabels : [...(p.customLabels || []), {
+                id,
+                name,
+                icon: "🏷️",
+                parent: parent || null
+              }]
+            }));
+          },
           T: T
         })));
       }));
