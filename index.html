@@ -5580,14 +5580,14 @@ function App() {
   const exportData = useCallback(async fname => {
     const mo = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
     const now = new Date();
-    const autoName = fname || `mybudget_${mo[now.getMonth()]}_${now.getFullYear()}.json`;
+    // fname might be a SyntheticEvent if called directly from onClick — ignore it
+    const safeName = typeof fname === "string" && fname || `mybudget_${mo[now.getMonth()]}_${now.getFullYear()}.json`;
     const json = JSON.stringify(data, null, 2);
     const b = new Blob([json], {
       type: "application/json"
     });
-    // Use Web Share API on iOS — shows native share sheet with Files as option
     if (navigator.share && navigator.canShare) {
-      const file = new File([b], autoName, {
+      const file = new File([b], safeName, {
         type: "application/json"
       });
       if (navigator.canShare({
@@ -5602,14 +5602,13 @@ function App() {
           return;
         } catch (e) {
           if (e.name === "AbortError") return;
-        } // user cancelled share
+        }
       }
     }
-    // Fallback for desktop
     const u = URL.createObjectURL(b);
     const a = document.createElement("a");
     a.href = u;
-    a.download = autoName;
+    a.download = safeName;
     a.style.display = "none";
     document.body.appendChild(a);
     a.click();
@@ -7233,11 +7232,16 @@ function App() {
           })
         }));
       } else {
+        // For loans, only deduct the PRINCIPAL portion from balance (not interest)
+        const {
+          principal
+        } = calcLoan(n(debt.balance), n(debt.interes), m);
+        const deductAmount = principal > 0 ? principal : m; // fallback to full amount if no rate set
         setData(p => ({
           ...p,
           loans: (p.loans || []).map(l => l.id !== debtId ? l : {
             ...l,
-            balance: Math.max(0, n(l.balance) - m),
+            balance: Math.max(0, n(l.balance) - deductAmount),
             historial: [entry, ...(l.historial || [])].slice(0, 10)
           })
         }));
