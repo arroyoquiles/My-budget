@@ -10938,7 +10938,7 @@ function App() {
       return [...arr].sort((a, b) => (b.priority ? 1 : 0) - (a.priority ? 1 : 0));
     };
     const sortedAllDebts = expandedCardId || expandedLoanId ? allDebts : sortStrategy === "apr" ? [...allDebts].sort((a, b) => n(b.interes) - n(a.interes)) : sortStrategy === "balance" ? [...allDebts].sort((a, b) => n(a.balance) - n(b.balance)) : allDebts;
-    const firstDebtId = sortStrategy ? sortedAllDebts.find(d => n(d.balance) > 0)?.id ?? null : null;
+    const firstDebtId = sortStrategy ? sortedAllDebts.find(d => d.tipo === "card" && n(d.balance) > 0)?.id ?? null : null;
     const freshCards = sortCards(debtsFilter === "all" || debtsFilter === "cards" ? cards : debtsFilter === "loans" ? [] : cards);
     const freshLoans = (debtsFilter === "all" || debtsFilter === "loans" ? loans : debtsFilter === "cards" ? [] : loans).sort((a, b) => (b.priority ? 1 : 0) - (a.priority ? 1 : 0));
     if (!expandedCardId && !expandedLoanId) {
@@ -11153,7 +11153,7 @@ function App() {
         color: "#94a3b8",
         fontSize: 12
       }
-    }, fmt(totalDebt))), /*#__PURE__*/React.createElement("div", {
+    }, fmt(totalDebt))), debtsFilter !== "loans" && /*#__PURE__*/React.createElement("div", {
       style: {
         marginLeft: "auto",
         position: "relative"
@@ -11698,7 +11698,7 @@ function App() {
         }
       }, visibleLoans.map((d, stackIdx) => {
         const globalIdx = allDebts.findIndex(x => x.id === d.id && x.tipo === d.tipo);
-        const isFirst = !!sortStrategy && d.id === firstDebtId;
+        const isFirst = false;
         const isExpanded = expandedLoanId === d.id;
         const isFirstAfterExpanded = expandedIdx >= 0 && stackIdx === expandedIdx + 1;
         const zIndex = isExpanded ? visibleLoans.length + 10 : stackIdx + 1;
