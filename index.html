@@ -708,6 +708,13 @@ const DEST = {
     bg: "rgba(244,114,182,0.1)",
     border: "rgba(244,114,182,0.3)"
   },
+  personal_loan: {
+    label: "Personal Loan",
+    icon: "🏦",
+    color: "#60a5fa",
+    bg: "rgba(96,165,250,0.1)",
+    border: "rgba(96,165,250,0.3)"
+  },
   other: {
     label: "Other",
     icon: "📌",
@@ -924,7 +931,7 @@ const getLoanColor = nombre => {
   const palette = ["#f59e0b", "#06b6d4", "#eab308", "#14b8a6", "#fb923c", "#e879f9"];
   return palette[h % palette.length];
 };
-const DORDER = ["rent", "auto", "insurance", "utilities", "gas", "credit_card", "groceries", "subscription", "dining", "entertainment", "medical", "lifestyle", "savings_acct", "emergency", "investment"];
+const DORDER = ["rent", "auto", "insurance", "utilities", "gas", "credit_card", "groceries", "subscription", "dining", "entertainment", "medical", "lifestyle", "personal_loan", "savings_acct", "emergency", "investment"];
 const DORDER_LAST = ["temp", "other"];
 const DUE_DAY_CATS = new Set(["credit_card", "rent"]);
 const gds = (d, r, cardObj, potsList, customLabels) => {
@@ -2134,7 +2141,48 @@ const GastoItem = ({
         e.preventDefault();
         setNewLabelInput(true);
       }
-    }, "+ New")));
+    }, "+ New")), (() => {
+      const HIDDEN_CATS = ["personal_loan"];
+      const hiddenD = HIDDEN_CATS.includes(localDestino) ? DEST[localDestino] : null;
+      if (!hiddenD) return null;
+      return /*#__PURE__*/React.createElement("div", {
+        style: {
+          marginTop: 6,
+          display: "flex",
+          alignItems: "center",
+          gap: 6
+        }
+      }, /*#__PURE__*/React.createElement("div", {
+        style: {
+          padding: "5px 10px",
+          borderRadius: 8,
+          background: hiddenD.bg,
+          border: `1px solid ${hiddenD.border}`,
+          fontSize: 11,
+          fontWeight: 600,
+          color: hiddenD.color
+        }
+      }, hiddenD.icon, " ", hiddenD.label, " \u2713"), /*#__PURE__*/React.createElement("button", {
+        style: {
+          cursor: "pointer",
+          border: "none",
+          background: "transparent",
+          color: T.muted,
+          fontSize: 10,
+          padding: "4px 8px",
+          borderRadius: 6,
+          border: `1px solid ${T.border}`,
+          fontFamily: "inherit",
+          fontWeight: 600,
+          WebkitTapHighlightColor: "transparent"
+        },
+        onMouseDown: e => {
+          e.preventDefault();
+          setLocalDestino("");
+          setLocalCat("");
+        }
+      }, "Clear"));
+    })());
   })()), /*#__PURE__*/React.createElement("div", {
     style: {
       marginBottom: 10
@@ -3180,24 +3228,32 @@ const DebtCard = memo(({
     }
   }, "\u2B50")), tipo === "loan" && showCatPicker && clipH == null && (() => {
     const CAT_GROUPS = [{
-      id: "essentials",
-      label: "Essentials",
+      id: "auto",
+      icon: "🚗",
+      label: "Auto",
+      cat: "auto"
+    }, {
+      id: "rent",
       icon: "🏠",
-      cats: ["rent", "utilities", "gas", "groceries", "auto"]
+      label: "Mortgage",
+      cat: "rent"
     }, {
-      id: "spending",
-      label: "Spending",
-      icon: "🛍️",
-      cats: ["dining", "entertainment", "lifestyle", "travel", "personal"]
+      id: "education",
+      icon: "📚",
+      label: "Education",
+      cat: "education"
     }, {
-      id: "bills",
-      label: "Bills",
-      icon: "📋",
-      cats: ["subscription", "insurance", "medical", "education"]
+      id: "medical",
+      icon: "🏥",
+      label: "Medical",
+      cat: "medical"
+    }, {
+      id: "other",
+      icon: "🏦",
+      label: "Personal Loan",
+      cat: "personal_loan"
     }];
-    const selCat = debt.cat && DEST[debt.cat] ? debt.cat : "";
-    const selGroup = selCat ? CAT_GROUPS.find(g => g.cats.includes(selCat))?.id : null;
-    const activeGroup = catPickerGroup || (selGroup && !catPickerGroup ? selGroup : null);
+    const selCat = debt.cat && (CAT_GROUPS.some(g => g.cat === debt.cat) || (customLabels || []).some(l => l.id === debt.cat)) ? debt.cat : "";
     return /*#__PURE__*/React.createElement("div", {
       style: {
         marginBottom: 10,
@@ -3222,100 +3278,39 @@ const DebtCard = memo(({
         display: "grid",
         gridTemplateColumns: "1fr 1fr 1fr",
         gap: 5,
-        marginBottom: 5
+        marginBottom: 8
       }
     }, CAT_GROUPS.map(g => {
-      const isActive = activeGroup === g.id;
-      const hasSel = selGroup === g.id;
-      const selD = hasSel && selCat ? DEST[selCat] : null;
-      const label = hasSel && selD ? `${selD.icon} ${selD.label}` : `${g.icon} ${g.label}`;
+      const d = DEST[g.cat];
+      if (!d) return null;
+      const isSel = selCat === g.cat;
       return /*#__PURE__*/React.createElement("button", {
         key: g.id,
         style: {
           cursor: "pointer",
           fontFamily: "inherit",
           WebkitTapHighlightColor: "transparent",
-          padding: "6px 7px",
-          fontSize: 10,
-          textAlign: "left",
+          padding: "8px 6px",
+          fontSize: 11,
+          textAlign: "center",
           borderRadius: 9,
           fontWeight: 600,
           border: "none",
-          background: isActive ? `${T.accent}15` : "#21262d",
-          color: isActive ? T.accent : hasSel ? selD?.color || T.text : T.muted,
-          border: `1px solid ${isActive ? T.accent + "55" : hasSel ? selD?.border || T.border : T.border}`,
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "space-between",
-          gap: 3
-        },
-        onMouseDown: e => {
-          e.preventDefault();
-          setCatPickerGroup(activeGroup === g.id ? null : g.id);
-        }
-      }, /*#__PURE__*/React.createElement("span", {
-        style: {
-          overflow: "hidden",
-          textOverflow: "ellipsis",
-          whiteSpace: "nowrap"
-        }
-      }, label), /*#__PURE__*/React.createElement("span", {
-        style: {
-          fontSize: 8,
-          opacity: 0.5,
-          flexShrink: 0
-        }
-      }, isActive ? "▲" : "▼"));
-    })), CAT_GROUPS.filter(g => g.id === activeGroup).map(g => /*#__PURE__*/React.createElement("div", {
-      key: g.id,
-      style: {
-        padding: "7px",
-        background: T.surface,
-        borderRadius: 9,
-        border: `1px solid ${T.border}`,
-        marginBottom: 5
-      }
-    }, /*#__PURE__*/React.createElement("div", {
-      style: {
-        display: "grid",
-        gridTemplateColumns: "1fr 1fr 1fr",
-        gap: 4
-      }
-    }, g.cats.map(k => {
-      const d = DEST[k];
-      if (!d) return null;
-      const isSel = selCat === k;
-      return /*#__PURE__*/React.createElement("button", {
-        key: k,
-        style: {
-          cursor: "pointer",
-          border: "none",
-          borderRadius: 7,
-          fontFamily: "inherit",
-          fontWeight: 600,
-          WebkitTapHighlightColor: "transparent",
-          padding: "7px 5px",
-          fontSize: 10,
-          textAlign: "left",
-          background: isSel ? d.bg : "transparent",
+          background: isSel ? d.bg : "#21262d",
           color: isSel ? d.color : T.muted,
-          border: `1px solid ${isSel ? d.border : "transparent"}`,
-          whiteSpace: "nowrap",
-          overflow: "hidden",
-          textOverflow: "ellipsis"
+          border: `1px solid ${isSel ? d.border : T.border}`,
+          transition: "background 0.1s"
         },
         onMouseDown: e => {
           e.preventDefault();
           if (isSel) {
             onUpdate(debt.id, "cat", "");
-            setCatPickerGroup(null);
           } else {
-            onUpdate(debt.id, "cat", k);
-            setCatPickerGroup(null);
+            onUpdate(debt.id, "cat", g.cat);
           }
         }
-      }, d.icon, " ", d.label, isSel ? " ✓" : "");
-    })))), (customLabels || []).length > 0 && /*#__PURE__*/React.createElement("div", {
+      }, g.icon, " ", g.label, isSel ? " ✓" : "");
+    })), (customLabels || []).length > 0 && /*#__PURE__*/React.createElement("div", {
       style: {
         display: "flex",
         flexWrap: "wrap",
