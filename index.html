@@ -12019,7 +12019,7 @@ function App() {
     const seenExp = new Set();
     monthPeriods.forEach(p => {
       getPGastos(p.id).forEach(g => {
-        if (!g.diaPago) return;
+        if (!g.diaPago || g.debtRef) return;
         const isFixed = g.destino === "rent" || g.destino === "utilities" || g.destino === "insurance" || g.destino === "subscription" || g.destino === "auto";
         const isCustom = (data.customLabels || []).some(l => l.id === g.destino);
         if (!isFixed && !isCustom) return;
