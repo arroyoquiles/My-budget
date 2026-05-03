@@ -716,8 +716,8 @@ const DEST = {
     border: "#21262d"
   }
 };
-const DEST_ORDER = ["credit_card", "rent", "auto", "utilities", "gas", "groceries", "subscription", "dining", "entertainment", "medical", "insurance", "lifestyle", "travel", "education", "personal", "other", "temp"];
-const PARENT_CATS = ["credit_card", "rent", "auto", "utilities", "gas", "groceries", "subscription", "dining", "entertainment", "medical", "insurance", "lifestyle", "travel", "education", "personal", "temp", "other"];
+const DEST_ORDER = ["credit_card", "rent", "auto", "utilities", "gas", "groceries", "subscription", "dining", "entertainment", "medical", "insurance", "lifestyle", "travel", "education", "personal", "other"];
+const PARENT_CATS = ["credit_card", "rent", "auto", "utilities", "gas", "groceries", "subscription", "dining", "entertainment", "medical", "insurance", "lifestyle", "travel", "education", "personal", "other"];
 const POTS = {
   savings_acct: {
     label: "Savings",
@@ -1057,13 +1057,13 @@ const calcLoan = (balance, apr, pmt) => {
   if (b <= 0 || p <= 0) return {
     interest: 0,
     principal: 0,
-    newBalance: 0
+    newBalance: b
   };
-  const interest = b * r;
-  const principal = Math.min(p - interest, b);
+  const interest = Math.min(b * r, b); // interest can't exceed balance
+  const principal = Math.max(0, Math.min(p - interest, b)); // principal can't be negative
   return {
     interest: Math.max(0, interest),
-    principal: Math.max(0, principal),
+    principal,
     newBalance: Math.max(0, b - principal)
   };
 };
@@ -4671,40 +4671,51 @@ function App() {
     if ("Notification" in window && Notification.permission === "default") {
       setTimeout(() => Notification.requestPermission(), 4000);
     }
-    // Auto-snapshot: on day 1 of month, dated last day of previous month
+    // Auto-snapshot: save when missing for previous month — runs any day user opens app
     const now = new Date();
     const mo = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
-    if (now.getDate() === 1) {
-      const prevMonthEnd = new Date(now.getFullYear(), now.getMonth(), 0); // last day of prev month
-      const prevMonthStr = mo[prevMonthEnd.getMonth()] + ` ${prevMonthEnd.getFullYear()}`;
-      const hasSnap = (data.snapshots || []).some(s => s.fecha && s.fecha.includes(mo[prevMonthEnd.getMonth()]) && s.fecha.includes(String(prevMonthEnd.getFullYear())));
-      if (!hasSnap) {
-        const totalCards = data.tarjetas.reduce((s, t) => n(t.balance) + s, 0);
-        const totalLoans = (data.loans || []).reduce((s, l) => n(l.balance) + s, 0);
-        const snap = {
-          id: uid(),
-          fecha: prevMonthEnd.toLocaleDateString("en-US", {
-            month: "short",
-            day: "numeric",
-            year: "numeric"
-          }),
-          sobrante: 0,
-          deuda: totalCards + totalLoans,
-          totalCards,
-          totalLoans,
-          _auto: true
+    const prevMonthEnd = new Date(now.getFullYear(), now.getMonth(), 0); // last day of prev month
+    const prevMonthYear = prevMonthEnd.getFullYear();
+    const prevMonthIdx = prevMonthEnd.getMonth();
+    const prevMonthStr = prevMonthEnd.getMonth().toString().padStart(2, "0"); // "04" etc
+    const prevYearMonth = `${prevMonthYear}-${String(prevMonthIdx + 1).padStart(2, "0")}`; // "2026-04"
+    const hasSnap = (data.snapshots || []).some(s => s.fecha && s.fecha.includes(mo[prevMonthIdx]) && s.fecha.includes(String(prevMonthYear)));
+    if (!hasSnap) {
+      const totalCards = data.tarjetas.reduce((s, t) => n(t.balance) + s, 0);
+      const totalLoans = (data.loans || []).reduce((s, l) => n(l.balance) + s, 0);
+      // Calculate real sobrante from previous month's periods
+      let sobrante = 0;
+      Object.entries(data.periods || {}).forEach(([pid, per]) => {
+        const pidMonth = pid.replace("period_", "").slice(0, 7); // "2026-04"
+        if (pidMonth !== prevYearMonth) return;
+        const gastos = per.gastos || [];
+        const checkAmt = n(per.amount) || n(data.checkAmount) || 0;
+        const spent = gastos.reduce((s, g) => s + n(g.monto), 0);
+        sobrante += checkAmt - spent;
+      });
+      const snap = {
+        id: uid(),
+        fecha: prevMonthEnd.toLocaleDateString("en-US", {
+          month: "short",
+          day: "numeric",
+          year: "numeric"
+        }),
+        sobrante,
+        deuda: totalCards + totalLoans,
+        totalCards,
+        totalLoans,
+        _auto: true
+      };
+      setData(p => {
+        const already = (p.snapshots || []).some(s => s.fecha && s.fecha.includes(mo[prevMonthIdx]) && s.fecha.includes(String(prevMonthYear)));
+        if (already) return p;
+        return {
+          ...p,
+          snapshots: [snap, ...(p.snapshots || [])].slice(0, 24)
         };
-        setData(p => {
-          const already = (p.snapshots || []).some(s => s.fecha && s.fecha.includes(mo[prevMonthEnd.getMonth()]) && s.fecha.includes(String(prevMonthEnd.getFullYear())));
-          if (already) return p;
-          return {
-            ...p,
-            snapshots: [snap, ...(p.snapshots || [])].slice(0, 24)
-          };
-        });
-        setTimeout(() => toast_(`📸 ${mo[prevMonthEnd.getMonth()]} snapshot saved`), 2000);
-        setTimeout(() => setBackupPrompt(true), 3500);
-      }
+      });
+      setTimeout(() => toast_(`📸 ${mo[prevMonthIdx]} snapshot saved`), 2000);
+      setTimeout(() => setBackupPrompt(true), 3500);
     }
     // Block nav bar during iOS home indicator swipe
     const BLOCK = 500;
@@ -5117,13 +5128,17 @@ function App() {
       if (item.debtRef && !item._debtPaid) {
         setTimeout(() => setDebtPayConfirm({
           item,
-          pid
+          pid,
+          prevState: item.state,
+          prevPagado: item.pagado
         }), 200);
       } else if (item.tarjetaRef && !item.debtRef && !item._debtPaid && !item._charged) {
         setTimeout(() => setDebtPayConfirm({
           item,
           pid,
-          isCharge: true
+          isCharge: true,
+          prevState: item.state,
+          prevPagado: item.pagado
         }), 200);
       } else {
         // Check if this goes to a pot — deposit immediately, show undo option
@@ -5404,6 +5419,13 @@ function App() {
     const recurring = (data.periods[sourcePid]?.gastos || []).filter(x => {
       if (!x._recurring) return false;
       if (x._recurringCheckOnly) {
+        // Source is from previous month — match by index
+        const sourceIsCurrentMonth = monthPeriods.some(p => p.id === sourcePid);
+        if (sourceIsCurrentMonth) {
+          // Fallback: source is another check in current month — copy only if same index
+          const srcIdx = monthPeriods.findIndex(p => p.id === sourcePid);
+          return srcIdx === checkIdx;
+        }
         const srcIdx = Object.keys(data.periods).filter(p => !currentPids.has(p)).filter(p => p.replace("period_", "").slice(0, 7) === sourcePid.replace("period_", "").slice(0, 7)).sort().indexOf(sourcePid);
         return srcIdx === checkIdx;
       }
@@ -5589,7 +5611,7 @@ function App() {
           const {
             principal
           } = calcLoan(n(loan.balance), n(loan.interes), m);
-          if (principal > 0) deduct = principal;
+          deduct = principal;
         }
         return {
           ...p,
@@ -7479,10 +7501,12 @@ function App() {
         setDebtPayConfirm(null);
       };
       const revertPaid = () => {
+        const ps = debtPayConfirm.prevState || "pending";
+        const pp = debtPayConfirm.prevPagado || false;
         updPeriodGastos(debtPayConfirm.pid, g => g.map(x => x.id !== item.id ? x : {
           ...x,
-          state: "pending",
-          pagado: false
+          state: ps,
+          pagado: pp
         }));
         setDebtPayConfirm(null);
       };
@@ -7607,7 +7631,7 @@ function App() {
           })
         }));
       } else {
-        const deductAmount = loanCalc && loanCalc.principal > 0 ? loanCalc.principal : m;
+        const deductAmount = loanCalc ? loanCalc.principal : m;
         setData(p => ({
           ...p,
           loans: (p.loans || []).map(l => l.id !== debtId ? l : {
@@ -7626,10 +7650,12 @@ function App() {
       setDebtPayConfirm(null);
     };
     const revertPaid = () => {
+      const ps = debtPayConfirm.prevState || "pending";
+      const pp = debtPayConfirm.prevPagado || false;
       updPeriodGastos(debtPayConfirm.pid, g => g.map(x => x.id !== debtPayConfirm.item.id ? x : {
         ...x,
-        state: "pending",
-        pagado: false
+        state: ps,
+        pagado: pp
       }));
       setDebtPayConfirm(null);
     };
