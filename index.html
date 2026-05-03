@@ -5984,11 +5984,11 @@ function App() {
     const safeName = typeof fname === "string" && fname || `mybudget_${mo[now.getMonth()]}_${now.getFullYear()}.json`;
     const json = JSON.stringify(data, null, 2);
     const b = new Blob([json], {
-      type: "text/plain"
+      type: "application/octet-stream"
     });
     if (navigator.share && navigator.canShare) {
       const file = new File([b], safeName, {
-        type: "text/plain"
+        type: "application/octet-stream"
       });
       if (navigator.canShare({
         files: [file]
