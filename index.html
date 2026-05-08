@@ -1034,14 +1034,18 @@ const gdf = dia => {
   }
   return c;
 };
-// Period-aware: if due day <= payday day, it's next month
+// Period-aware: due date falls in same month as period unless that date is strictly before the period start
 const gdfPeriod = (dia, periodDate) => {
   if (!dia || !periodDate) return gdf(dia);
   const d = parseInt(dia);
   const ref = new Date(periodDate);
+  ref.setHours(0, 0, 0, 0);
   let y = ref.getFullYear(),
     m = ref.getMonth();
-  if (d <= ref.getDate()) {
+  // Build the candidate due date in the same month as the period
+  const candidate = new Date(y, m, clampDay(y, m, d));
+  // Only push to next month if the due date is strictly before the period start date
+  if (candidate < ref) {
     m++;
     if (m > 11) {
       m = 0;
@@ -4509,6 +4513,7 @@ function App() {
   const [potDepConfirm, setPotDepConfirm] = useState(null);
   const [gastoTypePicker, setGastoTypePicker] = useState(null); // {pid} // {item, pid}
   const [amtInputVal, setAmtInputVal] = useState({});
+  const [paymentViewPid, setPaymentViewPid] = useState(null);
   const [toast, setToast] = useState(null);
   const [backupPrompt, setBackupPrompt] = useState(false);
   const [importPreview, setImportPreview] = useState(null);
@@ -6255,7 +6260,7 @@ function App() {
           fontWeight: 800,
           color: dst.color
         }
-      }, fmt(sub))), /*#__PURE__*/React.createElement("div", null, items.map(gi => /*#__PURE__*/React.createElement(GastoItem, {
+      }, fmt(sub))), /*#__PURE__*/React.createElement("div", null, [...items].sort((a, b) => { const order = {pending:0,reserved:1,paid:2}; return (order[a.state]??0)-(order[b.state]??0); }).map(gi => /*#__PURE__*/React.createElement(GastoItem, {
         key: gi.id,
         item: gi,
         pid: pid,
@@ -6294,6 +6299,59 @@ function App() {
         touch: {},
         T: T
       }))));
+    }));
+  };
+  const renderCheckTabByPayment = (pid, gastos, periodDate) => {
+    const groups = {};
+    gastos.forEach(g => {
+      let key, label, icon;
+      if (g.destino === "credit_card" || (g.tarjetaRef && g.destino === "credit_card")) {
+        const card = (data.tarjetas || []).find(t => t.id === g.tarjetaRef);
+        key = g.tarjetaRef || "credit_card";
+        label = card ? card.nombre : "Credit Card";
+        icon = "💳";
+      } else if (g.destino === "cash") {
+        key = "cash"; label = "Cash"; icon = "💵";
+      } else if (g.destino === "savings_acct" || g.destino === "bank") {
+        key = "bank"; label = "Bank Transfer"; icon = "🏦";
+      } else if (g.destino && g.destino.startsWith("pot_")) {
+        key = "savings"; label = "Savings / Pot"; icon = "🪣";
+      } else {
+        const dest = gds(g.destino, g.tarjetaRef, null, potsList || [], data.customLabels || []);
+        key = g.destino || "other";
+        label = dest.label || "Other";
+        icon = dest.icon || "📌";
+      }
+      if (!groups[key]) groups[key] = { label, icon, items: [] };
+      groups[key].items.push(g);
+    });
+    return /*#__PURE__*/React.createElement(React.Fragment, null, Object.keys(groups).map(k => {
+      const { label, icon, items } = groups[k];
+      const sub = items.reduce((s, g) => s + n(g.monto), 0);
+      return /*#__PURE__*/React.createElement("div", { key: k, style: { marginBottom: 14 } },
+        /*#__PURE__*/React.createElement("div", {
+          style: { display: "flex", justifyContent: "space-between", alignItems: "center", padding: "6px 10px", marginBottom: 5, background: `${T.accent}15`, borderRadius: 9, border: `1px solid ${T.accent}30` }
+        },
+          /*#__PURE__*/React.createElement("span", { style: { fontSize: 12, fontWeight: 700, color: T.accent } }, icon, " ", label),
+          /*#__PURE__*/React.createElement("span", { style: { fontFamily: "monospace", fontSize: 13, fontWeight: 800, color: T.accent } }, fmt(sub))
+        ),
+        /*#__PURE__*/React.createElement("div", null, [...items].sort((a, b) => { const order = {pending:0,reserved:1,paid:2}; return (order[a.state]??0)-(order[b.state]??0); }).map(gi =>
+          /*#__PURE__*/React.createElement(GastoItem, {
+            key: gi.id, item: gi, pid: pid, editId: editId, editPid: editPid,
+            setEditId: id => openEditId(id), tarjetas: data.tarjetas, loans: data.loans || [],
+            potsList: potsList, globalEditingAmt: globalEditingAmt,
+            checkIdx: monthPeriods.findIndex(p => p.id === pid),
+            periodDate: periodDate, customLabels: data.customLabels || [],
+            onAddCustomLabel: (name, id, parent) => { if (!id) return; setData(p => ({ ...p, customLabels: (p.customLabels || []).some(l => l.id === id) ? p.customLabels : [...(p.customLabels || []), { id, name, icon: "🏷️", parent: parent || null }] })); },
+            onCycle: id => cycleState(pid, id), onLongPress: id => setReserved(pid, id),
+            onUpdate: (id, f, v) => updateGasto(pid, id, f, v),
+            onBatchUpdate: (id, fields) => batchUpdateGasto(pid, id, fields),
+            onPropagate: gi => propagateToAllChecks(pid, gi),
+            onRemove: id => removeGasto(pid, id),
+            onStopRecurring: stopRecurring, touch: {}, T: T
+          })
+        ))
+      );
     }));
   };
   const renderCheckTab = period => {
@@ -6666,23 +6724,41 @@ function App() {
       customLabels: data.customLabels || [],
       T: T,
       pid: pid
-    }), /*#__PURE__*/React.createElement("button", {
-      style: {
-        ...BTN,
-        width: "100%",
-        marginBottom: 10,
-        padding: "11px",
-        background: `${T.accent}20`,
-        color: T.accent,
-        fontSize: 13,
-        fontWeight: 700,
-        border: `1px solid ${T.accent}55`,
-        borderRadius: 12,
-        boxShadow: `0 0 20px ${T.accent}1a`
-      },
-      onClick: () => addGasto(pid)
-    }, "+ Add Expense"), (() => {
-      return renderCheckTabGrouped(pid, gastos, payday);
+    }), /*#__PURE__*/React.createElement("div", { style: { display: "flex", gap: 8, marginBottom: 10, alignItems: "center" } },
+      /*#__PURE__*/React.createElement("button", {
+        style: {
+          ...BTN,
+          flex: 1,
+          padding: "11px",
+          background: `${T.accent}20`,
+          color: T.accent,
+          fontSize: 13,
+          fontWeight: 700,
+          border: `1px solid ${T.accent}55`,
+          borderRadius: 12,
+          boxShadow: `0 0 20px ${T.accent}1a`
+        },
+        onClick: () => addGasto(pid)
+      }, "+ Add Expense"),
+      /*#__PURE__*/React.createElement("button", {
+        style: {
+          ...BTN,
+          padding: "11px 14px",
+          fontSize: 15,
+          fontWeight: 700,
+          background: paymentViewPid === pid ? `${T.accent}25` : T.surface2,
+          color: paymentViewPid === pid ? T.accent : T.muted,
+          border: `1px solid ${paymentViewPid === pid ? T.accent + "55" : T.border}`,
+          borderRadius: 12,
+          transition: "all 0.2s"
+        },
+        onClick: () => setPaymentViewPid(p => p === pid ? null : pid),
+        title: "Group by payment method"
+      }, "💳")
+    ), (() => {
+      return paymentViewPid === pid
+        ? renderCheckTabByPayment(pid, gastos, payday)
+        : renderCheckTabGrouped(pid, gastos, payday);
     })(), gastos.length === 0 && /*#__PURE__*/React.createElement("div", {
       className: "anim",
       style: {
@@ -12288,7 +12364,7 @@ function App() {
     const SpendingBreakdown = () => {
       const now = new Date();
       const mo = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
-      const months = [...new Set(Object.keys(data.periods || {}).map(pid => pid.slice(0, 7)))].filter(Boolean).sort().reverse().slice(0, 6);
+      const months = [...new Set(Object.keys(data.periods || {}).map(pid => pid.replace("period_", "").slice(0, 7)))].filter(Boolean).sort().reverse().slice(0, 6);
       const [selMonth, setSelMonth] = React.useState(months[0] || now.toISOString().slice(0, 7));
       const [expanded, setExpanded] = React.useState(new Set());
       const toggle = k => setExpanded(prev => {
@@ -12297,7 +12373,7 @@ function App() {
         return n;
       });
       const validPids = new Set(buildMonthPeriods(data.proximoCobro, data.payFreq).map(p => p.id));
-      const monthGastos = Object.entries(data.periods || {}).filter(([pid]) => pid.slice(0, 7) === selMonth && (validPids.has(pid) || months.length > 1)).flatMap(([, p]) => p.gastos || []);
+      const monthGastos = Object.entries(data.periods || {}).filter(([pid]) => pid.replace("period_", "").slice(0, 7) === selMonth && (validPids.has(pid) || months.length > 1)).flatMap(([, p]) => p.gastos || []);
       if (!monthGastos.length) return null;
       const total = monthGastos.reduce((s, g) => s + n(g.monto), 0);
       const totalPaid = monthGastos.filter(g => g.state === "paid").reduce((s, g) => s + n(g.monto), 0);
