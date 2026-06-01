@@ -1197,15 +1197,18 @@ const buildMonthPeriods = (anchor, freq) => {
   paydays.forEach((pd, i) => {
     if ("period_" + dateStr(pd) === curKey) curIdx = i;
   });
+  // If current period is in a previous month (e.g. today is Jun 1, last check was May 29),
+  // the first upcoming check in this month is effectively "current" for display purposes.
+  const curIsLastMonth = curIdx === -1 && curStart < new Date(yr, mth, 1);
   return paydays.map((pd, i) => ({
     id: "period_" + dateStr(pd),
     payday: pd,
     label: `Check ${i + 1}`,
     num: i + 1,
-    isCurrent: "period_" + dateStr(pd) === curKey,
-    isUpcoming: curIdx >= 0 ? i === curIdx + 1 : i === 0,
-    isPast: curIdx >= 0 ? i < curIdx : false,
-    statusLabel: "period_" + dateStr(pd) === curKey ? "Current" : curIdx >= 0 && i < curIdx ? "Cleared" : curIdx >= 0 && i > curIdx ? "Upcoming" : i === 0 ? "Upcoming" : null
+    isCurrent: curIsLastMonth ? i === 0 : "period_" + dateStr(pd) === curKey,
+    isUpcoming: curIsLastMonth ? i === 1 : curIdx >= 0 ? i === curIdx + 1 : i === 0,
+    isPast: curIsLastMonth ? false : curIdx >= 0 ? i < curIdx : false,
+    statusLabel: curIsLastMonth && i === 0 ? "Current" : "period_" + dateStr(pd) === curKey ? "Current" : curIdx >= 0 && i < curIdx ? "Cleared" : curIdx >= 0 && i > curIdx ? "Upcoming" : i === 0 ? "Upcoming" : null
   }));
 };
 const migrate = raw => {
