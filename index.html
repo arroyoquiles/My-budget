@@ -1207,8 +1207,8 @@ const buildMonthPeriods = (anchor, freq) => {
     return {
       id: "period_" + dateStr(pd),
       payday: pd,
-      label: isCarryOver ? `Check ${getPaydaysInMonth(anchor, freq, curStart.getFullYear(), curStart.getMonth()).length}` : `Check ${curIsLastMonth ? i : i + 1}`,
-      num: isCarryOver ? getPaydaysInMonth(anchor, freq, curStart.getFullYear(), curStart.getMonth()).length : curIsLastMonth ? i : i + 1,
+      label: isCarryOver ? fmd(pd) : `Check ${curIsLastMonth ? i : i + 1}`,
+      num: isCarryOver ? 0 : curIsLastMonth ? i : i + 1,
       isCurrent: isCarryOver,
       isUpcoming: !isCarryOver && curIsLastMonth ? i === 1 : curIdx >= 0 ? i === curIdx + 1 : i === 0,
       isPast: false,
@@ -6141,7 +6141,9 @@ function App() {
           globalEditingAmt: globalEditingAmt,
           checkIdx: (() => {
             const i = monthPeriods.findIndex(p => p.id === pid);
-            return i;
+            // If first period is a carry-over from previous month (num=0), subtract 1 so june checks are 0-based
+            const carryOver = monthPeriods.length > 0 && monthPeriods[0].num === 0 ? 1 : 0;
+            return Math.max(0, i - carryOver);
           })(),
           periodDate: periodDate,
           customLabels: data.customLabels || [],
@@ -6276,7 +6278,8 @@ function App() {
         globalEditingAmt: globalEditingAmt,
         checkIdx: (() => {
           const i = monthPeriods.findIndex(p => p.id === pid);
-          return i;
+          const carryOver = monthPeriods.length > 0 && monthPeriods[0].num === 0 ? 1 : 0;
+          return Math.max(0, i - carryOver);
         })(),
         periodDate: periodDate,
         customLabels: data.customLabels || [],
