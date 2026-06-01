@@ -1197,19 +1197,24 @@ const buildMonthPeriods = (anchor, freq) => {
   paydays.forEach((pd, i) => {
     if ("period_" + dateStr(pd) === curKey) curIdx = i;
   });
-  // If current period is in a previous month (e.g. today is Jun 1, last check was May 29),
-  // the first upcoming check in this month is effectively "current" for display purposes.
+  // If current period is in previous month (e.g. today Jun 1, last check was May 29),
+  // prepend that previous check so user can still see it as Current until first check arrives.
   const curIsLastMonth = curIdx === -1 && curStart < new Date(yr, mth, 1);
-  return paydays.map((pd, i) => ({
-    id: "period_" + dateStr(pd),
-    payday: pd,
-    label: `Check ${i + 1}`,
-    num: i + 1,
-    isCurrent: curIsLastMonth ? i === 0 : "period_" + dateStr(pd) === curKey,
-    isUpcoming: curIsLastMonth ? i === 1 : curIdx >= 0 ? i === curIdx + 1 : i === 0,
-    isPast: curIsLastMonth ? false : curIdx >= 0 ? i < curIdx : false,
-    statusLabel: curIsLastMonth && i === 0 ? "Current" : "period_" + dateStr(pd) === curKey ? "Current" : curIdx >= 0 && i < curIdx ? "Cleared" : curIdx >= 0 && i > curIdx ? "Upcoming" : i === 0 ? "Upcoming" : null
-  }));
+  const allPaydays = curIsLastMonth ? [curStart, ...paydays] : paydays;
+  return allPaydays.map((pd, i) => {
+    const isCarryOver = curIsLastMonth && i === 0;
+    const adjustedIdx = curIsLastMonth ? i - 1 : i;
+    return {
+      id: "period_" + dateStr(pd),
+      payday: pd,
+      label: isCarryOver ? `Check ${getPaydaysInMonth(anchor, freq, curStart.getFullYear(), curStart.getMonth()).length}` : `Check ${curIsLastMonth ? i : i + 1}`,
+      num: isCarryOver ? getPaydaysInMonth(anchor, freq, curStart.getFullYear(), curStart.getMonth()).length : curIsLastMonth ? i : i + 1,
+      isCurrent: isCarryOver,
+      isUpcoming: !isCarryOver && curIsLastMonth ? i === 1 : curIdx >= 0 ? i === curIdx + 1 : i === 0,
+      isPast: false,
+      statusLabel: isCarryOver ? "Current" : "Upcoming"
+    };
+  });
 };
 const migrate = raw => {
   if (!raw) return null;
