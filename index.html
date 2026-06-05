@@ -5461,6 +5461,7 @@ function App() {
         return true;
       });
       if (!toAdd.length) return p;
+      const newMonth = parseInt(activeCheckPid.replace("period_", "").slice(5, 7)) - 1;
       const copies = toAdd.map(x => ({
         ...x,
         id: uid(),
@@ -5468,7 +5469,8 @@ function App() {
         pagado: false,
         _potAdded: false,
         _debtPaid: false,
-        _charged: false
+        _charged: false,
+        diaMes: x.diaMes !== undefined && x.diaMes !== null ? newMonth : x.diaMes
       }));
       setTimeout(() => toast_(`🔁 ${copies.length} recurring copied`), 100);
       return {
