@@ -1035,26 +1035,27 @@ const gdf = dia => {
   return c;
 };
 // Period-aware: if due day <= payday day, it's next month
-const gdfPeriod = (dia, periodDate) => {
+const gdfPeriod = (dia, periodDate, _u, hasTarjeta, diaMes) => {
   if (!dia || !periodDate) return gdf(dia);
   const d = parseInt(dia);
   const ref = new Date(periodDate);
   let y = ref.getFullYear(),
     m = ref.getMonth();
-  if (d <= ref.getDate()) {
+  if (diaMes !== undefined && diaMes !== null) {
+    if (diaMes < m) y++;
+    return new Date(y, diaMes, clampDay(y, diaMes, d));
+  }
+  if (!hasTarjeta && d <= ref.getDate()) {
     m++;
-    if (m > 11) {
-      m = 0;
-      y++;
-    }
+    if (m > 11) { m = 0; y++; }
   }
   return new Date(y, m, clampDay(y, m, d));
 };
-const getDUPeriod = (dia, periodDate) => {
+const getDUPeriod = (dia, periodDate, _u, hasTarjeta, diaMes) => {
   if (!dia || !periodDate) return getDU(dia);
   const today = new Date();
   today.setHours(0, 0, 0, 0);
-  const due = gdfPeriod(dia, periodDate);
+  const due = gdfPeriod(dia, periodDate, undefined, hasTarjeta, diaMes);
   return Math.ceil((due - today) / 86400000);
 };
 const calcLoan = (balance, apr, pmt) => {
@@ -1197,13 +1198,10 @@ const buildMonthPeriods = (anchor, freq) => {
   paydays.forEach((pd, i) => {
     if ("period_" + dateStr(pd) === curKey) curIdx = i;
   });
-  // If current period is in previous month (e.g. today Jun 1, last check was May 29),
-  // prepend that previous check so user can still see it as Current until first check arrives.
   const curIsLastMonth = curIdx === -1 && curStart < new Date(yr, mth, 1);
   const allPaydays = curIsLastMonth ? [curStart, ...paydays] : paydays;
   return allPaydays.map((pd, i) => {
     const isCarryOver = curIsLastMonth && i === 0;
-    const adjustedIdx = curIsLastMonth ? i - 1 : i;
     return {
       id: "period_" + dateStr(pd),
       payday: pd,
@@ -2513,16 +2511,19 @@ const GastoItem = ({
   const stBg = {
     pending: T.surface,
     reserved: T.surface,
-    paid: T.surface
+    paid: T.surface,
+    paid_card: T.surface
   }[item.state || "pending"];
   const stBorder = {
     pending: T.border,
     reserved: "rgba(210,153,34,0.3)",
-    paid: T.border
+    paid: T.border,
+    paid_card: "rgba(56,139,253,0.4)"
   }[item.state || "pending"];
   const isOverdue = (() => {
-    if (!item.diaPago || item.state === "paid") return false;
-    const d = gdfPeriod(item.diaPago, periodDate);
+    if (!item.diaPago || item.state === "paid" || item.state === "paid_card") return false;
+    if (item.tarjetaRef) return false;
+    const d = gdfPeriod(item.diaPago, periodDate, undefined, !!item.tarjetaRef, item.diaMes);
     if (!d) return false;
     const today = new Date();
     today.setHours(0, 0, 0, 0);
@@ -2634,17 +2635,17 @@ const GastoItem = ({
       height: 24,
       borderRadius: "50%",
       flexShrink: 0,
-      background: item.state === "paid" ? "transparent" : item.state === "reserved" ? "rgba(210,153,34,0.25)" : "transparent",
-      border: `2px solid ${item.state === "paid" ? "#3fb95055" : item.state === "reserved" ? "#d29922" : T.border}`,
+      background: item.state === "paid" ? "transparent" : item.state === "paid_card" ? "rgba(56,139,253,0.15)" : item.state === "reserved" ? "rgba(210,153,34,0.25)" : "transparent",
+      border: `2px solid ${item.state === "paid" ? "#3fb95055" : item.state === "paid_card" ? "#388bfd99" : item.state === "reserved" ? "#d29922" : T.border}`,
       display: "flex",
       alignItems: "center",
       justifyContent: "center",
       fontSize: 11,
       cursor: "pointer",
-      color: item.state === "paid" ? "#3fb950" : item.state === "reserved" ? "#d29922" : T.muted,
+      color: item.state === "paid" ? "#3fb950" : item.state === "paid_card" ? "#388bfd" : item.state === "reserved" ? "#d29922" : T.muted,
       fontWeight: 700
     }
-  }, item.state === "paid" ? "✓" : item.state === "reserved" ? "◑" : ""), /*#__PURE__*/React.createElement("div", {
+  }, item.state === "paid" ? "✓" : item.state === "paid_card" ? "💳" : item.state === "reserved" ? "◑" : ""), /*#__PURE__*/React.createElement("div", {
     style: {
       width: 26,
       height: 26,
@@ -2674,9 +2675,9 @@ const GastoItem = ({
     style: {
       fontSize: 13,
       fontWeight: 600,
-      color: item.state === "paid" ? T.muted : item.state === "reserved" ? "#d29922" : T.text,
+      color: item.state === "paid" ? T.muted : item.state === "paid_card" ? "#388bfd" : item.state === "reserved" ? "#d29922" : T.text,
       textDecoration: "none",
-      opacity: item.state === "paid" ? 0.45 : 1
+      opacity: item.state === "paid" ? 0.45 : item.state === "paid_card" ? 0.85 : 1
     }
   }, item.nombre || "Untitled"), item._recurring && !item.debtRef && /*#__PURE__*/React.createElement("span", {
     style: {
@@ -2693,11 +2694,11 @@ const GastoItem = ({
   }, "\uD83D\uDD17")), /*#__PURE__*/React.createElement("div", {
     style: {
       fontSize: 10,
-      color: item.state === "paid" ? "#3fb950" : item.state === "reserved" ? "#d29922" : T.muted,
+      color: item.state === "paid" ? "#3fb950" : item.state === "paid_card" ? "#388bfd" : item.state === "reserved" ? "#d29922" : T.muted,
       marginTop: 1
     }
-  }, item.state === "paid" ? "✓ done" : item.state === "reserved" ? "◑ Reserved" : "○ Pending", item.diaPago && item.state !== "paid" && (() => {
-    const d = gdfPeriod(item.diaPago, periodDate);
+  }, item.state === "paid" ? "✓ done" : item.state === "paid_card" ? "💳 On card" : item.state === "reserved" ? "◑ Reserved" : "○ Pending", item.diaPago && item.state !== "paid" && (() => {
+    const d = gdfPeriod(item.diaPago, periodDate, undefined, !!item.tarjetaRef, item.diaMes);
     if (!d) return null;
     const today = new Date();
     today.setHours(0, 0, 0, 0);
@@ -2762,9 +2763,9 @@ const GastoItem = ({
       fontFamily: "monospace",
       fontWeight: 700,
       fontSize: 13,
-      color: item.state === "paid" ? T.muted : item.state === "reserved" ? "#d29922" : dest.color || "#f85149",
+      color: item.state === "paid" ? T.muted : item.state === "paid_card" ? "#388bfd" : item.state === "reserved" ? "#d29922" : dest.color || "#f85149",
       flexShrink: 0,
-      opacity: item.state === "paid" ? 0.4 : 1,
+      opacity: item.state === "paid" ? 0.4 : item.state === "paid_card" ? 0.85 : 1,
       cursor: "text",
       borderBottom: "1px dashed transparent",
       transition: "border-color 0.15s",
@@ -5044,122 +5045,123 @@ function App() {
     haptic(20);
     const gastos = data.periods[pid]?.gastos || [];
     const item = gastos.find(x => x.id === id);
-    const markingPaid = item && item.state !== "paid";
-    // If unmarking a pot deposit — reverse it
-    if (item && item._potAdded && !markingPaid) {
+    if (!item) return;
+
+    const nextState = (() => {
+      const cur = item.state || "pending";
+      if (item.tarjetaRef && !item.debtRef) {
+        if (cur === "pending") return "paid_card";
+        if (cur === "paid_card") return "paid";
+        return "pending";
+      }
+      return cur === "paid" ? "pending" : "paid";
+    })();
+
+    const goingToPending = nextState === "pending";
+    const goingToPaidCard = nextState === "paid_card";
+    const goingToPaid = nextState === "paid";
+
+    // UNMARK: reverse pot deposit
+    if (item._potAdded && goingToPending) {
       const potId = item.destino;
       const m = n(item.monto);
       setData(p => ({
         ...p,
         potsList: (p.potsList || []).map(pt => pt.id === potId ? {
-          ...pt,
-          balance: Math.max(0, (n(pt.balance) || 0) - m)
+          ...pt, balance: Math.max(0, (n(pt.balance) || 0) - m)
         } : pt)
       }));
       updPeriodGastos(pid, g => g.map(x => x.id !== id ? x : {
-        ...x,
-        _potAdded: false,
-        state: "pending",
-        pagado: false
+        ...x, _potAdded: false, state: "pending", pagado: false
       }));
       const pot = (data.potsList || []).find(pt => pt.id === potId);
       toast_(`↩️ $${fmt(m)} removed from ${pot?.icon || "🪣"} ${pot?.name || potId}`);
       return;
     }
-    // If unmarking a registered debt payment — reverse it
-    if (item && item._debtPaid && !markingPaid) {
+
+    // UNMARK: reverse debt payment (debtRef = loan or card debt)
+    if (item._debtPaid && goingToPending && !item.tarjetaRef) {
       const [tipo, idStr] = (item.debtRef || "").split(":");
       const debtId = parseInt(idStr);
       const m = n(item.monto);
       if (tipo === "card") {
-        setData(p => ({
-          ...p,
-          tarjetas: p.tarjetas.map(t => t.id !== debtId ? t : {
-            ...t,
-            balance: n(t.balance) + m,
-            historial: (t.historial || []).slice(1)
-          })
-        }));
+        setData(p => ({ ...p, tarjetas: p.tarjetas.map(t => t.id !== debtId ? t : { ...t, balance: n(t.balance) + m, historial: (t.historial || []).slice(1) }) }));
         toast_("↩️ Payment reversed from card");
       } else if (tipo === "loan") {
-        // Reverse only the principal that was deducted (not full payment)
         const loanForReversal = (data.loans || []).find(l => l.id === debtId);
         const principalPaid = loanForReversal ? calcLoan(Math.max(0, n(loanForReversal.balance) - m), n(loanForReversal.interes), m).principal : m;
-        setData(p => ({
-          ...p,
-          loans: (p.loans || []).map(l => l.id !== debtId ? l : {
-            ...l,
-            balance: n(l.balance) + principalPaid,
-            historial: (l.historial || []).slice(1)
-          })
-        }));
+        setData(p => ({ ...p, loans: (p.loans || []).map(l => l.id !== debtId ? l : { ...l, balance: n(l.balance) + principalPaid, historial: (l.historial || []).slice(1) }) }));
         toast_("↩️ Payment reversed from loan");
       }
-      updPeriodGastos(pid, g => g.map(x => x.id !== id ? x : {
-        ...x,
-        _debtPaid: false,
-        state: "pending",
-        pagado: false
-      }));
+      updPeriodGastos(pid, g => g.map(x => x.id !== id ? x : { ...x, _debtPaid: false, state: "pending", pagado: false }));
       return;
     }
-    // If unmarking a charged card expense, reverse the charge
-    if (item && item._charged && !markingPaid) {
+
+    // UNMARK: card expense going back to pending — reverse charge and/or payment
+    if (goingToPending && item.tarjetaRef && !item.debtRef) {
+      const card = data.tarjetas.find(t => t.nombre === item.tarjetaRef);
+      const m = n(item.monto);
+      if (card && (item._charged || item._debtPaid)) {
+        setData(p => ({
+          ...p,
+          tarjetas: p.tarjetas.map(t => {
+            if (t.nombre !== item.tarjetaRef) return t;
+            let bal = n(t.balance);
+            let hist = t.historial || [];
+            if (item._debtPaid) { bal = bal + m; hist = hist.slice(1); }
+            if (item._charged) { bal = Math.max(0, bal - m); }
+            return { ...t, balance: bal, historial: hist };
+          })
+        }));
+        const msgs = [];
+        if (item._debtPaid) msgs.push("payment");
+        if (item._charged) msgs.push("charge");
+        toast_(`↩️ Card ${msgs.join(" & ")} reversed from ${card.nombre}`);
+      }
+      updPeriodGastos(pid, g => g.map(x => x.id !== id ? x : { ...x, _charged: false, _debtPaid: false, state: "pending", pagado: false }));
+      return;
+    }
+
+    // UNMARK: paid → paid_card, reverse card payment only
+    if (goingToPaidCard && item.tarjetaRef && !item.debtRef && item._debtPaid) {
       const card = data.tarjetas.find(t => t.nombre === item.tarjetaRef);
       if (card) {
         const m = n(item.monto);
-        setData(p => ({
-          ...p,
-          tarjetas: p.tarjetas.map(t => t.nombre !== item.tarjetaRef ? t : {
-            ...t,
-            balance: Math.max(0, n(t.balance) - m)
-          })
-        }));
-        toast_(`↩️ Charge reversed from ${card.nombre}`);
+        setData(p => ({ ...p, tarjetas: p.tarjetas.map(t => t.nombre !== item.tarjetaRef ? t : { ...t, balance: n(t.balance) + m, historial: (t.historial || []).slice(1) }) }));
+        toast_(`↩️ Payment reversed from ${card.nombre}`);
       }
-      // Merge into single update to avoid double render
-      updPeriodGastos(pid, g => g.map(x => x.id !== id ? x : {
-        ...x,
-        _charged: false,
-        state: "pending",
-        pagado: false
-      }));
+      updPeriodGastos(pid, g => g.map(x => x.id !== id ? x : { ...x, _debtPaid: false, state: "paid_card", pagado: true }));
       return;
     }
+
+    // Apply state change
     updPeriodGastos(pid, g => g.map(x => x.id !== id ? x : {
       ...x,
-      state: x.state === "paid" ? "pending" : "paid",
-      pagado: x.state !== "paid"
+      state: nextState,
+      pagado: nextState === "paid" || nextState === "paid_card"
     }));
-    if (item && markingPaid) {
-      if (item.debtRef && !item._debtPaid) {
-        setTimeout(() => setDebtPayConfirm({
-          item,
-          pid,
-          prevState: item.state,
-          prevPagado: item.pagado
-        }), 200);
-      } else if (item.tarjetaRef && !item.debtRef && !item._debtPaid && !item._charged) {
-        setTimeout(() => setDebtPayConfirm({
-          item,
-          pid,
-          isCharge: true,
-          prevState: item.state,
-          prevPagado: item.pagado
-        }), 200);
-      } else {
-        // Check if this goes to a pot — deposit immediately, show undo option
-        const isPot = item.destino && (item.destino.startsWith("pot_") || item.destino === "savings_acct" || item.destino === "emergency" || item.destino === "investment");
-        if (isPot && !item._potAdded && item.monto > 0) {
-          setTimeout(() => {
-            addToPot(item.destino, item.monto, item.id);
-            setPotDepConfirm({
-              item,
-              pid,
-              undoMode: true
-            });
-          }, 200);
-        }
+
+    if (goingToPending) return;
+
+    if (item.debtRef && !item._debtPaid) {
+      setTimeout(() => setDebtPayConfirm({ item, pid, prevState: item.state, prevPagado: item.pagado }), 200);
+    } else if (item.tarjetaRef && !item.debtRef) {
+      if (goingToPaidCard && !item._charged) {
+        setTimeout(() => setDebtPayConfirm({ item, pid, isCharge: true, isCardCharge: true, prevState: item.state, prevPagado: item.pagado }), 200);
+      } else if (goingToPaid && !item._debtPaid && item._charged) {
+        setTimeout(() => setDebtPayConfirm({ item, pid, isCardPayment: true, prevState: item.state, prevPagado: item.pagado }), 200);
+      }
+    } else {
+      const isPot = item.destino && (item.destino.startsWith("pot_") || item.destino === "savings_acct" || item.destino === "emergency" || item.destino === "investment");
+      if (isPot && !item._potAdded && item.monto > 0) {
+        setTimeout(() => {
+          addToPot(item.destino, item.monto, item.id);
+          setPotDepConfirm({
+            item,
+            pid,
+            undoMode: true
+          });
+        }, 200);
       }
     }
   }, [data.periods, data.potsList]);
@@ -6141,9 +6143,8 @@ function App() {
           globalEditingAmt: globalEditingAmt,
           checkIdx: (() => {
             const i = monthPeriods.findIndex(p => p.id === pid);
-            // If first period is a carry-over from previous month (num=0), subtract 1 so june checks are 0-based
-            const carryOver = monthPeriods.length > 0 && monthPeriods[0].num === 0 ? 1 : 0;
-            return Math.max(0, i - carryOver);
+            const co = monthPeriods.length > 0 && monthPeriods[0].num === 0 ? 1 : 0;
+            return Math.max(0, i - co);
           })(),
           periodDate: periodDate,
           customLabels: data.customLabels || [],
@@ -6278,8 +6279,8 @@ function App() {
         globalEditingAmt: globalEditingAmt,
         checkIdx: (() => {
           const i = monthPeriods.findIndex(p => p.id === pid);
-          const carryOver = monthPeriods.length > 0 && monthPeriods[0].num === 0 ? 1 : 0;
-          return Math.max(0, i - carryOver);
+          const co = monthPeriods.length > 0 && monthPeriods[0].num === 0 ? 1 : 0;
+          return Math.max(0, i - co);
         })(),
         periodDate: periodDate,
         customLabels: data.customLabels || [],
@@ -6319,11 +6320,11 @@ function App() {
     const rawAmt = (data.periods[pid] || {}).amount;
     const periodAmountIsCustom = rawAmt != null && rawAmt !== "" && n(rawAmt) > 0 && n(rawAmt) !== globalCheckAmount || amtInputVal[pid] != null && amtInputVal[pid] !== "" && parseFloat(amtInputVal[pid]) !== globalCheckAmount;
     const total = gastos.reduce((s, g) => s + n(g.monto), 0);
-    const paid = gastos.filter(g => g.state === "paid").reduce((s, g) => s + n(g.monto), 0);
+    const paid = gastos.filter(g => g.state === "paid" || g.state === "paid_card").reduce((s, g) => s + n(g.monto), 0);
     const reserved = gastos.filter(g => g.state === "reserved").reduce((s, g) => s + n(g.monto), 0);
     const sob = amt - total;
     const pct = total > 0 ? Math.round((paid + reserved) / total * 100) : 0;
-    const done = gastos.length > 0 && gastos.every(g => g.state === "paid");
+    const done = gastos.length > 0 && gastos.every(g => g.state === "paid" || g.state === "paid_card");
     const pdDays = Math.ceil((payday - today) / 86400000);
     const remColor = getRemainingColor(sob);
     if (done && !lastDoneRef.current[pid]) {
@@ -7479,11 +7480,53 @@ function App() {
   }, "\u2190 Back"))), debtPayConfirm && (() => {
     const {
       item,
-      isCharge
+      isCharge,
+      isCardCharge,
+      isCardPayment
     } = debtPayConfirm;
     const m = n(item.monto);
+
+    // Card charge (tap1: pending→paid_card) or card payment (tap2: paid_card→paid)
+    if (isCardCharge || isCardPayment) {
+      const card = data.tarjetas.find(t => t.nombre === item.tarjetaRef);
+      if (!card) return null;
+      const accentColor = isCardCharge ? "#388bfd" : "#3fb950";
+      const title = isCardCharge ? "Add charge to card?" : "Register card payment?";
+      const btnLabel = isCardCharge ? "💳 Yes, charge" : "✅ Yes, register";
+      const revertState = () => {
+        const ps = debtPayConfirm.prevState || "pending";
+        const pp = debtPayConfirm.prevPagado || false;
+        updPeriodGastos(debtPayConfirm.pid, g => g.map(x => x.id !== item.id ? x : { ...x, state: ps, pagado: pp }));
+        setDebtPayConfirm(null);
+      };
+      const doAction = () => {
+        const entry = { fecha: new Date().toLocaleDateString("en-US", { month: "short", day: "numeric" }), tipo: isCardCharge ? "gasto" : "pago", monto: m };
+        setData(p => ({ ...p, tarjetas: p.tarjetas.map(t => t.nombre !== item.tarjetaRef ? t : { ...t, balance: isCardCharge ? n(t.balance) + m : Math.max(0, n(t.balance) - m), historial: [entry, ...(t.historial || [])].slice(0, 10) }) }));
+        updPeriodGastos(debtPayConfirm.pid, g => g.map(x => x.id !== item.id ? x : { ...x, [isCardCharge ? "_charged" : "_debtPaid"]: true }));
+        toast_(isCardCharge ? `💳 ${fmt(m)} charged to ${card.nombre}` : `✅ ${fmt(m)} payment registered to ${card.nombre}`);
+        setDebtPayConfirm(null);
+      };
+      return /*#__PURE__*/React.createElement("div", {
+        style: { position: "fixed", inset: 0, zIndex: 660, background: "rgba(0,0,0,0.6)", display: "flex", alignItems: "flex-end", justifyContent: "center" },
+        onClick: e => { if (e.target === e.currentTarget) revertState(); }
+      }, /*#__PURE__*/React.createElement("div", {
+        style: { width: "100%", maxWidth: 500, background: T.surface, borderRadius: "20px 20px 0 0", border: `1px solid ${T.border}`, padding: "20px", paddingBottom: "max(28px,env(safe-area-inset-bottom,28px))", animation: "slideInUp 0.28s cubic-bezier(0.4,0,0.2,1) both", position: "relative" }
+      }, /*#__PURE__*/React.createElement("button", { style: { ...BTN, position: "absolute", top: 14, right: 14, background: "transparent", color: T.muted, fontSize: 18, padding: "2px 8px", border: "none" }, onClick: revertState }, "\u2715"),
+      /*#__PURE__*/React.createElement("div", { style: { fontSize: 15, fontWeight: 700, color: T.text, marginBottom: 6, textAlign: "center" } }, title),
+      /*#__PURE__*/React.createElement("div", { style: { fontSize: 13, color: T.muted, textAlign: "center", marginBottom: 20 } },
+        isCardCharge ? "Add " : "Register ",
+        /*#__PURE__*/React.createElement("span", { style: { color: accentColor, fontWeight: 700 } }, fmt(m)),
+        isCardCharge ? " charge to " : " payment to ",
+        /*#__PURE__*/React.createElement("span", { style: { color: accentColor, fontWeight: 700 } }, card.nombre)
+      ),
+      /*#__PURE__*/React.createElement("div", { style: { display: "flex", gap: 10 } },
+        /*#__PURE__*/React.createElement("button", { style: { ...BTN, flex: 1, padding: "13px", background: accentColor, color: "#fff", fontSize: 14, fontWeight: 700, borderRadius: 11 }, onClick: doAction }, btnLabel),
+        /*#__PURE__*/React.createElement("button", { style: { ...BTN, flex: 1, padding: "13px", background: T.surface2, color: T.muted, fontSize: 14, borderRadius: 11, border: `1px solid ${T.border}` }, onClick: () => setDebtPayConfirm(null) }, "Skip")
+      )));
+    }
+
     if (isCharge) {
-      // Regular expense paid with card — charge to card
+      // Legacy charge block
       const card = data.tarjetas.find(t => t.nombre === item.tarjetaRef);
       if (!card) return null;
       const doCharge = () => {
@@ -7617,6 +7660,7 @@ function App() {
     }
 
     // Debt payment — register payment in Debts
+    if (!item.debtRef) return null;
     const [tipo, idStr] = item.debtRef.split(":");
     const debtId = parseInt(idStr);
     const debt = tipo === "card" ? data.tarjetas.find(t => t.id === debtId) : (data.loans || []).find(l => l.id === debtId);
@@ -10324,7 +10368,7 @@ function App() {
     const gastos = getPGastos(p.id);
     const periodAmt = getPeriodAmount(p.id);
     const total = gastos.reduce((s, g) => s + n(g.monto), 0);
-    const paid = gastos.filter(g => g.state === "paid").reduce((s, g) => s + n(g.monto), 0);
+    const paid = gastos.filter(g => g.state === "paid" || g.state === "paid_card").reduce((s, g) => s + n(g.monto), 0);
     const reserved = gastos.filter(g => g.state === "reserved").reduce((s, g) => s + n(g.monto), 0);
     const sob = periodAmt - total;
     const assigned = total;
@@ -12307,11 +12351,11 @@ function App() {
         n.has(k) ? n.delete(k) : n.add(k);
         return n;
       });
-      const validPids = new Set(buildMonthPeriods(data.proximoCobro, data.payFreq).map(p => p.id));
+      const validPids = new Set(buildMonthPeriods(data.proximoCobro, data.payFreq).filter(p => p.num > 0).map(p => p.id));
       const monthGastos = Object.entries(data.periods || {}).filter(([pid]) => pid.slice(0, 7) === selMonth && (validPids.has(pid) || months.length > 1)).flatMap(([, p]) => p.gastos || []);
       if (!monthGastos.length) return null;
       const total = monthGastos.reduce((s, g) => s + n(g.monto), 0);
-      const totalPaid = monthGastos.filter(g => g.state === "paid").reduce((s, g) => s + n(g.monto), 0);
+      const totalPaid = monthGastos.filter(g => g.state === "paid" || g.state === "paid_card").reduce((s, g) => s + n(g.monto), 0);
       const cls = data.customLabels || [];
       const groups = {};
       const add = (key, label, icon, color, g) => {
@@ -12324,11 +12368,11 @@ function App() {
           items: []
         };
         groups[key].amt += n(g.monto);
-        if (g.state === "paid") groups[key].paid += n(g.monto);
+        if (g.state === "paid" || g.state === "paid_card") groups[key].paid += n(g.monto);
         groups[key].items.push({
           nombre: g.nombre || "Untitled",
           amt: n(g.monto),
-          paid: g.state === "paid",
+          paid: g.state === "paid" || g.state === "paid_card",
           sub: key === "__cards__" && g.tarjetaRef ? g.tarjetaRef : null
         });
       };
