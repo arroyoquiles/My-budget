@@ -2282,7 +2282,10 @@ const GastoItem = ({
     : item.diaPago
       ? `Day ${item.diaPago}`
       : "\u2014"
-  ))), /*#__PURE__*/React.createElement("button", {
+  ), item.diaPago ? /*#__PURE__*/React.createElement("button", {
+    style: { position: "absolute", top: 0, right: 0, bottom: 0, zIndex: 3, background: "transparent", border: "none", color: T.muted, fontSize: 14, padding: "0 10px", cursor: "pointer" },
+    onClick: e => { e.stopPropagation(); onBatchUpdate(item.id, { diaPago: null, diaMes: null }); }
+  }, "\u2715") : null)), /*#__PURE__*/React.createElement("button", {
     style: {
       ...BTN,
       flex: 2,
