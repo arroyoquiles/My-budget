@@ -2257,33 +2257,32 @@ const GastoItem = ({
       marginBottom: 4,
       letterSpacing: 1
     }
-  }, "\uD83D\uDCC5 DUE DAY"), /*#__PURE__*/React.createElement("input", {
-    style: {
-      ...INP,
-      fontFamily: "monospace",
-      fontWeight: 700,
-      textAlign: "center",
-      height: 44
-    },
-    type: "number",
-    inputMode: "numeric",
-    placeholder: "\u2014",
-    min: "1",
-    max: new Date(new Date().getFullYear(), new Date().getMonth() + 1, 0).getDate(),
-    value: item.diaPago || "",
+  }, "\uD83D\uDCC5 DUE DATE"), /*#__PURE__*/React.createElement("div", {
+    style: { position: "relative", height: 44 }
+  }, /*#__PURE__*/React.createElement("input", {
+    style: { ...INP, position: "absolute", inset: 0, opacity: 0, width: "100%", height: "100%", cursor: "pointer", zIndex: 2, colorScheme: "dark" },
+    type: "date",
+    value: item.diaPago && item.diaMes !== undefined && item.diaMes !== null
+      ? `${new Date().getFullYear()}-${String(item.diaMes + 1).padStart(2,"0")}-${String(item.diaPago).padStart(2,"0")}`
+      : item.diaPago
+        ? `${new Date().getFullYear()}-${String(new Date().getMonth() + 1).padStart(2,"0")}-${String(item.diaPago).padStart(2,"0")}`
+        : "",
     onChange: e => {
-      const v = parseInt(e.target.value);
-      const max = new Date(new Date().getFullYear(), new Date().getMonth() + 1, 0).getDate();
-      const val = e.target.value ? Math.min(max, Math.max(1, v)) : null;
-      onUpdate(item.id, "diaPago", val);
-    },
-    onBlur: e => {
-      if (item.diaPago) {
-        const max = new Date(new Date().getFullYear(), new Date().getMonth() + 1, 0).getDate();
-        onUpdate(item.id, "diaPago", Math.min(max, Math.max(1, parseInt(item.diaPago) || 1)));
+      if (!e.target.value) {
+        onBatchUpdate(item.id, { diaPago: null, diaMes: null });
+        return;
       }
+      const d = new Date(e.target.value + "T12:00:00");
+      onBatchUpdate(item.id, { diaPago: d.getDate(), diaMes: d.getMonth() });
     }
-  })), /*#__PURE__*/React.createElement("button", {
+  }), /*#__PURE__*/React.createElement("div", {
+    style: { ...INP, height: 44, display: "flex", alignItems: "center", justifyContent: "center", fontFamily: "monospace", fontWeight: 700, fontSize: 13, color: item.diaPago ? T.text : T.muted, pointerEvents: "none" }
+  }, item.diaPago && item.diaMes !== undefined && item.diaMes !== null
+    ? new Date(new Date().getFullYear(), item.diaMes, item.diaPago).toLocaleDateString("en-US", { month: "short", day: "numeric" })
+    : item.diaPago
+      ? `Day ${item.diaPago}`
+      : "\u2014"
+  ))), /*#__PURE__*/React.createElement("button", {
     style: {
       ...BTN,
       flex: 2,
