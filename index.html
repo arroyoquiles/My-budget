@@ -4312,7 +4312,24 @@ const DestinoSummary = memo(({
       setCalcMode(m => !m);
       setCalcSelected({});
     }
-  }, "\uD83E\uDDF2")), /*#__PURE__*/React.createElement("div", {
+  }, "\uD83E\uDDF2")), calcMode && Object.values(calcSelected).some(Boolean) && /*#__PURE__*/React.createElement("div", {
+    style: {
+      display: "flex",
+      alignItems: "center",
+      justifyContent: "space-between",
+      padding: "8px 12px",
+      marginBottom: 8,
+      background: T.accent,
+      borderRadius: 10,
+      color: "#fff"
+    }
+  }, /*#__PURE__*/React.createElement("span", {
+    style: { fontSize: 13, fontWeight: 700, fontFamily: "monospace" }
+  }, "\uD83E\uDDF2 ", Object.values(calcSelected).filter(Boolean).length, " items = ", fmt(Object.values(calcSelected).filter(Boolean).reduce((s, v) => s + v, 0))),
+  /*#__PURE__*/React.createElement("button", {
+    style: { background: "rgba(255,255,255,0.25)", border: "none", color: "#fff", borderRadius: 8, padding: "2px 10px", fontSize: 13, cursor: "pointer" },
+    onClick: () => setCalcSelected({})
+  }, "C")), /*#__PURE__*/React.createElement("div", {
     style: {
       border: `1px solid ${T.border}`,
       borderRadius: 12,
@@ -4370,30 +4387,7 @@ const DestinoSummary = memo(({
         opacity: 0.5
       }
     }, "\u2193")));
-  })), calcMode && Object.values(calcSelected).some(Boolean) && /*#__PURE__*/React.createElement("div", {
-    style: {
-      position: "fixed",
-      bottom: "max(80px, calc(80px + env(safe-area-inset-bottom)))",
-      left: "50%",
-      transform: "translateX(-50%)",
-      zIndex: 500,
-      background: T.accent,
-      color: "#fff",
-      borderRadius: 20,
-      padding: "10px 20px",
-      fontSize: 15,
-      fontWeight: 700,
-      fontFamily: "monospace",
-      boxShadow: "0 4px 24px rgba(0,0,0,0.4)",
-      display: "flex",
-      alignItems: "center",
-      gap: 12,
-      whiteSpace: "nowrap"
-    }
-  }, "\uD83E\uDDF2 ", Object.entries(calcSelected).filter(([, v]) => v).map(([, v]) => fmt(v)).join(" + "), " = ", fmt(Object.values(calcSelected).filter(Boolean).reduce((s, v) => s + v, 0)), /*#__PURE__*/React.createElement("button", {
-    style: { background: "rgba(255,255,255,0.25)", border: "none", color: "#fff", borderRadius: 10, padding: "2px 8px", fontSize: 13, cursor: "pointer" },
-    onClick: () => setCalcSelected({})
-  }, "C")));
+  })));
 });
 const getSnapshotReminder = (today, snapshots) => {
   const d = today.getDate();
