@@ -4389,38 +4389,6 @@ const DestinoSummary = memo(({
     }, "\u2193")));
   })));
 });
-const getSnapshotReminder = (today, snapshots) => {
-  const d = today.getDate();
-  const dim = new Date(today.getFullYear(), today.getMonth() + 1, 0).getDate();
-  const mo = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
-  const prevMonthName = mo[today.getMonth() === 0 ? 11 : today.getMonth() - 1];
-  const hasThisMonth = (snapshots || []).some(s => s.fecha && s.fecha.includes(mo[today.getMonth()]) && s.fecha.includes(String(today.getFullYear())));
-  const hasPrevMonth = (snapshots || []).some(s => {
-    if (!s.fecha) return false;
-    const prevY = today.getMonth() === 0 ? today.getFullYear() - 1 : today.getFullYear();
-    return s.fecha.includes(prevMonthName) && s.fecha.includes(String(prevY));
-  });
-  if (d >= dim - 2) {
-    if (!hasThisMonth) return {
-      type: "warn",
-      msg: "Save Monthly Snapshot before exporting backup"
-    };else return {
-      type: "info",
-      msg: "Backup recommended"
-    };
-  }
-  if (d <= 3) {
-    if (!hasPrevMonth) return {
-      type: "warn",
-      msg: `Last month snapshot missing`
-    };else return {
-      type: "info",
-      msg: "Export monthly backup recommended"
-    };
-  }
-  return null;
-};
-// Global scroll lock manager — single source of truth
 const scrollLock = {
   _count: 0,
   _scrollY: 0,
@@ -4448,8 +4416,21 @@ const scrollLock = {
 };
 function App() {
   const [data, setData] = useState(loadData);
-  const [tab, setTab] = useState("overview");
+  const [tab, setTab] = useState("paychecks");
   const [splashDone, setSplashDone] = useState(false);
+  useEffect(() => {
+    const s = document.getElementById("splash");
+    if (s) {
+      setTimeout(() => {
+        s.classList.add("hide");
+        setSplashDone(true);
+        setTimeout(() => s.remove(), 500);
+      }, 1600);
+    }
+    if ("Notification" in window && Notification.permission === "default") {
+      setTimeout(() => Notification.requestPermission(), 4000);
+    }
+  }, []);
   useEffect(() => {
     if (!splashDone) return;
     const el = document.getElementById("overview-drop");
@@ -4720,95 +4701,7 @@ function App() {
       });
     } catch (e) {}
   }, []);
-  useEffect(() => {
-    const s = document.getElementById("splash");
-    if (s) {
-      setTimeout(() => {
-        s.classList.add("hide");
-        setSplashDone(true);
-        setTimeout(() => s.remove(), 500);
-      }, 1600);
-    }
-    if ("Notification" in window && Notification.permission === "default") {
-      setTimeout(() => Notification.requestPermission(), 4000);
-    }
-    // Auto-snapshot: save when missing for previous month — runs any day user opens app
-    const now = new Date();
-    const mo = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
-    const prevMonthEnd = new Date(now.getFullYear(), now.getMonth(), 0); // last day of prev month
-    const prevMonthYear = prevMonthEnd.getFullYear();
-    const prevMonthIdx = prevMonthEnd.getMonth();
-    const prevMonthStr = prevMonthEnd.getMonth().toString().padStart(2, "0"); // "04" etc
-    const prevYearMonth = `${prevMonthYear}-${String(prevMonthIdx + 1).padStart(2, "0")}`; // "2026-04"
-    const hasSnap = (data.snapshots || []).some(s => s.fecha && s.fecha.includes(mo[prevMonthIdx]) && s.fecha.includes(String(prevMonthYear)));
-    if (!hasSnap) {
-      const totalCards = data.tarjetas.reduce((s, t) => n(t.balance) + s, 0);
-      const totalLoans = (data.loans || []).reduce((s, l) => n(l.balance) + s, 0);
-      // Calculate real sobrante from previous month's periods
-      let sobrante = 0;
-      Object.entries(data.periods || {}).forEach(([pid, per]) => {
-        const pidMonth = pid.replace("period_", "").slice(0, 7); // "2026-04"
-        if (pidMonth !== prevYearMonth) return;
-        const gastos = per.gastos || [];
-        const checkAmt = n(per.amount) || n(data.checkAmount) || 0;
-        const spent = gastos.reduce((s, g) => s + n(g.monto), 0);
-        sobrante += checkAmt - spent;
-      });
-      const snap = {
-        id: uid(),
-        fecha: prevMonthEnd.toLocaleDateString("en-US", {
-          month: "short",
-          day: "numeric",
-          year: "numeric"
-        }),
-        sobrante,
-        deuda: totalCards + totalLoans,
-        totalCards,
-        totalLoans,
-        _auto: true
-      };
-      setData(p => {
-        const already = (p.snapshots || []).some(s => s.fecha && s.fecha.includes(mo[prevMonthIdx]) && s.fecha.includes(String(prevMonthYear)));
-        if (already) return p;
-        return {
-          ...p,
-          snapshots: [snap, ...(p.snapshots || [])].slice(0, 24)
-        };
-      });
-      setTimeout(() => toast_(`📸 ${mo[prevMonthIdx]} snapshot saved`), 2000);
-      setTimeout(() => setBackupPrompt(true), 3500);
-    }
-    // Block nav bar during iOS home indicator swipe
-    const BLOCK = 500;
-    let t = null;
-    const onTS = e => {
-      const y = e.touches[0].clientY;
-      if (y > window.innerHeight - 35) {
-        if (tabBarInnerRef.current) tabBarInnerRef.current.style.pointerEvents = "none";
-        clearTimeout(t);
-        t = setTimeout(() => {
-          if (tabBarInnerRef.current) tabBarInnerRef.current.style.pointerEvents = "all";
-        }, BLOCK);
-      }
-    };
-    const onTE = () => {
-      clearTimeout(t);
-      t = setTimeout(() => {
-        if (tabBarInnerRef.current) tabBarInnerRef.current.style.pointerEvents = "all";
-      }, BLOCK);
-    };
-    document.addEventListener("touchstart", onTS, {
-      passive: true
-    });
-    document.addEventListener("touchend", onTE, {
-      passive: true
-    });
-    return () => {
-      document.removeEventListener("touchstart", onTS);
-      document.removeEventListener("touchend", onTE);
-      clearTimeout(t);
-    };
-  }, []);
+
   const notifFiredRef = useRef(false);
   useEffect(() => {
     if (!("Notification" in window) || !data.notifEnabled) return;
@@ -4998,7 +4891,6 @@ function App() {
       const cur = monthPeriods.find(p => p.isCurrent) || monthPeriods[0];
       setActiveCheckPid(cur.id);
     }
-    if (tab !== "overview") setPotsRevealed(false);
     if (tab !== "calendar") {
       setCalOffset(0);
       setSelectedCalDay(null);
@@ -5012,7 +4904,7 @@ function App() {
       setQuickCatGroup(null);
     }
   }, [quickOpen]);
-  const TABS_ORDER = useMemo(() => ["overview", "paychecks", "debts", "calendar", "history", "settings"], []);
+  const TABS_ORDER = useMemo(() => ["paychecks", "debts", "calendar", "history", "settings"], []);
   const handleSwipeTouchStart = useCallback(e => {
     const t = e.touches[0];
     if (tabBarRef.current) {
@@ -5110,12 +5002,8 @@ function App() {
       return cur === "paid" ? "pending" : "paid";
     })();
 
-    const goingToPending = nextState === "pending";
-    const goingToPaidCard = nextState === "paid_card";
-    const goingToPaid = nextState === "paid";
-
     // UNMARK: reverse pot deposit
-    if (item._potAdded && goingToPending) {
+    if (item._potAdded && nextState === "pending") {
       const potId = item.destino;
       const m = n(item.monto);
       setData(p => ({
@@ -5132,8 +5020,8 @@ function App() {
       return;
     }
 
-    // UNMARK: reverse debt payment (debtRef = loan or card debt)
-    if (item._debtPaid && goingToPending && !item.tarjetaRef) {
+    // UNMARK: reverse debt payment
+    if (item._debtPaid && nextState === "pending" && !item.tarjetaRef) {
       const [tipo, idStr] = (item.debtRef || "").split(":");
       const debtId = parseInt(idStr);
       const m = n(item.monto);
@@ -5150,70 +5038,20 @@ function App() {
       return;
     }
 
-    // UNMARK: card expense going back to pending — reverse charge and/or payment
-    if (goingToPending && item.tarjetaRef && !item.debtRef) {
-      const card = data.tarjetas.find(t => t.nombre === item.tarjetaRef);
-      const m = n(item.monto);
-      if (card && (item._charged || item._debtPaid)) {
-        setData(p => ({
-          ...p,
-          tarjetas: p.tarjetas.map(t => {
-            if (t.nombre !== item.tarjetaRef) return t;
-            let bal = n(t.balance);
-            let hist = t.historial || [];
-            if (item._debtPaid) { bal = bal + m; hist = hist.slice(1); }
-            if (item._charged) { bal = Math.max(0, bal - m); }
-            return { ...t, balance: bal, historial: hist };
-          })
-        }));
-        const msgs = [];
-        if (item._debtPaid) msgs.push("payment");
-        if (item._charged) msgs.push("charge");
-        toast_(`↩️ Card ${msgs.join(" & ")} reversed from ${card.nombre}`);
-      }
-      updPeriodGastos(pid, g => g.map(x => x.id !== id ? x : { ...x, _charged: false, _debtPaid: false, state: "pending", pagado: false }));
-      return;
-    }
-
-    // UNMARK: paid → paid_card, reverse card payment only
-    if (goingToPaidCard && item.tarjetaRef && !item.debtRef && item._debtPaid) {
-      const card = data.tarjetas.find(t => t.nombre === item.tarjetaRef);
-      if (card) {
-        const m = n(item.monto);
-        setData(p => ({ ...p, tarjetas: p.tarjetas.map(t => t.nombre !== item.tarjetaRef ? t : { ...t, balance: n(t.balance) + m, historial: (t.historial || []).slice(1) }) }));
-        toast_(`↩️ Payment reversed from ${card.nombre}`);
-      }
-      updPeriodGastos(pid, g => g.map(x => x.id !== id ? x : { ...x, _debtPaid: false, state: "paid_card", pagado: true }));
-      return;
-    }
-
-    // Apply state change
+    // Simply toggle state — no auto charges or payments
     updPeriodGastos(pid, g => g.map(x => x.id !== id ? x : {
       ...x,
       state: nextState,
       pagado: nextState === "paid" || nextState === "paid_card"
     }));
 
-    if (goingToPending) return;
-
-    if (item.debtRef && !item._debtPaid) {
-      setTimeout(() => setDebtPayConfirm({ item, pid, prevState: item.state, prevPagado: item.pagado }), 200);
-    } else if (item.tarjetaRef && !item.debtRef) {
-      if (goingToPaidCard && !item._charged) {
-        setTimeout(() => setDebtPayConfirm({ item, pid, isCharge: true, isCardCharge: true, prevState: item.state, prevPagado: item.pagado }), 200);
-      } else if (goingToPaid && !item._debtPaid && item._charged) {
-        setTimeout(() => setDebtPayConfirm({ item, pid, isCardPayment: true, prevState: item.state, prevPagado: item.pagado }), 200);
-      }
-    } else {
+    // Only pot deposit still triggers automatically
+    if (nextState !== "pending" && !item.tarjetaRef && !item.debtRef) {
       const isPot = item.destino && (item.destino.startsWith("pot_") || item.destino === "savings_acct" || item.destino === "emergency" || item.destino === "investment");
       if (isPot && !item._potAdded && item.monto > 0) {
         setTimeout(() => {
           addToPot(item.destino, item.monto, item.id);
-          setPotDepConfirm({
-            item,
-            pid,
-            undoMode: true
-          });
+          setPotDepConfirm({ item, pid, undoMode: true });
         }, 200);
       }
     }
@@ -6840,10 +6678,6 @@ function App() {
   };
   const hasActiveCheck = monthPeriods.some(p => p.isCurrent);
   const TABS = [{
-    id: "overview",
-    icon: "📊",
-    label: "Overview"
-  }, {
     id: "paychecks",
     icon: "💰",
     label: "Paychecks",
@@ -6867,7 +6701,7 @@ function App() {
     label: "Settings",
     urgent: !data.proximoCobro || data.useFixedAmount === true && !data.checkAmount || !data._freqSet
   }];
-  const snapReminder = useMemo(() => getSnapshotReminder(today, data.snapshots), [today, data.snapshots]);
+  const snapReminder = null;
   return /*#__PURE__*/React.createElement(React.Fragment, null, !authenticated && /*#__PURE__*/React.createElement("div", {
     style: {
       position: "fixed",
@@ -7246,39 +7080,7 @@ function App() {
       },
       onClick: () => dismissAlert(visibleUrgent.map(d => d.id))
     }, "\u2715")));
-  })(), /*#__PURE__*/React.createElement("button", {
-    style: {
-      ...BTN,
-      position: "fixed",
-      bottom: "max(90px, calc(78px + env(safe-area-inset-bottom)))",
-      right: 16,
-      zIndex: 200,
-      height: 44,
-      paddingLeft: 18,
-      paddingRight: 18,
-      borderRadius: 22,
-      background: "linear-gradient(135deg,#2ea043,#238636)",
-      color: "#fff",
-      fontSize: 14,
-      fontWeight: 700,
-      boxShadow: "0 4px 24px rgba(35,134,54,0.6), 0 0 0 1px rgba(46,160,67,0.4)",
-      display: "flex",
-      alignItems: "center",
-      gap: 6,
-      letterSpacing: 0.3
-    },
-    onClick: () => {
-      if (!data.proximoCobro) {
-        toast_("⚙️ Set up your paycheck in Settings first", "err");
-        return;
-      }
-      setQuickOpen(true);
-    }
-  }, /*#__PURE__*/React.createElement("span", {
-    style: {
-      fontSize: 16
-    }
-  }, "$"), "Quick +"), gastoTypePicker && !gastoTypePicker.step && /*#__PURE__*/React.createElement("div", {
+  })(), gastoTypePicker && !gastoTypePicker.step && /*#__PURE__*/React.createElement("div", {
     style: {
       position: "fixed",
       inset: 0,
@@ -10313,39 +10115,7 @@ function App() {
         color: T.muted
       }
     }, monthPeriods.length, " check", monthPeriods.length !== 1 ? "s" : "", " \xB7 ", monthPeriods.map(p => fmt(getPeriodAmount(p.id))).join(" + ")));
-  })(), snapReminder && /*#__PURE__*/React.createElement("div", {
-    style: {
-      background: snapReminder.type === "warn" ? "rgba(210,153,34,0.08)" : `${T.accent}0d`,
-      border: `1px solid ${snapReminder.type === "warn" ? "rgba(210,153,34,0.25)" : T.accent + "28"}`,
-      borderRadius: 11,
-      padding: "9px 13px",
-      marginBottom: 12,
-      display: "flex",
-      alignItems: "center",
-      gap: 8
-    }
-  }, /*#__PURE__*/React.createElement("span", {
-    style: {
-      fontSize: 14
-    }
-  }, snapReminder.type === "warn" ? "⚠️" : "💡"), /*#__PURE__*/React.createElement("span", {
-    style: {
-      fontSize: 11,
-      color: snapReminder.type === "warn" ? "#d29922" : T.muted,
-      flex: 1
-    }
-  }, snapReminder.msg), /*#__PURE__*/React.createElement("button", {
-    style: {
-      ...BTN,
-      padding: "3px 9px",
-      background: T.surface2,
-      color: T.muted,
-      fontSize: 10,
-      border: `1px solid ${T.border}`,
-      flexShrink: 0
-    },
-    onClick: () => setTab("settings")
-  }, "Settings")), upcomingPaydays.length > 0 && /*#__PURE__*/React.createElement("div", {
+  })(), null, upcomingPaydays.length > 0 && /*#__PURE__*/React.createElement("div", {
     style: {
       ...CARD,
       padding: "16px 18px",
@@ -10844,59 +10614,7 @@ function App() {
         cursor: data.potsHidden ? "pointer" : "default"
       }
     }, hidden ? "••••" : fmt(totalPots))));
-  })(), /*#__PURE__*/React.createElement("button", {
-    style: {
-      ...BTN,
-      width: "100%",
-      padding: "7px 12px",
-      background: "transparent",
-      color: T.muted,
-      fontSize: 11,
-      border: `1px dashed ${T.border}`,
-      borderRadius: 9,
-      display: "flex",
-      alignItems: "center",
-      justifyContent: "center",
-      gap: 6,
-      marginTop: 4
-    },
-    onClick: () => {
-      const mo = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
-      const now = new Date();
-      const thisMonth = mo[now.getMonth()];
-      const thisYear = String(now.getFullYear());
-      const tCards = data.tarjetas.reduce((acc, t) => acc + n(t.balance), 0);
-      const tLoans = (data.loans || []).reduce((acc, l) => acc + n(l.balance), 0);
-      const snap = {
-        id: uid(),
-        fecha: now.toLocaleDateString("en-US", {
-          month: "short",
-          day: "numeric",
-          year: "numeric"
-        }),
-        sobrante: totalMonthlyIncome - totalMonthlyExp,
-        deuda: tCards + tLoans,
-        totalCards: tCards,
-        totalLoans: tLoans
-      };
-      const commit = () => {
-        setData(p => ({
-          ...p,
-          snapshots: [snap, ...(p.snapshots || []).filter(x => !(x.fecha && x.fecha.includes(thisMonth) && x.fecha.includes(thisYear)))].slice(0, 24)
-        }));
-        toast_("✅ Snapshot saved");
-      };
-      const hasExisting = (data.snapshots || []).some(x => x.fecha && x.fecha.includes(thisMonth) && x.fecha.includes(thisYear));
-      if (hasExisting) {
-        setNativeConfirm({
-          msg: `Overwrite ${thisMonth} ${thisYear} snapshot?`,
-          onOk: commit
-        });
-      } else {
-        commit();
-      }
-    }
-  }, "\uD83D\uDCF8 ", /*#__PURE__*/React.createElement("span", null, "Save Monthly Snapshot"))), tab === "paychecks" && /*#__PURE__*/React.createElement("div", {
+  })(),), tab === "paychecks" && /*#__PURE__*/React.createElement("div", {
     className: "anim"
   }, !data.proximoCobro && /*#__PURE__*/React.createElement("div", {
     style: {
@@ -12674,28 +12392,8 @@ function App() {
     style: {
       color: T.accent
     }
-  }, "Reset Cycle"), " \u2014 use in each Check tab when a new paycheck arrives."), snapReminder && /*#__PURE__*/React.createElement("div", {
-    style: {
-      background: snapReminder.type === "warn" ? "rgba(210,153,34,0.08)" : `${T.accent}0d`,
-      border: `1px solid ${snapReminder.type === "warn" ? "rgba(210,153,34,0.25)" : T.accent + "28"}`,
-      borderRadius: 10,
-      padding: "9px 13px",
-      marginBottom: 12,
-      display: "flex",
-      alignItems: "center",
-      gap: 8
-    }
-  }, /*#__PURE__*/React.createElement("span", {
-    style: {
-      fontSize: 13
-    }
-  }, snapReminder.type === "warn" ? "⚠️" : "💡"), /*#__PURE__*/React.createElement("span", {
-    style: {
-      fontSize: 11,
-      color: snapReminder.type === "warn" ? "#d29922" : T.muted
-    }
-  }, snapReminder.msg)), data.snapshots && data.snapshots.length >= 2 && (() => {
-    const snaps = [...data.snapshots].sort((a, b) => new Date(a.fecha) - new Date(b.fecha)).slice(-12);
+  }, "Reset Cycle"), " \u2014 use in each Check tab when a new paycheck arrives."), null, false && (() => {
+    const snaps = [];
     const W = 340,
       H = 120,
       PAD = 8,
@@ -12866,7 +12564,7 @@ function App() {
         fontSize: 9,
         color: T.muted
       }
-    }, data.snapshots.length > 12 ? `Last 12 of ${data.snapshots.length} months` : `${snaps.length} months`)));
+    }, `${snaps.length} months`)));
   })(), !data.snapshots || data.snapshots.length === 0 ? /*#__PURE__*/React.createElement("div", {
     className: "anim",
     style: {
@@ -12927,7 +12625,7 @@ function App() {
       marginBottom: 16
     }
   }, "Take a monthly snapshot to track", /*#__PURE__*/React.createElement("br", null), "your financial progress over time")) : (() => {
-    const allSnaps = [...data.snapshots].reverse();
+    const allSnaps = [];
     const mkSpark = (values, color) => {
       if (values.length < 2) return null;
       const w = 60,
@@ -12958,7 +12656,7 @@ function App() {
         fill: color
       }));
     };
-    return data.snapshots.map((h, hi) => {
+    return [].map((h, hi) => {
       const idx = allSnaps.findIndex(s => s.id === h.id);
       const win = allSnaps.slice(Math.max(0, idx - 4), idx + 1);
       const debtVals = win.map(s => n(s.deuda));
