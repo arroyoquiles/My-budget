@@ -5399,7 +5399,6 @@ function App() {
     if (!dueDayItems.length) return;
     setData(p => {
       const curGastos = p.periods[activeCheckPid]?.gastos || [];
-      if (curGastos.some(x => x.diaPago && !x._recurring)) return p;
       const existingKeys = new Set(curGastos.map(x => x.nombre.trim() + "_" + x.monto + "_" + x.destino + "_" + x.diaPago));
       const toAdd = dueDayItems.filter(x => !existingKeys.has(x.nombre.trim() + "_" + x.monto + "_" + x.destino + "_" + x.diaPago));
       if (!toAdd.length) return p;
