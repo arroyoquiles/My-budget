@@ -5267,7 +5267,9 @@ function App() {
   // Auto-archive previous month's checks when entering Check 1 of new month
   useEffect(() => {
     if (!activeCheckPid) return;
-    const checkIdx = monthPeriods.findIndex(p => p.id === activeCheckPid);
+    const _rawIdx = monthPeriods.findIndex(p => p.id === activeCheckPid);
+    const _co1 = monthPeriods.length > 0 && monthPeriods[0].num === 0 ? 1 : 0;
+    const checkIdx = Math.max(0, _rawIdx - _co1);
     if (checkIdx !== 0) return; // only trigger on Check 1
     const currentMonth = activeCheckPid.replace("period_", "").slice(0, 7); // YYYY-MM
     // Find all periods from previous months (not current month)
@@ -5294,8 +5296,10 @@ function App() {
   }, [activeCheckPid]);
   useEffect(() => {
     if (!activeCheckPid) return;
-    const checkIdx = monthPeriods.findIndex(p => p.id === activeCheckPid);
-    if (checkIdx < 0) return;
+    const _rawIdx2 = monthPeriods.findIndex(p => p.id === activeCheckPid);
+    if (_rawIdx2 < 0) return;
+    const _co2 = monthPeriods.length > 0 && monthPeriods[0].num === 0 ? 1 : 0;
+    const checkIdx = Math.max(0, _rawIdx2 - _co2);
     const currentPids = new Set(monthPeriods.map(p => p.id));
     // Only look at the immediately previous month — no further back
     const currentMonth = activeCheckPid.replace("period_", "").slice(0, 7);
@@ -5378,8 +5382,10 @@ function App() {
   // Auto-copy due-day expenses to new periods — CURRENT MONTH ONLY, never future
   useEffect(() => {
     if (!activeCheckPid) return;
-    const checkIdx = monthPeriods.findIndex(p => p.id === activeCheckPid);
-    if (checkIdx < 0) return;
+    const _rawIdx2 = monthPeriods.findIndex(p => p.id === activeCheckPid);
+    if (_rawIdx2 < 0) return;
+    const _co2 = monthPeriods.length > 0 && monthPeriods[0].num === 0 ? 1 : 0;
+    const checkIdx = Math.max(0, _rawIdx2 - _co2);
     const currentPids = new Set(monthPeriods.map(p => p.id));
     // Only look at the immediately previous month — no further back
     const currentMonth = activeCheckPid.replace("period_", "").slice(0, 7);
