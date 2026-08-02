@@ -5301,43 +5301,35 @@ function App() {
     const _co2 = monthPeriods.length > 0 && monthPeriods[0].num === 0 ? 1 : 0;
     const checkIdx = Math.max(0, _rawIdx2 - _co2);
     const currentPids = new Set(monthPeriods.map(p => p.id));
-    // Only look at the immediately previous month — no further back
     const currentMonth = activeCheckPid.replace("period_", "").slice(0, 7);
     const currentDate = new Date(currentMonth + "-01");
     const prevDate = new Date(currentDate.getFullYear(), currentDate.getMonth() - 1, 1);
     const prevMonth = prevDate.toISOString().slice(0, 7);
-    const prevPids = Object.keys(data.periods).filter(pid => !currentPids.has(pid) && pid.replace("period_", "").slice(0, 7) === prevMonth).sort();
-    let sourcePid = prevPids[checkIdx] || prevPids[0] || null;
-    // If no previous month data at all, try other checks in current month
-    if (!sourcePid) {
-      const otherChecks = monthPeriods.filter(p => p.id !== activeCheckPid);
-      for (const p of otherChecks) {
-        const g = data.periods[p.id]?.gastos || [];
-        if (g.some(x => x._recurring)) {
-          sourcePid = p.id;
-          break;
+    setData(p => {
+      const prevPids = Object.keys(p.periods).filter(pid => !currentPids.has(pid) && pid.replace("period_", "").slice(0, 7) === prevMonth).sort();
+      let sourcePid = prevPids[checkIdx] || prevPids[0] || null;
+      if (!sourcePid) {
+        const otherChecks = monthPeriods.filter(mp => mp.id !== activeCheckPid);
+        for (const mp of otherChecks) {
+          const g = p.periods[mp.id]?.gastos || [];
+          if (g.some(x => x._recurring)) { sourcePid = mp.id; break; }
         }
       }
-    }
-    if (!sourcePid) return;
-    const recurring = (data.periods[sourcePid]?.gastos || []).filter(x => {
-      if (!x._recurring) return false;
-      if (x._recurringCheckOnly) {
-        // Source is from previous month — match by index
-        const sourceIsCurrentMonth = monthPeriods.some(p => p.id === sourcePid);
-        if (sourceIsCurrentMonth) {
-          // Fallback: source is another check in current month — copy only if same index
-          const srcIdx = monthPeriods.findIndex(p => p.id === sourcePid);
+      if (!sourcePid) return p;
+      const recurring = (p.periods[sourcePid]?.gastos || []).filter(x => {
+        if (!x._recurring) return false;
+        if (x._recurringCheckOnly) {
+          const sourceIsCurrentMonth = monthPeriods.some(mp => mp.id === sourcePid);
+          if (sourceIsCurrentMonth) {
+            const srcIdx = monthPeriods.findIndex(mp => mp.id === sourcePid);
+            return srcIdx === checkIdx;
+          }
+          const srcIdx = Object.keys(p.periods).filter(pid => !currentPids.has(pid)).filter(pid => pid.replace("period_", "").slice(0, 7) === sourcePid.replace("period_", "").slice(0, 7)).sort().indexOf(sourcePid);
           return srcIdx === checkIdx;
         }
-        const srcIdx = Object.keys(data.periods).filter(p => !currentPids.has(p)).filter(p => p.replace("period_", "").slice(0, 7) === sourcePid.replace("period_", "").slice(0, 7)).sort().indexOf(sourcePid);
-        return srcIdx === checkIdx;
-      }
-      return true;
-    });
-    if (!recurring.length) return;
-    // Use setData updater to read freshest gastos — prevents race with due-day effect
-    setData(p => {
+        return true;
+      });
+      if (!recurring.length) return p;
       const curGastos = p.periods[activeCheckPid]?.gastos || [];
       const blocked = new Set(p.periods[activeCheckPid]?._blockedRecurring || []);
       const existingRecurring = curGastos.filter(x => x._recurring);
@@ -5345,12 +5337,9 @@ function App() {
       const remaining = [...existingKeys];
       const toAdd = recurring.filter(x => {
         const k = x.nombre.trim() + "||" + x.destino + "||" + (x._recurringCheckOnly ? "1" : "0");
-        if (blocked.has(k)) return false; // user explicitly removed this
+        if (blocked.has(k)) return false;
         const idx = remaining.indexOf(k);
-        if (idx >= 0) {
-          remaining.splice(idx, 1);
-          return false;
-        }
+        if (idx >= 0) { remaining.splice(idx, 1); return false; }
         return true;
       });
       if (!toAdd.length) return p;
@@ -5387,21 +5376,21 @@ function App() {
     const _co2 = monthPeriods.length > 0 && monthPeriods[0].num === 0 ? 1 : 0;
     const checkIdx = Math.max(0, _rawIdx2 - _co2);
     const currentPids = new Set(monthPeriods.map(p => p.id));
-    // Only look at the immediately previous month — no further back
     const currentMonth = activeCheckPid.replace("period_", "").slice(0, 7);
     const currentDate = new Date(currentMonth + "-01");
     const prevDate = new Date(currentDate.getFullYear(), currentDate.getMonth() - 1, 1);
     const prevMonth = prevDate.toISOString().slice(0, 7);
-    const prevPids = Object.keys(data.periods).filter(pid => !currentPids.has(pid) && pid.replace("period_", "").slice(0, 7) === prevMonth).sort();
-    const sourcePid = prevPids[checkIdx] || prevPids[0] || null;
-    if (!sourcePid) return;
-    const dueDayItems = (data.periods[sourcePid]?.gastos || []).filter(x => x.diaPago && !x._recurring);
-    if (!dueDayItems.length) return;
     setData(p => {
+      const prevPids = Object.keys(p.periods).filter(pid => !currentPids.has(pid) && pid.replace("period_", "").slice(0, 7) === prevMonth).sort();
+      const sourcePid = prevPids[checkIdx] || prevPids[0] || null;
+      if (!sourcePid) return p;
+      const dueDayItems = (p.periods[sourcePid]?.gastos || []).filter(x => x.diaPago && !x._recurring);
+      if (!dueDayItems.length) return p;
       const curGastos = p.periods[activeCheckPid]?.gastos || [];
-      const existingKeys = new Set(curGastos.map(x => x.nombre.trim() + "_" + x.monto + "_" + x.destino + "_" + x.diaPago));
-      const toAdd = dueDayItems.filter(x => !existingKeys.has(x.nombre.trim() + "_" + x.monto + "_" + x.destino + "_" + x.diaPago));
+      const existingKeys = new Set(curGastos.map(x => x.nombre.trim() + "_" + String(x.monto) + "_" + x.destino + "_" + String(x.diaPago)));
+      const toAdd = dueDayItems.filter(x => !existingKeys.has(x.nombre.trim() + "_" + String(x.monto) + "_" + x.destino + "_" + String(x.diaPago)));
       if (!toAdd.length) return p;
+      const newMonth = parseInt(activeCheckPid.replace("period_", "").slice(5, 7)) - 1;
       const copies = toAdd.map(x => ({
         ...x,
         id: uid(),
@@ -5409,7 +5398,8 @@ function App() {
         pagado: false,
         _potAdded: false,
         _debtPaid: false,
-        _charged: false
+        _charged: false,
+        diaMes: x.diaMes !== undefined && x.diaMes !== null ? newMonth : x.diaMes
       }));
       setTimeout(() => toast_(`📅 ${copies.length} due-day expense${copies.length > 1 ? "s" : ""} copied`), 150);
       return {
