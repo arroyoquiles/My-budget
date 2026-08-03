@@ -79,9 +79,9 @@ select{font-family:inherit;outline:none}
 .gasto.reserved{background:rgba(210,153,34,0.04)}
 .state-btn{width:36px;height:36px;border-radius:50%;border:2px solid var(--border);background:transparent;display:flex;align-items:center;justify-content:center;font-size:14px;flex-shrink:0;transition:all 0.15s;cursor:pointer}
 .state-btn:active{transform:scale(0.88)}
-.state-btn.paid{border-color:#3fb95055;color:var(--green)}
-.state-btn.paid_card{border-color:#388bfd99;color:#388bfd;background:rgba(56,139,253,0.08)}
-.state-btn.reserved{border-color:var(--gold);color:var(--gold)}
+.state-btn.paid{border-color:#3fb950;color:var(--green);background:rgba(63,185,80,0.1)}
+.state-btn.paid_card{border-color:#388bfd;color:#388bfd;background:rgba(56,139,253,0.1)}
+.state-btn.reserved{border-color:var(--gold);color:var(--gold);background:rgba(210,153,34,0.1)}
 .gasto-info{flex:1;min-width:0}
 .gasto-name{font-size:14px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .gasto-name.paid{color:var(--muted)}
@@ -189,7 +189,7 @@ select{font-family:inherit;outline:none}
 .empty .ei{font-size:36px;margin-bottom:10px}
 
 /* Add btn */
-.add-fab{position:fixed;bottom:calc(74px + env(safe-area-inset-bottom,0));right:16px;z-index:99;width:52px;height:52px;border-radius:50%;background:linear-gradient(135deg,var(--accent),#388bfd);color:#fff;font-size:24px;display:flex;align-items:center;justify-content:center;box-shadow:0 4px 20px rgba(88,166,255,0.5);border:none;cursor:pointer;transition:transform 0.15s}
+.add-fab{position:fixed;bottom:calc(90px + env(safe-area-inset-bottom,0));right:16px;z-index:99;width:52px;height:52px;border-radius:50%;background:linear-gradient(135deg,var(--accent),#388bfd);color:#fff;font-size:24px;display:flex;align-items:center;justify-content:center;box-shadow:0 4px 20px rgba(88,166,255,0.5);border:none;cursor:pointer;transition:transform 0.15s}
 .add-fab:active{transform:scale(0.92)}
 </style>
 </head>
@@ -253,6 +253,7 @@ select{font-family:inherit;outline:none}
     <div style="margin:12px 16px 0;background:var(--surface);border:1px solid var(--border);border-radius:16px;padding:12px 4px">
       <div class="cal-grid" id="cal-headers"></div>
       <div class="cal-grid" id="cal-grid"></div>
+      <div id="cal-legend" style="border-top:1px solid var(--border);margin-top:8px"></div>
     </div>
     <div id="cal-events" class="card" style="display:none"></div>
   </div>
@@ -262,6 +263,12 @@ select{font-family:inherit;outline:none}
     <div style="padding:20px 16px 0;font-size:22px;font-weight:800;letter-spacing:-0.5px">History</div>
     <div id="history-list"></div>
   </div>
+</div>
+
+<!-- SPENDING PAGE -->
+<div id="page-spending" class="page" style="display:none">
+  <div style="padding:20px 16px 0;font-size:22px;font-weight:800;letter-spacing:-0.5px">Spending</div>
+  <div id="spending-list"></div>
 </div>
 
 <!-- NAV -->
@@ -274,6 +281,9 @@ select{font-family:inherit;outline:none}
   </button>
   <button class="nav-btn" onclick="showTab('calendar')" id="nav-calendar">
     <span class="ni">📅</span><span>Calendar</span>
+  </button>
+  <button class="nav-btn" onclick="showTab('spending')" id="nav-spending">
+    <span class="ni">📈</span><span>Spending</span>
   </button>
   <button class="nav-btn" onclick="showTab('history')" id="nav-history">
     <span class="ni">📊</span><span>History</span>
@@ -566,6 +576,7 @@ function showTab(tab) {
   if (tab === 'debts') renderDebts();
   if (tab === 'calendar') renderCalendar();
   if (tab === 'history') renderHistory();
+  if (tab === 'spending') renderSpending();
 }
 
 // ── PAYCHECKS ──
@@ -580,9 +591,10 @@ function renderPaychecks() {
     }
   }
 
-  // Set activePid
+  // Set activePid — always default to current period, allow manual override
+  const curPid = getCurrentPid() || periods[0]?.id;
   if (!activePid || !periods.find(p => p.id === activePid)) {
-    activePid = getCurrentPid() || periods[0]?.id;
+    activePid = curPid;
   }
 
   // Month label
@@ -595,7 +607,7 @@ function renderPaychecks() {
   for (const p of periods) {
     const btn = document.createElement('button');
     btn.className = 'check-tab' + (p.id === activePid ? ' active' : '');
-    const isCur = p.payday <= today && (periods.indexOf(p) === periods.length - 1 || periods[periods.indexOf(p)+1]?.payday > today);
+    const isCur = p.id === curPid;
     if (isCur) btn.classList.add('current-dot');
     btn.textContent = p.label + ' · ' + p.payday.toLocaleDateString('en-US',{month:'short',day:'numeric'});
     btn.onclick = () => { activePid = p.id; renderPaychecks(); };
@@ -698,7 +710,27 @@ function renderGastos(gastos, pid) {
     return;
   }
   el.innerHTML = '';
+  // Group by category
+  const groups = {};
   for (const g of gastos) {
+    const cat = g.cat || 'other';
+    if (!groups[cat]) groups[cat] = [];
+    groups[cat].push(g);
+  }
+  const catMap = Object.fromEntries(CATS.map(c => [c.id, c]));
+  for (const [catId, items] of Object.entries(groups)) {
+    const c = catMap[catId] || catMap['other'];
+    const groupTotal = items.reduce((s, g) => s + n(g.monto), 0);
+    const hdr = document.createElement('div');
+    hdr.style.cssText = 'display:flex;align-items:center;justify-content:space-between;padding:8px 16px 4px;margin-top:4px';
+    hdr.innerHTML = '<div style="font-size:11px;font-weight:700;color:' + c.color + '">' + c.label + '</div>'
+      + '<div style="font-size:11px;font-weight:700;font-family:monospace;color:' + c.color + '">$' + groupTotal.toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2}) + '</div>';
+    el.appendChild(hdr);
+    const card = document.createElement('div');
+    card.className = 'card';
+    card.style.margin = '0 16px';
+    el.appendChild(card);
+    for (const g of items) {
     const cat = CATS.find(c => c.id === g.cat) || CATS[CATS.length-1];
     const state_class = g.state || 'pending';
     const stateIcon = g.state === 'paid' ? '✓' : g.state === 'paid_card' ? '💳' : g.state === 'reserved' ? '◑' : '';
@@ -718,13 +750,15 @@ function renderGastos(gastos, pid) {
       </div>
       <div class="gasto-amt ${state_class}">${fmt(g.monto)}</div>
     `;
-    // long press = reserved
-    let pressTimer;
-    row.querySelector('.state-btn').addEventListener('touchstart', () => {
-      pressTimer = setTimeout(() => toggleReserved(pid, g.id), 500);
-    });
-    row.querySelector('.state-btn').addEventListener('touchend', () => clearTimeout(pressTimer));
-    el.appendChild(row);
+    // double tap = reserved
+    let lastTap = 0;
+    row.querySelector('.state-btn').addEventListener('click', (e) => {
+      const now = Date.now();
+      if (now - lastTap < 300) { e.stopPropagation(); toggleReserved(pid, g.id); }
+      lastTap = now;
+    }, true);
+      card.appendChild(row);
+    }
   }
 }
 
@@ -760,8 +794,36 @@ function cycleState(pid, id) {
     next = cur === 'paid' ? 'pending' : 'paid';
   }
 
-  const goingPaid = (next === 'paid' || next === 'paid_card') && cur === 'pending';
+  const goingPaid = next === 'paid' && (cur === 'pending' || cur === 'paid_card');
+  const goingPaidCard = next === 'paid_card' && cur === 'pending';
   const goingUnpaid = next === 'pending';
+
+  // Handle tarjetaRef card charge (paid_card = charged to card, paid = paid the card)
+  if (g.tarjetaRef && !g.debtLink) {
+    const card = state.debts.find(d => d.type === 'card' && d.nombre === g.tarjetaRef);
+    if (card) {
+      const m = n(g.monto);
+      if (goingPaidCard && !g._charged) {
+        card.balance = n(card.balance) + m;
+        if (!card.historial) card.historial = [];
+        card.historial.unshift({fecha:new Date().toLocaleDateString('en-US',{month:'short',day:'numeric'}),tipo:'gasto',monto:m});
+        card.historial = card.historial.slice(0,20);
+        g._charged = true;
+        toast('💳 ' + fmt(m) + ' charged to ' + card.nombre);
+      } else if (goingPaid && g._charged && !g._debtPaid) {
+        card.balance = Math.max(0, n(card.balance) - m);
+        if (!card.historial) card.historial = [];
+        card.historial.unshift({fecha:new Date().toLocaleDateString('en-US',{month:'short',day:'numeric'}),tipo:'pago',monto:m});
+        card.historial = card.historial.slice(0,20);
+        g._debtPaid = true;
+        toast('✅ ' + fmt(m) + ' payment on ' + card.nombre);
+      } else if (goingUnpaid) {
+        if (g._debtPaid) { card.balance = n(card.balance) + m; card.historial = (card.historial||[]).slice(1); g._debtPaid = false; }
+        if (g._charged) { card.balance = Math.max(0, n(card.balance) - m); g._charged = false; }
+        if (g._debtPaid || g._charged) toast('↩️ Reversed on ' + card.nombre);
+      }
+    }
+  }
 
   // Handle debt link
   if (g.debtLink) {
@@ -832,25 +894,23 @@ function renderBreakdown(gastos) {
   const calcTotal = Object.values(calcSelected).filter(Boolean).reduce((s,v)=>s+v,0);
   const calcCount = Object.values(calcSelected).filter(Boolean).length;
 
-  let html = `
-    <div class="breakdown-hdr">
-      <div class="breakdown-title">Breakdown</div>
-      <button class="calc-btn ${calcMode?'on':''}" onclick="toggleCalc()">🧮</button>
-    </div>
-  `;
+  let html = '<div class="breakdown-hdr">'
+    + '<div class="breakdown-title">Breakdown</div>'
+    + '<button class="calc-btn ' + (calcMode?'on':'') + '" onclick="toggleCalc()">🧮</button>'
+    + '</div>';
   if (calcMode && calcCount > 0) {
-    html += `<div class="calc-chip"><span>🧮 ${calcCount} items = ${fmt(calcTotal)}</span><button class="calc-clear" onclick="clearCalc()">C</button></div>`;
+    const itemNames = Object.entries(calcSelected).filter(([,v])=>v).map(([k])=>{const c=catMap[k]||catMap['other'];return c.label.split(' ')[1]||c.label;}).join(' + ');
+    html += '<div class="calc-chip"><div style="flex:1"><div style="font-size:11px;opacity:0.8;margin-bottom:2px">' + itemNames + '</div><div>= ' + fmt(calcTotal) + '</div></div><button class="calc-clear" onclick="clearCalc()">C</button></div>';
   }
   html += '<div class="card" style="margin-top:6px">';
   for (const [k, v] of entries) {
     const c = catMap[k] || catMap['other'];
     const sel = calcSelected[k];
-    html += `
-      <div class="bd-row ${sel?'selected':''}" onclick="bdClick('${k}',${v.total})">
-        <div class="bd-dest" style="color:${c.color}">${c.label}</div>
-        <div class="bd-amt" style="color:${sel?'var(--accent)':c.color}">${sel?'✓ ':''}\${v.total.toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2})}</div>
-      </div>
-    `;
+    const amtStr = '$' + v.total.toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2});
+    html += '<div class="bd-row ' + (sel?'selected':'') + '" onclick="bdClick(\'' + k + '\',' + v.total + ')">'
+      + '<div class="bd-dest" style="color:' + c.color + '">' + c.label + '</div>'
+      + '<div class="bd-amt" style="color:' + (sel?'var(--accent)':c.color) + '">' + (sel?'&#10003; ':'') + amtStr + '</div>'
+      + '</div>';
   }
   html += '</div>';
   el.innerHTML = html;
@@ -1202,13 +1262,15 @@ function closeDebtSheet(e) { if (e.target === e.currentTarget) closeDebtSheetBtn
 function closeDebtSheetBtn() { document.getElementById('debt-sheet').style.display = 'none'; editingDebtId = null; }
 
 // ── CALENDAR ──
+let selectedCalDay = null;
+
 function renderCalendar() {
   const DAYS = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
   document.getElementById('cal-title').textContent = new Date(calYear, calMonth, 1).toLocaleDateString('en-US',{month:'long',year:'numeric'});
 
   // Headers
   const hdrEl = document.getElementById('cal-headers');
-  hdrEl.innerHTML = DAYS.map(d => `<div class="cal-day-hdr">${d}</div>`).join('');
+  hdrEl.innerHTML = DAYS.map(d => '<div class="cal-day-hdr">' + d + '</div>').join('');
 
   // Grid
   const firstDay = new Date(calYear, calMonth, 1).getDay();
@@ -1229,7 +1291,7 @@ function renderCalendar() {
         if (mo === calMonth && yr === calYear) {
           if (!dueDates[g.diaPago]) dueDates[g.diaPago] = [];
           const cat = CATS.find(c => c.id === g.cat) || CATS[CATS.length-1];
-          dueDates[g.diaPago].push({color: cat.color, name: g.nombre});
+          dueDates[g.diaPago].push({color: cat.color, name: g.nombre, cat: g.cat||'other', amt: g.monto});
         }
       }
     }
@@ -1247,20 +1309,98 @@ function renderCalendar() {
     const isToday = new Date(calYear, calMonth, d).getTime() === today.getTime();
     const isPay = paydayDates.has(d);
     const dots = dueDates[d] || [];
-    gridEl.innerHTML += `
-      <div class="cal-day${isToday?' today':''}">
-        <div class="cal-num">${d}</div>
-        ${isPay ? '<div class="payday-marker">💰</div>' : ''}
-        <div class="cal-dots">
-          ${dots.slice(0,4).map(dot => `<div class="cal-dot" style="background:${dot.color}" title="${dot.name}"></div>`).join('')}
-        </div>
-      </div>
-    `;
+    const isSel = selectedCalDay === d;
+    const div = document.createElement('div');
+    div.className = 'cal-day' + (isToday?' today':'') + (isSel?' selected-day':'');
+    if (isSel) div.style.cssText = 'background:rgba(88,166,255,0.1);border-radius:10px';
+    div.innerHTML = '<div class="cal-num">' + d + '</div>'
+      + (isPay ? '<div class="payday-marker">💰</div>' : '')
+      + '<div class="cal-dots">'
+      + dots.slice(0,4).map(dot => '<div class="cal-dot" style="background:' + dot.color + '"></div>').join('')
+      + '</div>';
+    div.onclick = () => { selectedCalDay = (selectedCalDay === d ? null : d); renderCalendar(); renderCalEvents(d, dueDates[d]||[], isPay); };
+    gridEl.appendChild(div);
   }
+
+  // Legend
+  const legendEl = document.getElementById('cal-legend');
+  const usedCats = new Set();
+  Object.values(dueDates).forEach(dots => dots.forEach(d => usedCats.add(d.cat)));
+  const catMap = Object.fromEntries(CATS.map(c => [c.id, c]));
+  legendEl.innerHTML = '<div style="display:flex;flex-wrap:wrap;gap:6px;padding:10px 16px">'
+    + (paydayDates.size > 0 ? '<div style="display:flex;align-items:center;gap:4px;font-size:11px;font-weight:600;color:var(--green)">💰 Payday</div>' : '')
+    + [...usedCats].map(cat => {
+        const c = catMap[cat] || catMap['other'];
+        return '<div style="display:flex;align-items:center;gap:4px;font-size:11px;font-weight:600;color:' + c.color + '">'
+          + '<div style="width:8px;height:8px;border-radius:50%;background:' + c.color + '"></div>' + c.label + '</div>';
+      }).join('')
+    + '</div>';
+}
+
+function renderCalEvents(day, dots, isPay) {
+  const el = document.getElementById('cal-events');
+  if (!dots.length && !isPay) { el.style.display = 'none'; return; }
+  el.style.display = 'block';
+  const date = new Date(calYear, calMonth, day).toLocaleDateString('en-US',{weekday:'long',month:'long',day:'numeric'});
+  let html = '<div style="padding:12px 16px;font-size:13px;font-weight:700;border-bottom:1px solid var(--border)">' + date + '</div>';
+  if (isPay) html += '<div style="padding:10px 16px;font-size:13px;font-weight:600;color:var(--green)">💰 Payday</div>';
+  for (const d of dots) {
+    const c = CATS.find(x => x.id === d.cat) || CATS[CATS.length-1];
+    html += '<div style="padding:8px 16px;border-top:1px solid var(--border);display:flex;justify-content:space-between;align-items:center">'
+      + '<div style="font-size:14px;font-weight:700;color:' + c.color + '">' + (d.name||'Unnamed') + '</div>'
+      + '<div style="font-size:13px;font-weight:700;font-family:monospace">$' + n(d.amt).toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2}) + '</div>'
+      + '</div>';
+  }
+  el.innerHTML = html;
 }
 
 function calPrev() { calMonth--; if (calMonth < 0) { calMonth = 11; calYear--; } renderCalendar(); }
 function calNext() { calMonth++; if (calMonth > 11) { calMonth = 0; calYear++; } renderCalendar(); }
+
+// ── SPENDING ──
+function renderSpending() {
+  const el = document.getElementById('spending-list');
+  const catMap = Object.fromEntries(CATS.map(c => [c.id, c]));
+  // Collect all gastos grouped by month then category
+  const months = {};
+  for (const [pid, p] of Object.entries(state.periods)) {
+    const mo = pid.slice(7, 14);
+    if (!months[mo]) months[mo] = {};
+    for (const g of p.gastos || []) {
+      const cat = g.cat || 'other';
+      if (!months[mo][cat]) months[mo][cat] = 0;
+      months[mo][cat] += n(g.monto);
+    }
+  }
+  const sorted = Object.entries(months).sort((a,b) => b[0].localeCompare(a[0]));
+  if (!sorted.length) { el.innerHTML = '<div class="empty"><div class="ei">📈</div>No data yet</div>'; return; }
+  el.innerHTML = '';
+  for (const [mo, cats] of sorted) {
+    const date = new Date(mo + '-01T12:00:00');
+    const label = date.toLocaleDateString('en-US',{month:'long',year:'numeric'});
+    const total = Object.values(cats).reduce((s,v) => s+v, 0);
+    let html = '<div style="margin:10px 16px 0;background:var(--surface);border:1px solid var(--border);border-radius:14px;overflow:hidden">'
+      + '<div style="padding:12px 16px;display:flex;justify-content:space-between;align-items:center;border-bottom:1px solid var(--border)">'
+      + '<div style="font-size:14px;font-weight:700">' + label + '</div>'
+      + '<div style="font-size:13px;font-weight:700;font-family:monospace;color:var(--red)">$' + total.toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2}) + '</div>'
+      + '</div>';
+    const sortedCats = Object.entries(cats).sort((a,b) => b[1]-a[1]);
+    for (const [catId, amt] of sortedCats) {
+      const c = catMap[catId] || catMap['other'];
+      const pct = total > 0 ? (amt/total*100) : 0;
+      html += '<div style="padding:8px 16px;border-bottom:1px solid var(--border)">'
+        + '<div style="display:flex;justify-content:space-between;margin-bottom:4px">'
+        + '<div style="font-size:12px;font-weight:600;color:' + c.color + '">' + c.label + '</div>'
+        + '<div style="font-size:12px;font-weight:700;font-family:monospace">$' + amt.toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2}) + '</div>'
+        + '</div>'
+        + '<div style="height:4px;background:var(--surface2);border-radius:2px;overflow:hidden">'
+        + '<div style="height:100%;width:' + pct.toFixed(1) + '%;background:' + c.color + ';border-radius:2px"></div>'
+        + '</div></div>';
+    }
+    html += '</div>';
+    el.innerHTML += html;
+  }
+}
 
 // ── HISTORY ──
 function renderHistory() {
