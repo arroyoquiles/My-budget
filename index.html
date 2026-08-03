@@ -266,7 +266,7 @@ select{font-family:inherit;outline:none}
 </div>
 
 <!-- SPENDING PAGE -->
-<div id="page-spending" class="page" style="display:none">
+<div id="page-spending" class="page">
   <div style="padding:20px 16px 0;font-size:22px;font-weight:800;letter-spacing:-0.5px">Spending</div>
   <div id="spending-list"></div>
 </div>
@@ -750,13 +750,20 @@ function renderGastos(gastos, pid) {
       </div>
       <div class="gasto-amt ${state_class}">${fmt(g.monto)}</div>
     `;
-    // double tap = reserved
+    // double tap on state btn = reserved
     let lastTap = 0;
-    row.querySelector('.state-btn').addEventListener('click', (e) => {
+    const stateBtn = row.querySelector('.state-btn');
+    stateBtn.addEventListener('click', (e) => {
       const now = Date.now();
-      if (now - lastTap < 300) { e.stopPropagation(); toggleReserved(pid, g.id); }
-      lastTap = now;
-    }, true);
+      if (now - lastTap < 350) {
+        e.preventDefault();
+        e.stopImmediatePropagation();
+        toggleReserved(pid, g.id);
+        lastTap = 0;
+      } else {
+        lastTap = now;
+      }
+    });
       card.appendChild(row);
     }
   }
@@ -1379,7 +1386,7 @@ function renderSpending() {
     const date = new Date(mo + '-01T12:00:00');
     const label = date.toLocaleDateString('en-US',{month:'long',year:'numeric'});
     const total = Object.values(cats).reduce((s,v) => s+v, 0);
-    let html = '<div style="margin:10px 16px 0;background:var(--surface);border:1px solid var(--border);border-radius:14px;overflow:hidden">'
+    let html = '<div style="margin:10px 16px 0;background:var(--surface);border:1px solid var(--border);border-radius:14px;overflow:hidden;color:var(--text)">'
       + '<div style="padding:12px 16px;display:flex;justify-content:space-between;align-items:center;border-bottom:1px solid var(--border)">'
       + '<div style="font-size:14px;font-weight:700">' + label + '</div>'
       + '<div style="font-size:13px;font-weight:700;font-family:monospace;color:var(--red)">$' + total.toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2}) + '</div>'
@@ -1393,8 +1400,8 @@ function renderSpending() {
         + '<div style="font-size:12px;font-weight:600;color:' + c.color + '">' + c.label + '</div>'
         + '<div style="font-size:12px;font-weight:700;font-family:monospace">$' + amt.toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2}) + '</div>'
         + '</div>'
-        + '<div style="height:4px;background:var(--surface2);border-radius:2px;overflow:hidden">'
-        + '<div style="height:100%;width:' + pct.toFixed(1) + '%;background:' + c.color + ';border-radius:2px"></div>'
+        + '<div style="height:4px;background:var(--surface2);border-radius:2px;overflow:hidden;max-width:100%">'
+        + '<div style="height:100%;width:' + Math.min(100,pct).toFixed(1) + '%;background:' + c.color + ';border-radius:2px;transition:width 0.3s"></div>'
         + '</div></div>';
     }
     html += '</div>';
