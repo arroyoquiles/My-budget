@@ -738,7 +738,7 @@ function renderGastos(gastos, pid) {
     const row = document.createElement('div');
     row.className = 'gasto ' + state_class;
     row.innerHTML = `
-      <button class="state-btn ${state_class}" onclick="cycleState('${pid}',${g.id})">${stateIcon}</button>
+      <button class="state-btn ${state_class}">${stateIcon}</button>
       <div class="gasto-info" onclick="openEditGasto('${pid}',${g.id})">
         <div class="gasto-name ${state_class}">${g.nombre || '<span style="color:var(--muted);font-style:italic">Unnamed</span>'}</div>
         <div class="gasto-sub">
@@ -750,18 +750,25 @@ function renderGastos(gastos, pid) {
       </div>
       <div class="gasto-amt ${state_class}">${fmt(g.monto)}</div>
     `;
-    // double tap on state btn = reserved
-    let lastTap = 0;
+    // single tap = cycle state, double tap = reserved
     const stateBtn = row.querySelector('.state-btn');
+    stateBtn.removeAttribute('onclick');
+    stateBtn.dataset.pid = pid;
+    stateBtn.dataset.gid = g.id;
+    let tapTimer = null;
+    let tapCount = 0;
     stateBtn.addEventListener('click', (e) => {
-      const now = Date.now();
-      if (now - lastTap < 350) {
-        e.preventDefault();
-        e.stopImmediatePropagation();
-        toggleReserved(pid, g.id);
-        lastTap = 0;
+      e.stopPropagation();
+      tapCount++;
+      if (tapCount === 1) {
+        tapTimer = setTimeout(() => {
+          tapCount = 0;
+          cycleState(stateBtn.dataset.pid, parseInt(stateBtn.dataset.gid));
+        }, 260);
       } else {
-        lastTap = now;
+        clearTimeout(tapTimer);
+        tapCount = 0;
+        toggleReserved(stateBtn.dataset.pid, parseInt(stateBtn.dataset.gid));
       }
     });
       card.appendChild(row);
