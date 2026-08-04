@@ -456,6 +456,8 @@ let calYear = new Date().getFullYear();
 let calMonth = new Date().getMonth();
 let calcMode = false;
 let calcSelected = {};
+let spendCalcMode = false;
+let spendCalcSelected = {};
 let editingGastoId = null;
 let editingDebtId = null;
 let confirmCallback = null;
@@ -1372,7 +1374,19 @@ function renderSpending() {
   }
   const sorted = Object.entries(months).sort((a,b) => b[0].localeCompare(a[0]));
   if (!sorted.length) { el.innerHTML = '<div class="empty"><div class="ei">📈</div>No data yet</div>'; return; }
-  el.innerHTML = '';
+  // Calc header
+  const spendTotal = Object.values(spendCalcSelected).filter(Boolean).reduce((s,v)=>s+v,0);
+  const spendCount = Object.values(spendCalcSelected).filter(Boolean).length;
+  let topHtml = '<div style="display:flex;align-items:center;justify-content:space-between;padding:14px 16px 0">'
+    + '<div style="font-size:9px;color:var(--muted);letter-spacing:1.5px;text-transform:uppercase;font-weight:700">By Category</div>'
+    + '<button class="calc-btn ' + (spendCalcMode?'on':'') + '" onclick="toggleSpendCalc()">🧮</button>'
+    + '</div>';
+  if (spendCalcMode && spendCount > 0) {
+    const names = Object.entries(spendCalcSelected).filter(([,v])=>v).map(([k])=>{const c=catMap[k]||catMap['other'];return c.label.split(' ')[1]||c.label;}).join(' + ');
+    topHtml += '<div class="calc-chip" style="margin:8px 16px 0"><div style="flex:1"><div style="font-size:11px;opacity:0.8;margin-bottom:2px">' + names + '</div><div>= $' + spendTotal.toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2}) + '</div></div><button class="calc-clear" onclick="clearSpendCalc()">C</button></div>';
+  }
+  el.innerHTML = topHtml;
+
   for (const [mo, cats] of sorted) {
     const date = new Date(mo + '-01T12:00:00');
     const label = date.toLocaleDateString('en-US',{month:'long',year:'numeric'});
@@ -1386,10 +1400,13 @@ function renderSpending() {
     for (const [catId, amt] of sortedCats) {
       const c = catMap[catId] || catMap['other'];
       const pct = total > 0 ? (amt/total*100) : 0;
-      html += '<div style="padding:8px 16px;border-bottom:1px solid var(--border)">'
+      const sel = spendCalcMode && spendCalcSelected[catId];
+      const rowBg = sel ? 'rgba(88,166,255,0.08)' : 'transparent';
+      const rowCursor = spendCalcMode ? 'pointer' : 'default';
+      html += '<div style="padding:8px 16px;border-bottom:1px solid var(--border);cursor:' + rowCursor + ';background:' + rowBg + '" onclick="spendBdClick(\'' + catId + '\',' + amt + ')">'
         + '<div style="display:flex;justify-content:space-between;margin-bottom:4px">'
-        + '<div style="font-size:12px;font-weight:600;color:' + c.color + '">' + c.label + '</div>'
-        + '<div style="font-size:12px;font-weight:700;font-family:monospace">$' + amt.toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2}) + '</div>'
+        + '<div style="font-size:12px;font-weight:600;color:' + (sel?'var(--accent)':c.color) + '">' + (sel?'✓ ':'') + c.label + '</div>'
+        + '<div style="font-size:12px;font-weight:700;font-family:monospace;color:' + (sel?'var(--accent)':'var(--text)') + '">$' + amt.toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2}) + '</div>'
         + '</div>'
         + '<div style="height:4px;background:var(--surface2);border-radius:2px;overflow:hidden;max-width:100%">'
         + '<div style="height:100%;width:' + Math.min(100,pct).toFixed(1) + '%;background:' + c.color + ';border-radius:2px;transition:width 0.3s"></div>'
@@ -1399,6 +1416,10 @@ function renderSpending() {
     el.innerHTML += html;
   }
 }
+
+function toggleSpendCalc() { spendCalcMode = !spendCalcMode; spendCalcSelected = {}; renderSpending(); }
+function clearSpendCalc() { spendCalcSelected = {}; renderSpending(); }
+function spendBdClick(k, amt) { if (!spendCalcMode) return; spendCalcSelected[k] = spendCalcSelected[k] ? null : amt; renderSpending(); }
 
 // ── HISTORY ──
 function renderHistory() {
