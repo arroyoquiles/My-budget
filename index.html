@@ -224,6 +224,7 @@ select{font-family:inherit;outline:none}
       <div class="bal-row">
         <div class="bal-item"><div class="v" id="bal-income" style="color:var(--accent)">$0.00</div><div class="k">Income</div></div>
         <div class="bal-item"><div class="v" id="bal-assigned" style="color:var(--red)">$0.00</div><div class="k">Assigned</div></div>
+        <div class="bal-item"><div class="v" id="bal-reserved" style="color:var(--gold)">$0.00</div><div class="k">Reserved</div></div>
         <div class="bal-item"><div class="v" id="bal-paid" style="color:var(--green)">$0.00</div><div class="k">Paid</div></div>
       </div>
     </div>
@@ -640,13 +641,15 @@ function updateBalance() {
   const gastos = period.gastos || [];
   const income = n(period.amount) || n(state.defaultAmount);
   const assigned = gastos.reduce((s,g) => s + n(g.monto), 0);
+  const reserved = gastos.filter(g => g.state === 'reserved').reduce((s,g) => s + n(g.monto), 0);
   const paid = gastos.filter(g => g.state === 'paid' || g.state === 'paid_card').reduce((s,g) => s + n(g.monto), 0);
   const remaining = income - assigned;
-  const color = remaining >= 0 ? 'var(--green)' : 'var(--red)';
-  document.getElementById('bal-remaining').textContent = fmt(remaining);
+  const color = remaining < 0 ? 'var(--red)' : remaining < income * 0.1 ? 'var(--gold)' : 'var(--green)';
+  document.getElementById('bal-remaining').textContent = fmt(Math.abs(remaining));
   document.getElementById('bal-remaining').style.color = color;
   document.getElementById('bal-income').textContent = fmt(income);
   document.getElementById('bal-assigned').textContent = fmt(assigned);
+  document.getElementById('bal-reserved').textContent = fmt(reserved);
   document.getElementById('bal-paid').textContent = fmt(paid);
 }
 
