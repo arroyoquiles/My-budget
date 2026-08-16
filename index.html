@@ -272,6 +272,21 @@ select{font-family:inherit;outline:none}
   <div id="spending-list"></div>
 </div>
 
+<!-- DETAIL MODAL -->
+<div id="detail-modal" class="sheet-bg" style="display:none" onclick="closeDetail(event)">
+  <div class="sheet" style="max-height:80vh;overflow-y:auto">
+    <div class="sheet-title">
+      <span id="detail-title"></span>
+      <button class="sheet-close" onclick="closeDetailBtn()">✕</button>
+    </div>
+    <div id="detail-calc-chip" style="display:none;margin-bottom:12px"></div>
+    <div id="detail-list"></div>
+    <div style="margin-top:12px;padding-top:12px;border-top:1px solid var(--border);display:flex;justify-content:space-between">
+      <div style="font-size:12px;color:var(--muted)">Total</div>
+      <div id="detail-total" style="font-size:16px;font-weight:800;font-family:monospace"></div>
+    </div>
+  </div>
+</div>
 <!-- NAV -->
 <nav id="nav">
   <button class="nav-btn active" onclick="showTab('paychecks')" id="nav-paychecks">
@@ -458,6 +473,9 @@ let calcMode = false;
 let calcSelected = {};
 let spendCalcMode = false;
 let spendCalcSelected = {};
+let detailCalcSelected = {};
+let currentDetailItems = [];
+let currentDetailTitle = '';
 let editingGastoId = null;
 let editingDebtId = null;
 let confirmCallback = null;
@@ -899,20 +917,61 @@ function toggleReserved(pid, id) {
 }
 
 // ── BREAKDOWN ──
+function openDetail(title, items) {
+  currentDetailItems = items;
+  detailCalcSelected = {};
+  document.getElementById('detail-title').textContent = title;
+  renderDetailList();
+  document.getElementById('detail-modal').style.display = 'flex';
+}
+function closeDetail(e) { if (e.target === e.currentTarget) closeDetailBtn(); }
+function closeDetailBtn() { document.getElementById('detail-modal').style.display = 'none'; }
+function renderDetailList() {
+  const items = currentDetailItems;
+  const calcTotal = Object.values(detailCalcSelected).filter(Boolean).reduce((s,v)=>s+v,0);
+  const calcCount = Object.values(detailCalcSelected).filter(Boolean).length;
+  const chipEl = document.getElementById('detail-calc-chip');
+  const total = items.reduce((s,g)=>s+n(g.monto),0);
+  if (calcCount > 0) {
+    chipEl.style.display = 'flex';
+    chipEl.className = 'calc-chip';
+    chipEl.innerHTML = '<div style="flex:1">= $' + calcTotal.toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2}) + ' (' + calcCount + ' items)</div>'
+      + '<button class="calc-clear" onclick="detailCalcSelected={};renderDetailList()">C</button>';
+  } else { chipEl.style.display = 'none'; }
+  document.getElementById('detail-total').textContent = '$' + total.toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2});
+  const el = document.getElementById('detail-list');
+  el.innerHTML = '';
+  for (const g of items) {
+    const sel = detailCalcSelected[g.id];
+    const row = document.createElement('div');
+    row.style.cssText = 'display:flex;align-items:center;justify-content:space-between;padding:10px ' + (sel?'8px':'0') + ';border-bottom:1px solid var(--border);cursor:pointer;background:' + (sel?'rgba(88,166,255,0.06)':'transparent') + ';border-radius:' + (sel?'8px':'0');
+    row.innerHTML = '<div style="flex:1">'
+      + '<div style="font-size:13px;font-weight:600;color:' + (sel?'var(--accent)':'var(--text)') + '">' + (sel?'&#10003; ':'') + (g.nombre||'Unnamed') + '</div>'
+      + (g.diaPago ? '<div style="font-size:11px;color:var(--muted);margin-top:2px">due ' + g.diaPago + '</div>' : '')
+      + '</div>'
+      + '<div style="font-size:14px;font-weight:700;font-family:monospace;color:' + (sel?'var(--accent)':'var(--text)') + '">$' + n(g.monto).toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2}) + '</div>';
+    row.onclick = () => { detailCalcSelected[g.id] = detailCalcSelected[g.id] ? null : n(g.monto); renderDetailList(); };
+    el.appendChild(row);
+  }
+}
+
 function renderBreakdown(gastos) {
   const el = document.getElementById('breakdown-section');
   if (!gastos.length) { el.innerHTML = ''; return; }
   const groups = {};
+  const gastosByCat = {};
   for (const g of gastos) {
     const cat = g.cat || 'other';
-    if (!groups[cat]) groups[cat] = {total:0, cat};
+    if (!groups[cat]) { groups[cat] = {total:0, cat}; gastosByCat[cat] = []; }
     groups[cat].total += n(g.monto);
+    gastosByCat[cat].push(g);
   }
   const entries = Object.entries(groups).sort((a,b) => b[1].total - a[1].total);
   const catMap = Object.fromEntries(CATS.map(c => [c.id, c]));
   const calcTotal = Object.values(calcSelected).filter(Boolean).reduce((s,v)=>s+v,0);
   const calcCount = Object.values(calcSelected).filter(Boolean).length;
 
+  window._bdItems = gastosByCat;
   let html = '<div class="breakdown-hdr">'
     + '<div class="breakdown-title">Breakdown</div>'
     + '<button class="calc-btn ' + (calcMode?'on':'') + '" onclick="toggleCalc()">🧮</button>'
@@ -938,9 +997,9 @@ function renderBreakdown(gastos) {
 function toggleCalc() { calcMode = !calcMode; calcSelected = {}; renderPaychecks(); }
 function clearCalc() { calcSelected = {}; renderPaychecks(); }
 function bdClick(k, total) {
-  if (!calcMode) return;
-  calcSelected[k] = calcSelected[k] ? null : total;
-  renderPaychecks();
+  if (calcMode) { calcSelected[k] = calcSelected[k] ? null : total; renderPaychecks(); return; }
+  const c = Object.fromEntries(CATS.map(c=>[c.id,c]))[k] || CATS[CATS.length-1];
+  openDetail(c.label, (window._bdItems||{})[k] || []);
 }
 
 // ── ADD/EDIT GASTO ──
@@ -1363,13 +1422,17 @@ function renderSpending() {
   const catMap = Object.fromEntries(CATS.map(c => [c.id, c]));
   // Collect all gastos grouped by month then category
   const months = {};
+  const catItemsByMonth = {};
   for (const [pid, p] of Object.entries(state.periods)) {
     const mo = pid.slice(7, 14);
     if (!months[mo]) months[mo] = {};
+    if (!catItemsByMonth[mo]) catItemsByMonth[mo] = {};
     for (const g of p.gastos || []) {
       const cat = g.cat || 'other';
       if (!months[mo][cat]) months[mo][cat] = 0;
       months[mo][cat] += n(g.monto);
+      if (!catItemsByMonth[mo][cat]) catItemsByMonth[mo][cat] = [];
+      catItemsByMonth[mo][cat].push(g);
     }
   }
   const sorted = Object.entries(months).sort((a,b) => b[0].localeCompare(a[0]));
@@ -1419,7 +1482,11 @@ function renderSpending() {
 
 function toggleSpendCalc() { spendCalcMode = !spendCalcMode; spendCalcSelected = {}; renderSpending(); }
 function clearSpendCalc() { spendCalcSelected = {}; renderSpending(); }
-function spendBdClick(k, amt) { if (!spendCalcMode) return; spendCalcSelected[k] = spendCalcSelected[k] ? null : amt; renderSpending(); }
+function spendBdClick(k, amt, items) {
+  if (spendCalcMode) { spendCalcSelected[k] = spendCalcSelected[k] ? null : amt; renderSpending(); return; }
+  const c = Object.fromEntries(CATS.map(c=>[c.id,c]))[k] || CATS[CATS.length-1];
+  openDetail(c.label, items || []);
+}
 
 // ── HISTORY ──
 function renderHistory() {
