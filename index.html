@@ -272,6 +272,32 @@ select{font-family:inherit;outline:none}
   <div id="spending-list"></div>
 </div>
 
+<!-- CARD EXPENSE SHEET -->
+<div id="card-exp-sheet" class="sheet-bg" style="display:none" onclick="closeCardExpSheet(event)">
+  <div class="sheet">
+    <div class="sheet-title">
+      <span id="card-exp-title">Add Card Expense</span>
+      <button class="sheet-close" onclick="closeCardExpSheetBtn()">✕</button>
+    </div>
+    <div class="form-row">
+      <div class="form-label">Name</div>
+      <input class="inp" id="ce-name" placeholder="e.g. Netflix" maxlength="40">
+    </div>
+    <div class="form-row">
+      <div class="form-label">Amount</div>
+      <input class="inp" id="ce-amount" type="number" inputmode="decimal" placeholder="0.00">
+    </div>
+    <div class="form-row">
+      <div class="form-label">Category</div>
+      <div class="cat-grid" id="ce-cat-grid"></div>
+    </div>
+    <div style="display:flex;gap:8px;margin-top:4px">
+      <button class="btn btn-red" id="ce-delete-btn" style="flex:1;display:none" onclick="deleteCardExp()">Delete</button>
+      <button class="btn btn-accent" style="flex:2" onclick="saveCardExp()">Save</button>
+    </div>
+  </div>
+</div>
+
 <!-- DETAIL MODAL -->
 <div id="detail-modal" class="sheet-bg" style="display:none" onclick="closeDetail(event)">
   <div class="sheet" style="max-height:80vh;overflow-y:auto">
@@ -474,6 +500,8 @@ let calcSelected = {};
 let spendCalcMode = false;
 let spendCalcSelected = {};
 let detailCalcSelected = {};
+let cardExpDebtId = null;
+let cardExpEditId = null;
 let currentDetailItems = [];
 let currentDetailTitle = '';
 let editingGastoId = null;
@@ -1195,6 +1223,85 @@ function deleteGasto() {
 function closeAddSheet(e) { if (e.target === e.currentTarget) closeAddSheetBtn(); }
 function closeAddSheetBtn() { document.getElementById('add-sheet').style.display = 'none'; editingGastoId = null; }
 
+function openCardExpSheet(debtId, expId) {
+  cardExpDebtId = debtId;
+  cardExpEditId = expId || null;
+  const debt = state.debts.find(d => d.id === debtId);
+  document.getElementById('card-exp-title').textContent = (expId ? 'Edit' : 'Add') + ' · ' + (debt?.nombre || 'Card');
+  const exp = expId ? (debt?.expenses||[]).find(e => e.id === expId) : null;
+  document.getElementById('ce-name').value = exp?.nombre || '';
+  document.getElementById('ce-amount').value = exp?.monto || '';
+  document.getElementById('ce-delete-btn').style.display = expId ? 'flex' : 'none';
+  buildCeGrid(exp?.cat || '');
+  document.getElementById('card-exp-sheet').style.display = 'flex';
+  setTimeout(() => document.getElementById('ce-name').focus(), 300);
+}
+
+function buildCeGrid(selected) {
+  const el = document.getElementById('ce-cat-grid');
+  el.innerHTML = '';
+  for (const c of CATS) {
+    const btn = document.createElement('button');
+    btn.className = 'cat-chip' + (c.id === selected ? ' on' : '');
+    btn.textContent = c.label;
+    btn.dataset.cat = c.id;
+    btn.onclick = () => { document.querySelectorAll('#ce-cat-grid .cat-chip').forEach(b => b.classList.remove('on')); btn.classList.add('on'); };
+    el.appendChild(btn);
+  }
+}
+
+function saveCardExp() {
+  const nombre = document.getElementById('ce-name').value.trim();
+  const monto = parseFloat(document.getElementById('ce-amount').value) || 0;
+  const cat = document.querySelector('#ce-cat-grid .cat-chip.on')?.dataset.cat || 'other';
+  if (!nombre) { toast('Enter a name'); return; }
+  const debt = state.debts.find(d => d.id === cardExpDebtId);
+  if (!debt) return;
+  if (!debt.expenses) debt.expenses = [];
+  if (cardExpEditId) {
+    const idx = debt.expenses.findIndex(e => e.id === cardExpEditId);
+    if (idx >= 0) debt.expenses[idx] = { ...debt.expenses[idx], nombre, monto, cat };
+  } else {
+    debt.expenses.push({ id: uid(), nombre, monto, cat, state: 'pending', fecha: new Date().toLocaleDateString('en-US',{month:'short',day:'numeric'}) });
+  }
+  save();
+  closeCardExpSheetBtn();
+  renderDebts();
+}
+
+function deleteCardExp() {
+  const debt = state.debts.find(d => d.id === cardExpDebtId);
+  if (!debt) return;
+  confirm2('Delete', 'Remove this expense?', 'Delete', 'var(--red)', () => {
+    debt.expenses = (debt.expenses||[]).filter(e => e.id !== cardExpEditId);
+    save();
+    closeCardExpSheetBtn();
+    renderDebts();
+  });
+}
+
+function toggleCardExp(debtId, expId) {
+  const debt = state.debts.find(d => d.id === debtId);
+  const exp = (debt?.expenses||[]).find(e => e.id === expId);
+  if (!exp) return;
+  if (exp.state === 'pending') {
+    // Mark paid — charge to card balance
+    exp.state = 'paid';
+    debt.balance = n(debt.balance) + n(exp.monto);
+    toast('💳 ' + fmt(exp.monto) + ' charged to ' + debt.nombre);
+  } else {
+    // Unmark — reverse charge
+    exp.state = 'pending';
+    debt.balance = Math.max(0, n(debt.balance) - n(exp.monto));
+    toast('↩️ Reversed on ' + debt.nombre);
+  }
+  save();
+  renderDebts();
+}
+
+function closeCardExpSheet(e) { if (e.target === e.currentTarget) closeCardExpSheetBtn(); }
+function closeCardExpSheetBtn() { document.getElementById('card-exp-sheet').style.display = 'none'; }
+
 // ── DEBTS ──
 function renderDebts() {
   const el = document.getElementById('debts-list');
@@ -1531,6 +1638,21 @@ function renderHistory() {
             <div style="font-size:9px;color:var(--muted);letter-spacing:1px;text-transform:uppercase;margin-top:2px">Paid</div>
           </div>
         </div>
+      </div>
+      ${(d.expenses||[]).length > 0 ? `<div style="border-top:1px solid var(--border)">
+        ${(d.expenses||[]).map(e => `
+          <div style="display:flex;align-items:center;gap:10px;padding:10px 16px;border-bottom:1px solid var(--border)">
+            <button style="width:28px;height:28px;border-radius:50%;border:2px solid ${e.state==='paid'?'var(--green)':'var(--border)'};background:${e.state==='paid'?'rgba(63,185,80,0.1)':'transparent'};color:${e.state==='paid'?'var(--green)':'var(--muted)'};font-size:12px;cursor:pointer;flex-shrink:0" onclick="toggleCardExp(${d.id},${e.id})">${e.state==='paid'?'✓':''}</button>
+            <div style="flex:1;cursor:pointer" onclick="openCardExpSheet(${d.id},${e.id})">
+              <div style="font-size:13px;font-weight:600;color:${e.state==='paid'?'var(--muted)':'var(--text)'};${e.state==='paid'?'text-decoration:line-through':''}">${e.nombre}</div>
+              <div style="font-size:10px;color:var(--muted)">${e.fecha||''} · ${e.cat||'other'}</div>
+            </div>
+            <div style="font-size:13px;font-weight:700;font-family:monospace;color:${e.state==='paid'?'var(--muted)':'var(--text)'}">${fmt(e.monto)}</div>
+          </div>
+        `).join('')}
+      </div>` : ''}
+      <div style="padding:10px 16px;border-top:1px solid var(--border)">
+        <button class="btn btn-surface" style="width:100%;font-size:12px" onclick="openCardExpSheet(${d.id})">+ Add Expense to Card</button>
       </div>
     `;
   }
