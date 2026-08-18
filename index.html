@@ -1022,12 +1022,20 @@ function renderBreakdown(gastos) {
   el.innerHTML = html;
 }
 
+function bdItemClick(id, amt) { bdCalcSelected[id] = bdCalcSelected[id] ? null : amt; renderPaychecks(); }
 function toggleCalc() { calcMode = !calcMode; calcSelected = {}; renderPaychecks(); }
 function clearCalc() { calcSelected = {}; renderPaychecks(); }
-function bdClick(k, total) {
-  if (calcMode) { calcSelected[k] = calcSelected[k] ? null : total; renderPaychecks(); return; }
-  const c = Object.fromEntries(CATS.map(c=>[c.id,c]))[k] || CATS[CATS.length-1];
-  openDetail(c.label, (window._bdItems||{})[k] || []);
+function bdClick(k) {
+  if (calcMode) {
+    const v = (window._bdItems||{})[k] || [];
+    const total = v.reduce((s,g)=>s+n(g.monto),0);
+    calcSelected[k] = calcSelected[k] ? null : total;
+    renderPaychecks();
+    return;
+  }
+  expandedBdCat = expandedBdCat === k ? null : k;
+  bdCalcSelected = {};
+  renderPaychecks();
 }
 
 // ── ADD/EDIT GASTO ──
@@ -1341,7 +1349,21 @@ function renderDebts() {
         <button class="btn btn-surface" style="flex:1;font-size:12px" onclick="adjustBalance(${d.id},-1)">− Payment</button>
         <button class="btn btn-surface" style="flex:1;font-size:12px" onclick="adjustBalance(${d.id},1)">+ Charge</button>
       </div>
-
+      ${(d.expenses||[]).length > 0 ? `<div style="border-top:1px solid var(--border)">
+        ${(d.expenses||[]).map(e => `
+          <div style="display:flex;align-items:center;gap:10px;padding:10px 16px;border-bottom:1px solid var(--border)">
+            <button style="width:28px;height:28px;border-radius:50%;border:2px solid ${e.state==='paid'?'var(--green)':'var(--border)'};background:${e.state==='paid'?'rgba(63,185,80,0.1)':'transparent'};color:${e.state==='paid'?'var(--green)':'var(--muted)'};font-size:12px;cursor:pointer;flex-shrink:0" onclick="toggleCardExp(${d.id},${e.id})">${e.state==='paid'?'✓':''}</button>
+            <div style="flex:1;cursor:pointer" onclick="openCardExpSheet(${d.id},${e.id})">
+              <div style="font-size:13px;font-weight:600;color:${e.state==='paid'?'var(--muted)':'var(--text)'};${e.state==='paid'?'text-decoration:line-through':''}">${e.nombre}</div>
+              <div style="font-size:10px;color:var(--muted)">${e.fecha||''} · ${e.cat||'other'}</div>
+            </div>
+            <div style="font-size:13px;font-weight:700;font-family:monospace;color:${e.state==='paid'?'var(--muted)':'var(--text)'}">${fmt(e.monto)}</div>
+          </div>
+        `).join('')}
+      </div>` : ''}
+      <div style="padding:10px 16px;border-top:1px solid var(--border)">
+        <button class="btn btn-surface" style="width:100%;font-size:12px" onclick="openCardExpSheet(${d.id})">+ Add Expense to Card</button>
+      </div>
     `;
     el.appendChild(card);
   }
@@ -1573,14 +1595,33 @@ function renderSpending() {
       const sel = spendCalcMode && spendCalcSelected[catId];
       const rowBg = sel ? 'rgba(88,166,255,0.08)' : 'transparent';
       const rowCursor = spendCalcMode ? 'pointer' : 'default';
-      html += '<div style="padding:8px 16px;border-bottom:1px solid var(--border);cursor:' + rowCursor + ';background:' + rowBg + '" onclick="spendBdClick(\'' + catId + '\',' + amt + ')">'
+      const isSpExp = expandedSpendCat === catId;
+      html += '<div style="padding:8px 16px;border-bottom:1px solid var(--border);cursor:pointer;background:' + rowBg + '" onclick="spendBdClick(\'' + catId + '\',' + amt + ')">'
         + '<div style="display:flex;justify-content:space-between;margin-bottom:4px">'
-        + '<div style="font-size:12px;font-weight:600;color:' + (sel?'var(--accent)':c.color) + '">' + (sel?'✓ ':'') + c.label + '</div>'
+        + '<div style="font-size:12px;font-weight:600;color:' + (sel?'var(--accent)':c.color) + '">' + (isSpExp?'▾ ':'▸ ') + (sel?'✓ ':'') + c.label + '</div>'
         + '<div style="font-size:12px;font-weight:700;font-family:monospace;color:' + (sel?'var(--accent)':'var(--text)') + '">$' + amt.toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2}) + '</div>'
         + '</div>'
         + '<div style="height:4px;background:var(--surface2);border-radius:2px;overflow:hidden;max-width:100%">'
         + '<div style="height:100%;width:' + Math.min(100,pct).toFixed(1) + '%;background:' + c.color + ';border-radius:2px;transition:width 0.3s"></div>'
         + '</div></div>';
+      if (isSpExp) {
+        const spItems = catItemsByMonth[mo] && catItemsByMonth[mo][catId] ? catItemsByMonth[mo][catId] : [];
+        const spCalcTotal = Object.values(spendDetailCalcSelected).filter(Boolean).reduce((s,v)=>s+v,0);
+        const spCalcCount = Object.values(spendDetailCalcSelected).filter(Boolean).length;
+        if (spCalcCount > 0) {
+          html += '<div style="padding:6px 16px;background:var(--accent);display:flex;justify-content:space-between;align-items:center">'
+            + '<div style="font-size:13px;font-weight:700;color:#fff;font-family:monospace">= $' + spCalcTotal.toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2}) + ' (' + spCalcCount + ')</div>'
+            + '<button style="background:rgba(255,255,255,0.2);border:none;color:#fff;border-radius:6px;padding:2px 8px;font-size:12px;cursor:pointer" onclick="spendDetailCalcSelected={};renderSpending()">C</button>'
+            + '</div>';
+        }
+        for (const g of spItems) {
+          const gSel = spendDetailCalcSelected[g.id];
+          html += '<div style="display:flex;align-items:center;justify-content:space-between;padding:8px 20px;border-bottom:1px solid var(--border);background:' + (gSel?'rgba(88,166,255,0.06)':'rgba(0,0,0,0.2)') + ';cursor:pointer" onclick="spendItemClick(' + g.id + ',' + n(g.monto) + ')">'
+            + '<div style="font-size:12px;font-weight:600;color:' + (gSel?'var(--accent)':'var(--text)') + '">' + (gSel?'&#10003; ':'') + (g.nombre||'Unnamed') + '</div>'
+            + '<div style="font-size:12px;font-weight:700;font-family:monospace;color:' + (gSel?'var(--accent)':'var(--text)') + '">$' + n(g.monto).toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2}) + '</div>'
+            + '</div>';
+        }
+      }
     }
     html += '</div>';
     el.innerHTML += html;
@@ -1589,11 +1630,13 @@ function renderSpending() {
 
 function toggleSpendCalc() { spendCalcMode = !spendCalcMode; spendCalcSelected = {}; renderSpending(); }
 function clearSpendCalc() { spendCalcSelected = {}; renderSpending(); }
-function spendBdClick(k, amt, items) {
+function spendBdClick(k, amt) {
   if (spendCalcMode) { spendCalcSelected[k] = spendCalcSelected[k] ? null : amt; renderSpending(); return; }
-  const c = Object.fromEntries(CATS.map(c=>[c.id,c]))[k] || CATS[CATS.length-1];
-  openDetail(c.label, items || []);
+  expandedSpendCat = expandedSpendCat === k ? null : k;
+  spendDetailCalcSelected = {};
+  renderSpending();
 }
+function spendItemClick(id, amt) { spendDetailCalcSelected[id] = spendDetailCalcSelected[id] ? null : amt; renderSpending(); }
 
 // ── HISTORY ──
 function renderHistory() {
@@ -1638,21 +1681,6 @@ function renderHistory() {
             <div style="font-size:9px;color:var(--muted);letter-spacing:1px;text-transform:uppercase;margin-top:2px">Paid</div>
           </div>
         </div>
-      </div>
-      ${(d.expenses||[]).length > 0 ? `<div style="border-top:1px solid var(--border)">
-        ${(d.expenses||[]).map(e => `
-          <div style="display:flex;align-items:center;gap:10px;padding:10px 16px;border-bottom:1px solid var(--border)">
-            <button style="width:28px;height:28px;border-radius:50%;border:2px solid ${e.state==='paid'?'var(--green)':'var(--border)'};background:${e.state==='paid'?'rgba(63,185,80,0.1)':'transparent'};color:${e.state==='paid'?'var(--green)':'var(--muted)'};font-size:12px;cursor:pointer;flex-shrink:0" onclick="toggleCardExp(${d.id},${e.id})">${e.state==='paid'?'✓':''}</button>
-            <div style="flex:1;cursor:pointer" onclick="openCardExpSheet(${d.id},${e.id})">
-              <div style="font-size:13px;font-weight:600;color:${e.state==='paid'?'var(--muted)':'var(--text)'};${e.state==='paid'?'text-decoration:line-through':''}">${e.nombre}</div>
-              <div style="font-size:10px;color:var(--muted)">${e.fecha||''} · ${e.cat||'other'}</div>
-            </div>
-            <div style="font-size:13px;font-weight:700;font-family:monospace;color:${e.state==='paid'?'var(--muted)':'var(--text)'}">${fmt(e.monto)}</div>
-          </div>
-        `).join('')}
-      </div>` : ''}
-      <div style="padding:10px 16px;border-top:1px solid var(--border)">
-        <button class="btn btn-surface" style="width:100%;font-size:12px" onclick="openCardExpSheet(${d.id})">+ Add Expense to Card</button>
       </div>
     `;
   }
