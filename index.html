@@ -1270,7 +1270,8 @@ function saveCardExp() {
     const idx = debt.expenses.findIndex(e => e.id === cardExpEditId);
     if (idx >= 0) debt.expenses[idx] = { ...debt.expenses[idx], nombre, monto, cat };
   } else {
-    debt.expenses.push({ id: uid(), nombre, monto, cat, state: 'pending', fecha: new Date().toLocaleDateString('en-US',{month:'short',day:'numeric'}) });
+    debt.balance = n(debt.balance) + monto;
+    debt.expenses.push({ id: uid(), nombre, monto, cat, state: 'charged', fecha: new Date().toLocaleDateString('en-US',{month:'short',day:'numeric'}) });
   }
   save();
   closeCardExpSheetBtn();
@@ -1281,6 +1282,8 @@ function deleteCardExp() {
   const debt = state.debts.find(d => d.id === cardExpDebtId);
   if (!debt) return;
   confirm2('Delete', 'Remove this expense?', 'Delete', 'var(--red)', () => {
+    const expToDel = (debt.expenses||[]).find(e => e.id === cardExpEditId);
+    if (expToDel) debt.balance = Math.max(0, n(debt.balance) - n(expToDel.monto));
     debt.expenses = (debt.expenses||[]).filter(e => e.id !== cardExpEditId);
     save();
     closeCardExpSheetBtn();
@@ -1292,17 +1295,8 @@ function toggleCardExp(debtId, expId) {
   const debt = state.debts.find(d => d.id === debtId);
   const exp = (debt?.expenses||[]).find(e => e.id === expId);
   if (!exp) return;
-  if (exp.state === 'pending') {
-    // Mark paid — charge to card balance
-    exp.state = 'paid';
-    debt.balance = n(debt.balance) + n(exp.monto);
-    toast('💳 ' + fmt(exp.monto) + ' charged to ' + debt.nombre);
-  } else {
-    // Unmark — reverse charge
-    exp.state = 'pending';
-    debt.balance = Math.max(0, n(debt.balance) - n(exp.monto));
-    toast('↩️ Reversed on ' + debt.nombre);
-  }
+  // Toggle paid status — balance already charged on add
+  exp.state = exp.state === 'paid' ? 'charged' : 'paid';
   save();
   renderDebts();
 }
@@ -1352,7 +1346,7 @@ function renderDebts() {
       ${(d.expenses||[]).length > 0 ? `<div style="border-top:1px solid var(--border)">
         ${(d.expenses||[]).map(e => `
           <div style="display:flex;align-items:center;gap:10px;padding:10px 16px;border-bottom:1px solid var(--border)">
-            <button style="width:28px;height:28px;border-radius:50%;border:2px solid ${e.state==='paid'?'var(--green)':'var(--border)'};background:${e.state==='paid'?'rgba(63,185,80,0.1)':'transparent'};color:${e.state==='paid'?'var(--green)':'var(--muted)'};font-size:12px;cursor:pointer;flex-shrink:0" onclick="toggleCardExp(${d.id},${e.id})">${e.state==='paid'?'✓':''}</button>
+            <button style="width:28px;height:28px;border-radius:50%;border:2px solid ${e.state==='paid'?'var(--green)':'rgba(248,81,73,0.5)'};background:${e.state==='paid'?'rgba(63,185,80,0.1)':'rgba(248,81,73,0.08)'};color:${e.state==='paid'?'var(--green)':'var(--red)'};font-size:12px;cursor:pointer;flex-shrink:0" onclick="toggleCardExp(${d.id},${e.id})">${e.state==='paid'?'✓':'💳'}</button>
             <div style="flex:1;cursor:pointer" onclick="openCardExpSheet(${d.id},${e.id})">
               <div style="font-size:13px;font-weight:600;color:${e.state==='paid'?'var(--muted)':'var(--text)'};${e.state==='paid'?'text-decoration:line-through':''}">${e.nombre}</div>
               <div style="font-size:10px;color:var(--muted)">${e.fecha||''} · ${e.cat||'other'}</div>
