@@ -499,6 +499,10 @@ let calcMode = false;
 let calcSelected = {};
 let spendCalcMode = false;
 let spendCalcSelected = {};
+let expandedSpendCat = null;
+let spendDetailCalcSelected = {};
+let expandedBdCat = null;
+let bdCalcSelected = {};
 let detailCalcSelected = {};
 let cardExpDebtId = null;
 let cardExpEditId = null;
@@ -625,13 +629,29 @@ function showTab(tab) {
   if (tab === 'debts') renderDebts();
   if (tab === 'calendar') renderCalendar();
   if (tab === 'history') renderHistory();
-  if (tab === 'spending') renderSpending();
+  if (tab === 'spending') {
+    try { renderSpending(); } catch(e) { document.getElementById('spending-list').innerHTML = '<div class="empty" style="color:var(--red)">' + e.message + '<br><pre style="font-size:9px;text-align:left;margin-top:8px">' + (e.stack||'').split('\n').slice(0,5).join('\n') + '</pre></div>'; }
+  }
 }
 
 // ── PAYCHECKS ──
 function renderPaychecks() {
   const periods = getMonthPeriods();
   const today = new Date(); today.setHours(0,0,0,0);
+
+  // No anchor set — show setup prompt
+  if (!periods.length) {
+    document.getElementById('check-tabs').innerHTML = '';
+    document.getElementById('check-amount-wrap').style.display = 'none';
+    document.getElementById('balance-card').style.display = 'none';
+    document.getElementById('copy-banner').innerHTML = '';
+    document.getElementById('breakdown-section').innerHTML = '';
+    document.getElementById('gastos-list').innerHTML = '<div class="empty"><div class="ei">⚙️</div>Set up your paycheck<br><span style="font-size:11px">Tap the gear icon to get started</span></div>';
+    document.getElementById('month-label').textContent = '';
+    return;
+  }
+  document.getElementById('check-amount-wrap').style.display = 'flex';
+  document.getElementById('balance-card').style.display = 'block';
 
   // Ensure periods exist in state
   for (const p of periods) {
@@ -990,40 +1010,86 @@ function renderBreakdown(gastos) {
   const gastosByCat = {};
   for (const g of gastos) {
     const cat = g.cat || 'other';
-    if (!groups[cat]) { groups[cat] = {total:0, cat}; gastosByCat[cat] = []; }
+    if (!groups[cat]) { groups[cat] = {total:0}; gastosByCat[cat] = []; }
     groups[cat].total += n(g.monto);
     gastosByCat[cat].push(g);
   }
+  window._bdItems = gastosByCat;
   const entries = Object.entries(groups).sort((a,b) => b[1].total - a[1].total);
   const catMap = Object.fromEntries(CATS.map(c => [c.id, c]));
-  const calcTotal = Object.values(calcSelected).filter(Boolean).reduce((s,v)=>s+v,0);
-  const calcCount = Object.values(calcSelected).filter(Boolean).length;
 
-  window._bdItems = gastosByCat;
-  let html = '<div class="breakdown-hdr">'
-    + '<div class="breakdown-title">Breakdown</div>'
-    + '<button class="calc-btn ' + (calcMode?'on':'') + '" onclick="toggleCalc()">🧮</button>'
-    + '</div>';
+  // Calc totals from individual items
+  const calcTotal = Object.values(bdCalcSelected).filter(Boolean).reduce((s,v)=>s+v,0);
+  const calcCount = Object.values(bdCalcSelected).filter(Boolean).length;
+
+  el.innerHTML = '';
+
+  // Header
+  const hdrWrap = document.createElement('div');
+  hdrWrap.style.cssText = 'display:flex;align-items:center;justify-content:space-between;padding:14px 16px 6px';
+  hdrWrap.innerHTML = '<div class="breakdown-title">Breakdown</div>';
+  const calcBtn = document.createElement('button');
+  calcBtn.className = 'calc-btn' + (calcMode?' on':'');
+  calcBtn.textContent = '🧮';
+  calcBtn.onclick = () => { calcMode = !calcMode; bdCalcSelected = {}; expandedBdCat = null; renderPaychecks(); };
+  hdrWrap.appendChild(calcBtn);
+  el.appendChild(hdrWrap);
+
+  // Calc chip
   if (calcMode && calcCount > 0) {
-    const itemNames = Object.entries(calcSelected).filter(([,v])=>v).map(([k])=>{const c=catMap[k]||catMap['other'];return c.label.split(' ')[1]||c.label;}).join(' + ');
-    html += '<div class="calc-chip"><div style="flex:1"><div style="font-size:11px;opacity:0.8;margin-bottom:2px">' + itemNames + '</div><div>= ' + fmt(calcTotal) + '</div></div><button class="calc-clear" onclick="clearCalc()">C</button></div>';
+    const chip = document.createElement('div');
+    chip.className = 'calc-chip';
+    chip.style.margin = '0 16px 4px';
+    chip.innerHTML = '<div style="flex:1;font-family:monospace;font-weight:700">= $' + calcTotal.toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2}) + ' (' + calcCount + ' items)</div>';
+    const clr = document.createElement('button');
+    clr.className = 'calc-clear';
+    clr.textContent = 'C';
+    clr.onclick = () => { bdCalcSelected = {}; renderPaychecks(); };
+    chip.appendChild(clr);
+    el.appendChild(chip);
   }
-  html += '<div class="card" style="margin-top:6px">';
+
+  const card = document.createElement('div');
+  card.className = 'card';
+  card.style.marginTop = '6px';
+
   for (const [k, v] of entries) {
     const c = catMap[k] || catMap['other'];
-    const sel = calcSelected[k];
-    const amtStr = '$' + v.total.toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2});
-    html += '<div class="bd-row ' + (sel?'selected':'') + '" onclick="bdClick(\'' + k + '\',' + v.total + ')">'
-      + '<div class="bd-dest" style="color:' + c.color + '">' + c.label + '</div>'
-      + '<div class="bd-amt" style="color:' + (sel?'var(--accent)':c.color) + '">' + (sel?'&#10003; ':'') + amtStr + '</div>'
-      + '</div>';
+    const items = gastosByCat[k] || [];
+    const isExp = calcMode || expandedBdCat === k;
+
+    // Category row
+    const catRow = document.createElement('div');
+    catRow.className = 'bd-row';
+    catRow.innerHTML = '<div class="bd-dest" style="color:' + c.color + '">' + (isExp&&!calcMode?'▾ ':'▸ ') + c.label + '</div>'
+      + '<div class="bd-amt" style="color:' + c.color + '">$' + v.total.toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2}) + '</div>';
+    if (!calcMode) {
+      catRow.onclick = () => { expandedBdCat = expandedBdCat === k ? null : k; renderPaychecks(); };
+    }
+    card.appendChild(catRow);
+
+    // Individual items (always show in calcMode, or when expanded)
+    if (isExp) {
+      for (const g of items) {
+        const gSel = bdCalcSelected[g.id];
+        const gRow = document.createElement('div');
+        gRow.style.cssText = 'display:flex;align-items:center;justify-content:space-between;padding:8px 24px;border-top:1px solid var(--border);background:' + (gSel?'rgba(88,166,255,0.06)':'var(--surface2)') + ';cursor:' + (calcMode?'pointer':'default');
+        gRow.innerHTML = '<div style="font-size:12px;font-weight:600;color:' + (gSel?'var(--accent)':'var(--text)') + ';display:flex;align-items:center;gap:6px">'
+          + (calcMode ? '<div style="width:16px;height:16px;border-radius:50%;border:1.5px solid ' + (gSel?'var(--accent)':'var(--border)') + ';background:' + (gSel?'var(--accent)':'transparent') + ';display:flex;align-items:center;justify-content:center;font-size:9px;color:#fff">' + (gSel?'✓':'') + '</div>' : '<div style="width:5px;height:5px;border-radius:50%;background:' + c.color + '"></div>')
+          + (g.nombre||'Unnamed') + '</div>'
+          + '<div style="font-size:12px;font-weight:700;font-family:monospace;color:' + (gSel?'var(--accent)':'var(--text)') + '">$' + n(g.monto).toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2}) + '</div>';
+        if (calcMode) {
+          const gId = g.id, gAmt = n(g.monto);
+          gRow.onclick = () => { bdCalcSelected[gId] = bdCalcSelected[gId] ? null : gAmt; renderPaychecks(); };
+        }
+        card.appendChild(gRow);
+      }
+    }
   }
-  html += '</div>';
-  el.innerHTML = html;
+  el.appendChild(card);
 }
 
-function bdItemClick(id, amt) { bdCalcSelected[id] = bdCalcSelected[id] ? null : amt; renderPaychecks(); }
-function toggleCalc() { calcMode = !calcMode; calcSelected = {}; renderPaychecks(); }
+
 function clearCalc() { calcSelected = {}; renderPaychecks(); }
 function bdClick(k) {
   if (calcMode) {
@@ -1295,10 +1361,20 @@ function toggleCardExp(debtId, expId) {
   const debt = state.debts.find(d => d.id === debtId);
   const exp = (debt?.expenses||[]).find(e => e.id === expId);
   if (!exp) return;
-  // Toggle paid status — balance already charged on add
   exp.state = exp.state === 'paid' ? 'charged' : 'paid';
   save();
   renderDebts();
+}
+
+function deleteCardExpDirect(debtId, expId) {
+  const debt = state.debts.find(d => d.id === debtId);
+  if (!debt) return;
+  const exp = (debt.expenses||[]).find(e => e.id === expId);
+  if (exp) debt.balance = Math.max(0, n(debt.balance) - n(exp.monto));
+  debt.expenses = (debt.expenses||[]).filter(e => e.id !== expId);
+  save();
+  renderDebts();
+  toast('↩️ Removed · ' + fmt(exp?.monto||0) + ' reversed');
 }
 
 function closeCardExpSheet(e) { if (e.target === e.currentTarget) closeCardExpSheetBtn(); }
@@ -1346,7 +1422,7 @@ function renderDebts() {
       ${(d.expenses||[]).length > 0 ? `<div style="border-top:1px solid var(--border)">
         ${(d.expenses||[]).map(e => `
           <div style="display:flex;align-items:center;gap:10px;padding:10px 16px;border-bottom:1px solid var(--border)">
-            <button style="width:28px;height:28px;border-radius:50%;border:2px solid ${e.state==='paid'?'var(--green)':'rgba(248,81,73,0.5)'};background:${e.state==='paid'?'rgba(63,185,80,0.1)':'rgba(248,81,73,0.08)'};color:${e.state==='paid'?'var(--green)':'var(--red)'};font-size:12px;cursor:pointer;flex-shrink:0" onclick="toggleCardExp(${d.id},${e.id})">${e.state==='paid'?'✓':'💳'}</button>
+            <button style="width:28px;height:28px;border-radius:50%;border:2px solid var(--red);background:rgba(248,81,73,0.08);color:var(--red);font-size:12px;cursor:pointer;flex-shrink:0" onclick="deleteCardExpDirect(${d.id},${e.id})">✕</button>
             <div style="flex:1;cursor:pointer" onclick="openCardExpSheet(${d.id},${e.id})">
               <div style="font-size:13px;font-weight:600;color:${e.state==='paid'?'var(--muted)':'var(--text)'};${e.state==='paid'?'text-decoration:line-through':''}">${e.nombre}</div>
               <div style="font-size:10px;color:var(--muted)">${e.fecha||''} · ${e.cat||'other'}</div>
@@ -1461,6 +1537,16 @@ function renderCalendar() {
   const paydays = getPaydays(calYear, calMonth);
   const paydayDates = new Set(paydays.map(d => d.getDate()));
 
+  // Collect cut off dates from cards
+  const cutoffDates = {};
+  for (const d of state.debts) {
+    if (d.type === 'card' && d.cutDay) {
+      const day = parseInt(d.cutDay);
+      if (!cutoffDates[day]) cutoffDates[day] = [];
+      cutoffDates[day].push(d.nombre);
+    }
+  }
+
   // Collect due dates from all periods
   const dueDates = {};
   for (const [pid, p] of Object.entries(state.periods)) {
@@ -1495,10 +1581,12 @@ function renderCalendar() {
     const div = document.createElement('div');
     div.className = 'cal-day' + (isToday?' today':'') + (isSel?' selected-day':'');
     if (isSel) div.style.cssText = 'background:rgba(88,166,255,0.1);border-radius:10px';
+    const isCutoff = cutoffDates[d] && cutoffDates[d].length > 0;
     div.innerHTML = '<div class="cal-num">' + d + '</div>'
       + (isPay ? '<div class="payday-marker">💰</div>' : '')
+      + (isCutoff ? '<div style="position:absolute;top:2px;left:2px;font-size:8px" title="Cut off: ' + (cutoffDates[d]||[]).join(', ') + '">✂️</div>' : '')
       + '<div class="cal-dots">'
-      + dots.slice(0,4).map(dot => '<div class="cal-dot" style="background:' + dot.color + '"></div>').join('')
+      + dots.slice(0,3).map(dot => '<div class="cal-dot" style="background:' + dot.color + '"></div>').join('')
       + '</div>';
     div.onclick = () => { selectedCalDay = (selectedCalDay === d ? null : d); renderCalendar(); renderCalEvents(d, dueDates[d]||[], isPay); };
     gridEl.appendChild(div);
@@ -1511,6 +1599,7 @@ function renderCalendar() {
   const catMap = Object.fromEntries(CATS.map(c => [c.id, c]));
   legendEl.innerHTML = '<div style="display:flex;flex-wrap:wrap;gap:6px;padding:10px 16px">'
     + (paydayDates.size > 0 ? '<div style="display:flex;align-items:center;gap:4px;font-size:11px;font-weight:600;color:var(--green)">💰 Payday</div>' : '')
+    + (Object.keys(cutoffDates).length > 0 ? '<div style="display:flex;align-items:center;gap:4px;font-size:11px;font-weight:600;color:var(--muted)">✂️ Cut Off</div>' : '')
     + [...usedCats].map(cat => {
         const c = catMap[cat] || catMap['other'];
         return '<div style="display:flex;align-items:center;gap:4px;font-size:11px;font-weight:600;color:' + c.color + '">'
@@ -1543,7 +1632,6 @@ function calNext() { calMonth++; if (calMonth > 11) { calMonth = 0; calYear++; }
 function renderSpending() {
   const el = document.getElementById('spending-list');
   const catMap = Object.fromEntries(CATS.map(c => [c.id, c]));
-  // Collect all gastos grouped by month then category
   const months = {};
   const catItemsByMonth = {};
   for (const [pid, p] of Object.entries(state.periods)) {
@@ -1559,79 +1647,103 @@ function renderSpending() {
     }
   }
   const sorted = Object.entries(months).sort((a,b) => b[0].localeCompare(a[0]));
+  el.innerHTML = '';
   if (!sorted.length) { el.innerHTML = '<div class="empty"><div class="ei">📈</div>No data yet</div>'; return; }
-  // Calc header
-  const spendTotal = Object.values(spendCalcSelected).filter(Boolean).reduce((s,v)=>s+v,0);
-  const spendCount = Object.values(spendCalcSelected).filter(Boolean).length;
-  let topHtml = '<div style="display:flex;align-items:center;justify-content:space-between;padding:14px 16px 0">'
-    + '<div style="font-size:9px;color:var(--muted);letter-spacing:1.5px;text-transform:uppercase;font-weight:700">By Category</div>'
-    + '<button class="calc-btn ' + (spendCalcMode?'on':'') + '" onclick="toggleSpendCalc()">🧮</button>'
-    + '</div>';
-  if (spendCalcMode && spendCount > 0) {
-    const names = Object.entries(spendCalcSelected).filter(([,v])=>v).map(([k])=>{const c=catMap[k]||catMap['other'];return c.label.split(' ')[1]||c.label;}).join(' + ');
-    topHtml += '<div class="calc-chip" style="margin:8px 16px 0"><div style="flex:1"><div style="font-size:11px;opacity:0.8;margin-bottom:2px">' + names + '</div><div>= $' + spendTotal.toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2}) + '</div></div><button class="calc-clear" onclick="clearSpendCalc()">C</button></div>';
+
+  // Header
+  const hdr = document.createElement('div');
+  hdr.style.cssText = 'display:flex;align-items:center;justify-content:space-between;padding:14px 16px 6px';
+  const calcBtn = document.createElement('button');
+  calcBtn.className = 'calc-btn' + (spendCalcMode?' on':'');
+  calcBtn.textContent = '🧮';
+  calcBtn.onclick = () => { spendCalcMode = !spendCalcMode; spendCalcSelected = {}; expandedSpendCat = null; spendDetailCalcSelected = {}; renderSpending(); };
+  hdr.innerHTML = '<div style="font-size:9px;color:var(--muted);letter-spacing:1.5px;text-transform:uppercase;font-weight:700">By Category</div>';
+  hdr.appendChild(calcBtn);
+  el.appendChild(hdr);
+
+  // Calc chip
+  const sdTotal = Object.values(spendCalcSelected).filter(Boolean).reduce((s,v)=>s+v,0);
+  const sdCount = Object.values(spendCalcSelected).filter(Boolean).length;
+  if (spendCalcMode && sdCount > 0) {
+    const chip = document.createElement('div');
+    chip.className = 'calc-chip';
+    chip.style.margin = '0 16px 4px';
+    chip.innerHTML = '<div style="flex:1;font-family:monospace;font-weight:700">= $' + sdTotal.toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2}) + ' (' + sdCount + ' cats)</div>';
+    const clr = document.createElement('button');
+    clr.className = 'calc-clear';
+    clr.textContent = 'C';
+    clr.onclick = () => { spendCalcSelected = {}; renderSpending(); };
+    chip.appendChild(clr);
+    el.appendChild(chip);
   }
-  el.innerHTML = topHtml;
 
   for (const [mo, cats] of sorted) {
     const date = new Date(mo + '-01T12:00:00');
     const label = date.toLocaleDateString('en-US',{month:'long',year:'numeric'});
-    const total = Object.values(cats).reduce((s,v) => s+v, 0);
-    let html = '<div style="margin:10px 16px 0;background:var(--surface);border:1px solid var(--border);border-radius:14px;overflow:hidden;color:var(--text)">'
-      + '<div style="padding:12px 16px;display:flex;justify-content:space-between;align-items:center;border-bottom:1px solid var(--border)">'
-      + '<div style="font-size:14px;font-weight:700">' + label + '</div>'
-      + '<div style="font-size:13px;font-weight:700;font-family:monospace;color:var(--red)">$' + total.toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2}) + '</div>'
-      + '</div>';
+    const total = Object.values(cats).reduce((s,v)=>s+v,0);
+    const card = document.createElement('div');
+    card.style.cssText = 'margin:10px 16px 0;background:var(--surface);border:1px solid var(--border);border-radius:14px;overflow:hidden';
+    const moHdr = document.createElement('div');
+    moHdr.style.cssText = 'padding:12px 16px;display:flex;justify-content:space-between;align-items:center;border-bottom:1px solid var(--border)';
+    moHdr.innerHTML = '<div style="font-size:14px;font-weight:700;color:var(--text)">' + label + '</div>'
+      + '<div style="font-size:13px;font-weight:700;font-family:monospace;color:var(--red)">$' + total.toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2}) + '</div>';
+    card.appendChild(moHdr);
+
     const sortedCats = Object.entries(cats).sort((a,b) => b[1]-a[1]);
     for (const [catId, amt] of sortedCats) {
       const c = catMap[catId] || catMap['other'];
-      const pct = total > 0 ? (amt/total*100) : 0;
+      const pct = total > 0 ? Math.min(100, amt/total*100) : 0;
       const sel = spendCalcMode && spendCalcSelected[catId];
-      const rowBg = sel ? 'rgba(88,166,255,0.08)' : 'transparent';
-      const rowCursor = spendCalcMode ? 'pointer' : 'default';
-      const isSpExp = expandedSpendCat === catId;
-      html += '<div style="padding:8px 16px;border-bottom:1px solid var(--border);cursor:pointer;background:' + rowBg + '" onclick="spendBdClick(\'' + catId + '\',' + amt + ')">'
-        + '<div style="display:flex;justify-content:space-between;margin-bottom:4px">'
-        + '<div style="font-size:12px;font-weight:600;color:' + (sel?'var(--accent)':c.color) + '">' + (isSpExp?'▾ ':'▸ ') + (sel?'✓ ':'') + c.label + '</div>'
+      const isExp = expandedSpendCat === catId;
+
+      const catRow = document.createElement('div');
+      catRow.style.cssText = 'padding:8px 16px;border-bottom:1px solid var(--border);cursor:pointer;background:' + (sel?'rgba(88,166,255,0.08)':'transparent');
+      catRow.innerHTML = '<div style="display:flex;justify-content:space-between;margin-bottom:4px">'
+        + '<div style="font-size:12px;font-weight:700;color:' + (sel?'var(--accent)':c.color) + '">' + (isExp?'▾ ':'▸ ') + (sel?'✓ ':'') + c.label + '</div>'
         + '<div style="font-size:12px;font-weight:700;font-family:monospace;color:' + (sel?'var(--accent)':'var(--text)') + '">$' + amt.toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2}) + '</div>'
         + '</div>'
-        + '<div style="height:4px;background:var(--surface2);border-radius:2px;overflow:hidden;max-width:100%">'
-        + '<div style="height:100%;width:' + Math.min(100,pct).toFixed(1) + '%;background:' + c.color + ';border-radius:2px;transition:width 0.3s"></div>'
-        + '</div></div>';
-      if (isSpExp) {
-        const spItems = catItemsByMonth[mo] && catItemsByMonth[mo][catId] ? catItemsByMonth[mo][catId] : [];
-        const spCalcTotal = Object.values(spendDetailCalcSelected).filter(Boolean).reduce((s,v)=>s+v,0);
-        const spCalcCount = Object.values(spendDetailCalcSelected).filter(Boolean).length;
-        if (spCalcCount > 0) {
-          html += '<div style="padding:6px 16px;background:var(--accent);display:flex;justify-content:space-between;align-items:center">'
-            + '<div style="font-size:13px;font-weight:700;color:#fff;font-family:monospace">= $' + spCalcTotal.toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2}) + ' (' + spCalcCount + ')</div>'
-            + '<button style="background:rgba(255,255,255,0.2);border:none;color:#fff;border-radius:6px;padding:2px 8px;font-size:12px;cursor:pointer" onclick="spendDetailCalcSelected={};renderSpending()">C</button>'
-            + '</div>';
+        + '<div style="height:4px;background:var(--surface2);border-radius:2px;overflow:hidden">'
+        + '<div style="height:100%;width:' + pct.toFixed(1) + '%;background:' + c.color + ';border-radius:2px"></div>'
+        + '</div>';
+      const catIdCopy = catId, amtCopy = amt;
+      catRow.onclick = () => {
+        if (spendCalcMode) { spendCalcSelected[catIdCopy] = spendCalcSelected[catIdCopy] ? null : amtCopy; renderSpending(); return; }
+        expandedSpendCat = expandedSpendCat === catIdCopy ? null : catIdCopy;
+        spendDetailCalcSelected = {};
+        renderSpending();
+      };
+      card.appendChild(catRow);
+
+      if (isExp) {
+        const items = (catItemsByMonth[mo]||{})[catId] || [];
+        const sdCalcTotal = Object.values(spendDetailCalcSelected).filter(Boolean).reduce((s,v)=>s+v,0);
+        const sdCalcCount = Object.values(spendDetailCalcSelected).filter(Boolean).length;
+        if (sdCalcCount > 0) {
+          const detChip = document.createElement('div');
+          detChip.style.cssText = 'padding:6px 16px;background:var(--accent);display:flex;justify-content:space-between;align-items:center';
+          detChip.innerHTML = '<div style="font-size:13px;font-weight:700;color:#fff;font-family:monospace">= $' + sdCalcTotal.toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2}) + ' (' + sdCalcCount + ')</div>';
+          const cBtn = document.createElement('button');
+          cBtn.style.cssText = 'background:rgba(255,255,255,0.25);border:none;color:#fff;border-radius:6px;padding:2px 8px;font-size:12px;cursor:pointer';
+          cBtn.textContent = 'C';
+          cBtn.onclick = (e) => { e.stopPropagation(); spendDetailCalcSelected = {}; renderSpending(); };
+          detChip.appendChild(cBtn);
+          card.appendChild(detChip);
         }
-        for (const g of spItems) {
+        for (const g of items) {
           const gSel = spendDetailCalcSelected[g.id];
-          html += '<div style="display:flex;align-items:center;justify-content:space-between;padding:8px 20px;border-bottom:1px solid var(--border);background:' + (gSel?'rgba(88,166,255,0.06)':'rgba(0,0,0,0.2)') + ';cursor:pointer" onclick="spendItemClick(' + g.id + ',' + n(g.monto) + ')">'
-            + '<div style="font-size:12px;font-weight:600;color:' + (gSel?'var(--accent)':'var(--text)') + '">' + (gSel?'&#10003; ':'') + (g.nombre||'Unnamed') + '</div>'
-            + '<div style="font-size:12px;font-weight:700;font-family:monospace;color:' + (gSel?'var(--accent)':'var(--text)') + '">$' + n(g.monto).toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2}) + '</div>'
-            + '</div>';
+          const gRow = document.createElement('div');
+          gRow.style.cssText = 'display:flex;align-items:center;justify-content:space-between;padding:8px 20px;border-bottom:1px solid var(--border);background:' + (gSel?'rgba(88,166,255,0.06)':'var(--surface2)') + ';cursor:pointer';
+          gRow.innerHTML = '<div style="font-size:12px;font-weight:600;color:' + (gSel?'var(--accent)':'var(--text)') + '">' + (gSel?'✓ ':'· ') + (g.nombre||'Unnamed') + '</div>'
+            + '<div style="font-size:12px;font-weight:700;font-family:monospace;color:' + (gSel?'var(--accent)':'var(--text)') + '">$' + n(g.monto).toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2}) + '</div>';
+          const gId = g.id, gAmt = n(g.monto);
+          gRow.onclick = (e) => { e.stopPropagation(); spendDetailCalcSelected[gId] = spendDetailCalcSelected[gId] ? null : gAmt; renderSpending(); };
+          card.appendChild(gRow);
         }
       }
     }
-    html += '</div>';
-    el.innerHTML += html;
+    el.appendChild(card);
   }
 }
-
-function toggleSpendCalc() { spendCalcMode = !spendCalcMode; spendCalcSelected = {}; renderSpending(); }
-function clearSpendCalc() { spendCalcSelected = {}; renderSpending(); }
-function spendBdClick(k, amt) {
-  if (spendCalcMode) { spendCalcSelected[k] = spendCalcSelected[k] ? null : amt; renderSpending(); return; }
-  expandedSpendCat = expandedSpendCat === k ? null : k;
-  spendDetailCalcSelected = {};
-  renderSpending();
-}
-function spendItemClick(id, amt) { spendDetailCalcSelected[id] = spendDetailCalcSelected[id] ? null : amt; renderSpending(); }
-
 // ── HISTORY ──
 function renderHistory() {
   const el = document.getElementById('history-list');
